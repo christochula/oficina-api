@@ -28,6 +28,13 @@ export interface ClienteRepository {
   buscarPorId(id: ClienteId): Promise<Cliente | null>;
 
   /**
+   * Busca um cliente pelo usuário autenticável associado.
+   * @param usuarioId - ID do usuário (prefixo "us").
+   * @returns O Cliente associado ou null se não houver vínculo.
+   */
+  buscarPorUsuarioId(usuarioId: string): Promise<Cliente | null>;
+
+  /**
    * Busca um cliente pelo número do documento (CPF ou CNPJ).
    * Usado para verificar duplicidade no cadastro e para consultas via rota pública.
    * @param numeroDoc - CPF ou CNPJ sem formatação.

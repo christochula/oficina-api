@@ -3,6 +3,7 @@ import { RecursoNaoEncontrado } from '../../../shared/excecoes/dominio.exception
 import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { OrdemServicoId } from '../../domain/ordem-servico-id.value-object';
 import { ORDEM_SERVICO_REPOSITORY } from '../../domain/ordem-servico.repository';
+import { StatusOrdemServico } from '../../domain/status-ordem-servico.enum';
 import type { OrdemServicoRepository } from '../../domain/ordem-servico.repository';
 
 /**
@@ -31,6 +32,9 @@ export class RegistrarDiagnosticoUseCase {
     const os = await this.osRepository.buscarPorId(OrdemServicoId.de(osId));
     if (!os) throw new RecursoNaoEncontrado('Ordem de Serviço', osId);
 
+    if (os.status === StatusOrdemServico.ATRIBUIDA) {
+      os.iniciarDiagnostico(mecanicoId);
+    }
     os.registrarDiagnostico(descricao, mecanicoId);
     await this.osRepository.salvar(os);
     return os;

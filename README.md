@@ -1,237 +1,292 @@
-# Oficina API
+﻿# Oficina API
 
-Backend do Sistema Integrado de Atendimento e Execução de Serviços para oficina mecânica, desenvolvido como Tech Challenge da Pós-Graduação em Arquitetura de Software — POSTECH.
+Backend do sistema de atendimento e execucao de servicos para oficina mecanica, desenvolvido como Tech Challenge da Pos-Graduacao em Arquitetura de Software.
 
-**Autores:** Karina Lage e Matheus Chula
-
----
-
-## Visão Geral
-
-API RESTful para gestão completa de uma oficina mecânica: clientes, veículos, ordens de serviço, orçamentos, controle de estoque de peças e autenticação com controle de acesso por papel (RBAC).
+Autores: Karina Lage e Matheus Chula
 
 ---
 
-## Stack Tecnológica
+## Visao Geral
 
-| Tecnologia | Versão | Justificativa |
+API RESTful para gestao de:
+
+- usuarios e autenticacao JWT
+- clientes e veiculos
+- catalogo de servicos
+- estoque de pecas
+- ordens de servico, diagnostico, orcamento, execucao e entrega
+- relatorios operacionais baseados no historico da OS
+
+Estado atual do repositorio:
+
+- arquitetura em monolito modular com DDD em camadas
+- `OrdemServico` como aggregate central
+- consumo de pecas com consistencia transacional entre OS e estoque
+- ownership de cliente resolvido por vinculacao explicita entre `Usuario` e `Cliente`
+- `CLIENTE` autenticado pode consultar e decidir apenas sobre as proprias OS
+
+---
+
+## Stack Tecnologica
+
+| Tecnologia | Versao | Uso no projeto |
 |---|---|---|
-| **NestJS** | v11 | Framework Node.js com injeção de dependências nativa, módulos isolados e suporte a decorators — ideal para arquitetura DDD em camadas |
-| **PostgreSQL** | 16 | Banco relacional robusto com suporte a tipos enumerados, transações ACID e constraints de integridade referencial — adequado para o modelo relacional complexo da oficina (OS → cliente, veículo, peças, histórico) |
-| **Prisma** | v5 | ORM type-safe com migrations versionadas e mapeamento explícito — mantém os tipos de persistência fora da camada de domínio |
-| **JWT** | — | Autenticação stateless com access token (curto prazo) e refresh token (longo prazo, hash armazenado no banco) |
-| **Swagger** | — | Documentação interativa gerada automaticamente a partir dos decorators NestJS |
-| **Docker** | — | Containerização com build multi-stage e docker-compose para orquestração completa |
+| NestJS | 11 | framework HTTP, DI, modulos e guards |
+| PostgreSQL | 16 | persistencia relacional principal |
+| Prisma | 5 | ORM, migrations e client type-safe |
+| JWT | - | access token + refresh token |
+| Swagger | - | documentacao interativa |
+| Docker | - | execucao local e empacotamento |
 
 ---
 
 ## Arquitetura
 
-O projeto adota **Domain-Driven Design (DDD)** em monólito em camadas, com cada módulo NestJS correspondendo a um bounded context:
+Estrutura principal:
 
-```
+```text
 src/
-├── shared/                  # Kernel compartilhado (IdUnico, exceções, interceptors)
-├── auth/                    # Autenticação JWT — access + refresh token
-├── usuario/                 # Usuários internos (Admin, Mecânico, Consultor) e externos (Cliente)
-├── cliente/                 # Cadastro e gestão de clientes
-├── veiculo/                 # Cadastro e gestão de veículos
-├── ordem-servico/           # Aggregate central — ciclo completo de atendimento
-└── estoque/                 # Controle de peças e quantidades
+|- shared/            # kernel compartilhado, excecoes, http, database
+|- auth/              # login, refresh, logout, strategy JWT
+|- usuario/           # identidade e controle de acesso
+|- cliente/           # aggregate Cliente e vinculacao ao usuario CLIENTE
+|- veiculo/           # aggregate Veiculo
+|- servico-oficina/   # catalogo de servicos
+|- estoque/           # pecas e saldo
+`- ordem-servico/     # aggregate central e ciclo operacional
 ```
 
-**Camadas dentro de cada módulo:**
+Camadas por modulo:
 
 | Camada | Responsabilidade |
 |---|---|
-| `domain/` | Entidades, Value Objects, interfaces de repositório, eventos de domínio |
-| `application/casos-de-uso/` | Orquestração dos fluxos de negócio |
-| `infrastructure/persistencia/` | Implementações Prisma dos repositórios |
-| `interfaces/http/v1/` | Controllers, DTOs, decorators Swagger |
+| `domain/` | entidades, value objects, enums e contratos |
+| `application/` | casos de uso |
+| `infrastructure/` | persistencia Prisma |
+| `interfaces/` | controllers, DTOs e Swagger |
+
+Decisoes importantes hoje:
+
+- `OrdemServico` concentra diagnostico, orcamento, execucao, historico e consumo de pecas
+- `Cliente` e `Usuario` sao aggregates distintos, ligados por `Cliente.usuarioId`
+- ownership do papel `CLIENTE` e validado nos use cases, nao apenas por RBAC
+- `PrismaTransactionManager` compartilha uma unica transacao entre OS e estoque no consumo de peca
 
 ---
 
-## Papéis de Acesso (RBAC)
+## Papeis de Acesso
 
-| Papel | Descrição |
+| Papel | Escopo atual |
 |---|---|
-| `ADMINISTRADOR` | Acesso total — usuários, estoque, todas as OS |
-| `CONSULTOR_TECNICO` | Abre OS, gera orçamentos, atende clientes |
-| `MECANICO` | Executa diagnósticos, registra consumo de peças, finaliza OS |
-| `CLIENTE` | Consulta e aprova/rejeita orçamento das próprias OS |
+| `ADMINISTRADOR` | usuarios, clientes, veiculos, catalogo, estoque, consultas internas, entrega |
+| `CONSULTOR_TECNICO` | clientes, veiculos, abertura/atribuicao de OS, consultas internas, relatorios, entrega |
+| `MECANICO` | diagnostico, orcamento, execucao, consumo de peca, finalizacao, consulta das proprias OS |
+| `CLIENTE` | consulta das proprias OS e aprovacao/rejeicao do proprio orcamento |
+
+Observacao: aprovacao e rejeicao de orcamento sao hoje rotas exclusivas de `CLIENTE`.
 
 ---
 
-## Ciclo de Vida da Ordem de Serviço
+## Ownership do Cliente
 
-```
-Recebida → Atribuída → Em Diagnóstico* → Aguardando Aprovação
-                                                ↓            ↘
-                                             Aprovada      Cancelada
-                                                ↓
-                                          Em Execução → Finalizada → Entregue
-```
+O acesso do cliente autenticado nao depende mais de comparar `usuario.sub` diretamente com `ordemServico.clienteId`.
 
-*A etapa de diagnóstico é opcional.
+Modelo atual:
+
+- `Usuario.id` usa prefixo `us`
+- `Cliente.id` usa prefixo `cl`
+- `Cliente.usuarioId` vincula opcionalmente um usuario autenticavel com papel `CLIENTE`
+
+Comportamento atual:
+
+- `GET /api/v1/ordens-servico/minhas/lista`
+- `GET /api/v1/ordens-servico/minhas/:id`
+- `PATCH /api/v1/ordens-servico/:id/aprovar`
+- `PATCH /api/v1/ordens-servico/:id/rejeitar`
+
+essas rotas resolvem primeiro o `Cliente` associado ao usuario autenticado e depois validam se a OS pertence a esse cliente.
+
+Como formar o vinculo:
+
+- criar um `Usuario` com papel `CLIENTE`
+- criar ou atualizar o `Cliente` com o mesmo email
+- alternativamente informar `usuarioId` no payload de criacao/atualizacao do cliente
+
+O cadastro de cliente tenta auto-vincular por email quando encontra um `Usuario CLIENTE` com email igual e sem outro cliente associado.
 
 ---
 
-## Como Executar
+## Ciclo de Vida da Ordem de Servico
 
-### Pré-requisitos
+```text
+RECEBIDA
+  -> ATRIBUIDA
+  -> EM_DIAGNOSTICO (opcional)
+  -> AGUARDANDO_APROVACAO
+      -> APROVADA
+          -> EM_EXECUCAO
+          -> FINALIZADA
+          -> ENTREGUE
+      -> CANCELADA
+```
 
-- [Docker Desktop](https://www.docker.com/products/docker-desktop) instalado e em execução
+O diagnostico e opcional, mas o endpoint de diagnostico aceita OS em `ATRIBUIDA` e faz a transicao para `EM_DIAGNOSTICO` antes de registrar o texto tecnico.
 
-### 1. Clonar o repositório
+---
+
+## Como Executar com Docker
+
+### Pre-requisitos
+
+- Docker Desktop
+
+### Passos
 
 ```bash
 git clone <url-do-repositorio>
 cd oficina_api
-```
-
-### 2. Configurar variáveis de ambiente
-
-```bash
 cp .env.example .env
-```
-
-> Para uso em desenvolvimento, os valores padrão do `.env.example` já funcionam.
-> **Importante:** em produção, substitua os valores de `JWT_SECRET` e `JWT_REFRESH_SECRET` por segredos fortes.
-
-### 3. Subir o ambiente
-
-```bash
 docker compose up
 ```
 
-O comando irá:
-1. Construir a imagem da API (build multi-stage)
-2. Subir o banco de dados PostgreSQL
-3. Aplicar as migrations automaticamente (`prisma migrate deploy`)
-4. Iniciar a API na porta configurada (padrão: `3000`)
+O fluxo de container:
 
-### 4. Acessar
+1. sobe PostgreSQL
+2. aplica `prisma migrate deploy`
+3. inicia a API
 
-| Recurso | URL |
-|---|---|
-| API | `http://localhost:3000/api` |
-| Documentação Swagger | `http://localhost:3000/api/docs` |
+URLs uteis:
+
+- API: `http://localhost:3000/api`
+- Swagger: `http://localhost:3000/api/docs`
 
 ---
 
-## Executando Localmente (sem Docker)
-
-Para rodar a API fora do container (banco ainda via Docker):
+## Executando Localmente
 
 ```bash
-# 1. Subir apenas o banco
+# subir apenas o banco
 docker compose up db -d
 
-# 2. Instalar dependências
+# instalar dependencias
 npm install
 
-# 3. Ajustar DATABASE_URL no .env para apontar para localhost
-# DATABASE_URL=postgresql://oficina:oficina_senha@localhost:5432/oficina_db
+# ajustar DATABASE_URL no .env para localhost
 
-# 4. Aplicar migrations
+# aplicar migrations e gerar client
 npx prisma migrate deploy
+npx prisma generate
 
-# 5. Iniciar em modo desenvolvimento
+# subir a API
 npm run start:dev
 ```
 
+Base da API local:
+
+- `http://localhost:3000/api/v1`
+
 ---
 
-## Variáveis de Ambiente
+## Historico de Migrations
 
-| Variável | Descrição | Padrão |
-|---|---|---|
-| `PORT` | Porta da API | `3000` |
-| `CORS_ORIGIN` | Origem permitida no CORS | `http://localhost:5173` |
-| `DATABASE_URL` | String de conexão PostgreSQL | — |
-| `POSTGRES_USER` | Usuário do banco (docker-compose) | `oficina` |
-| `POSTGRES_PASSWORD` | Senha do banco (docker-compose) | `oficina_senha` |
-| `POSTGRES_DB` | Nome do banco (docker-compose) | `oficina_db` |
-| `JWT_SECRET` | Segredo do access token | — |
-| `JWT_EXPIRATION` | Expiração do access token | `15m` |
-| `JWT_REFRESH_SECRET` | Segredo do refresh token | — |
-| `JWT_REFRESH_EXPIRATION` | Expiração do refresh token | `7d` |
+Sequencia atual:
+
+1. `20260320000000_init`
+2. `20260321000000_historico_os_status_anterior_novo`
+3. `20260322000000_cliente_usuario_vinculo`
+
+A terceira migration adiciona `clientes.usuarioId` e tenta backfill por email para usuarios com papel `CLIENTE` quando o email e univoco entre clientes.
 
 ---
 
 ## Endpoints Principais
 
-A documentação completa e interativa está disponível no Swagger (`/api/docs`).
+A tabela abaixo resume as rotas mais importantes. O Swagger continua sendo a fonte completa.
 
-| Módulo | Método | Rota | Papel mínimo |
+| Modulo | Metodo | Rota | Acesso |
 |---|---|---|---|
-| **Auth** | POST | `/api/v1/auth/login` | Público |
-| | POST | `/api/v1/auth/refresh` | Autenticado |
-| | POST | `/api/v1/auth/logout` | Autenticado |
-| **Usuários** | POST | `/api/v1/usuarios` | ADMINISTRADOR |
-| | GET | `/api/v1/usuarios/:id` | ADMINISTRADOR |
-| **Clientes** | POST | `/api/v1/clientes` | ADMINISTRADOR, CONSULTOR |
-| | GET | `/api/v1/clientes/documento/:numeroDoc` | ADMINISTRADOR, CONSULTOR |
-| | PATCH | `/api/v1/clientes/:id` | ADMINISTRADOR, CONSULTOR |
-| **Veículos** | POST | `/api/v1/veiculos` | ADMINISTRADOR, CONSULTOR |
-| | GET | `/api/v1/veiculos/placa/:placa` | ADMINISTRADOR, CONSULTOR |
-| | PATCH | `/api/v1/veiculos/:id` | ADMINISTRADOR, CONSULTOR |
-| **Ordens de Serviço** | POST | `/api/v1/ordens-servico` | CONSULTOR |
-| | GET | `/api/v1/ordens-servico` | Internos |
-| | GET | `/api/v1/ordens-servico/:id` | Internos |
-| | GET | `/api/v1/ordens-servico/minhas/lista` | CLIENTE |
-| | GET | `/api/v1/ordens-servico/minhas/:id` | CLIENTE |
-| | PATCH | `/api/v1/ordens-servico/:id/atribuir` | ADMINISTRADOR |
-| | PATCH | `/api/v1/ordens-servico/:id/diagnostico` | MECANICO |
-| | PATCH | `/api/v1/ordens-servico/:id/orcamento` | CONSULTOR |
-| | PATCH | `/api/v1/ordens-servico/:id/aprovar` | CLIENTE, ADMIN, CONSULTOR |
-| | PATCH | `/api/v1/ordens-servico/:id/rejeitar` | CLIENTE, ADMIN, CONSULTOR |
-| | PATCH | `/api/v1/ordens-servico/:id/iniciar-execucao` | MECANICO |
-| | PATCH | `/api/v1/ordens-servico/:id/consumo-peca` | MECANICO |
-| | PATCH | `/api/v1/ordens-servico/:id/finalizar` | MECANICO |
-| | PATCH | `/api/v1/ordens-servico/:id/entregar` | CONSULTOR, ADMIN |
-| | GET | `/api/v1/ordens-servico/relatorio/lead-time` | ADMINISTRADOR, CONSULTOR |
-| **Estoque** | POST | `/api/v1/estoque/pecas` | ADMINISTRADOR |
-| | GET | `/api/v1/estoque/pecas` | Internos |
-| | GET | `/api/v1/estoque/pecas/:pecaId` | Internos |
-| | PATCH | `/api/v1/estoque/pecas/:pecaId/entrada` | ADMINISTRADOR |
+| Auth | POST | `/api/v1/auth/login` | Publico |
+| Auth | POST | `/api/v1/auth/refresh` | Refresh token valido |
+| Auth | POST | `/api/v1/auth/logout` | Autenticado |
+| Usuarios | POST | `/api/v1/usuarios` | Publico |
+| Usuarios | GET | `/api/v1/usuarios/:id` | Autenticado |
+| Clientes | POST | `/api/v1/clientes` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| Clientes | GET | `/api/v1/clientes` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| Clientes | GET | `/api/v1/clientes/documento/:numeroDoc` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| Clientes | PATCH | `/api/v1/clientes/:id` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| Veiculos | POST | `/api/v1/veiculos` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| Veiculos | GET | `/api/v1/veiculos` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| Veiculos | GET | `/api/v1/veiculos/placa/:placa` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| Veiculos | PATCH | `/api/v1/veiculos/:id` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| Servicos | POST | `/api/v1/servicos-oficina` | ADMINISTRADOR |
+| Servicos | GET | `/api/v1/servicos-oficina` | ADMINISTRADOR, CONSULTOR_TECNICO, MECANICO |
+| Servicos | GET | `/api/v1/servicos-oficina/:id` | ADMINISTRADOR, CONSULTOR_TECNICO, MECANICO |
+| Servicos | PATCH | `/api/v1/servicos-oficina/:id` | ADMINISTRADOR |
+| Estoque | POST | `/api/v1/estoque/pecas` | ADMINISTRADOR |
+| Estoque | GET | `/api/v1/estoque` | ADMINISTRADOR, MECANICO |
+| Estoque | GET | `/api/v1/estoque/pecas/:pecaId` | ADMINISTRADOR, MECANICO |
+| Estoque | PATCH | `/api/v1/estoque/pecas/:pecaId` | ADMINISTRADOR |
+| Estoque | PATCH | `/api/v1/estoque/pecas/:pecaId/entrada` | ADMINISTRADOR |
+| OS | POST | `/api/v1/ordens-servico` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | GET | `/api/v1/ordens-servico` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | GET | `/api/v1/ordens-servico/:id` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | PATCH | `/api/v1/ordens-servico/:id/atribuir/:mecanicoId` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | PATCH | `/api/v1/ordens-servico/:id/diagnostico` | MECANICO |
+| OS | PATCH | `/api/v1/ordens-servico/:id/orcamento` | MECANICO |
+| OS | PATCH | `/api/v1/ordens-servico/:id/aprovar` | CLIENTE titular |
+| OS | PATCH | `/api/v1/ordens-servico/:id/rejeitar` | CLIENTE titular |
+| OS | PATCH | `/api/v1/ordens-servico/:id/iniciar-execucao` | MECANICO |
+| OS | PATCH | `/api/v1/ordens-servico/:id/consumo-peca` | MECANICO |
+| OS | PATCH | `/api/v1/ordens-servico/:id/finalizar` | MECANICO |
+| OS | PATCH | `/api/v1/ordens-servico/:id/entregar` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | GET | `/api/v1/ordens-servico/mecanico/minhas-ordens` | MECANICO |
+| OS | GET | `/api/v1/ordens-servico/mecanico/:id` | MECANICO titular |
+| OS | GET | `/api/v1/ordens-servico/minhas/lista` | CLIENTE vinculado |
+| OS | GET | `/api/v1/ordens-servico/minhas/:id` | CLIENTE titular |
+| OS | GET | `/api/v1/ordens-servico/relatorio/lead-time` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | GET | `/api/v1/ordens-servico/relatorio/kpis` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | GET | `/api/v1/ordens-servico/relatorio/tempo-ciclo` | ADMINISTRADOR, CONSULTOR_TECNICO |
 
 ---
 
-## Segurança
+## Seguranca
 
-- **Autenticação JWT** com access token (15 min) e refresh token com rotação (7 dias)
-- O hash do refresh token é armazenado no banco — invalidação real no logout
-- **RBAC** via `@Papeis()` decorator e `PapeisGuard` — cada endpoint define o papel mínimo
-- **ValidationPipe global** com `whitelist: true` e `forbidNonWhitelisted: true` — rejeita campos não declarados nos DTOs
-- **CORS** configurável via variável de ambiente
-- Mensagem genérica no login (sem enumeração de email)
+- access token e refresh token com rotacao
+- `refreshTokenHash` persistido no banco
+- usuario inativo nao consegue:
+  - fazer login
+  - renovar sessao
+  - autenticar requisicoes protegidas
+- RBAC via `@Papeis()` e `PapeisGuard`
+- ownership de cliente validado nos use cases usando `Cliente.usuarioId`
+- `ValidationPipe` global com `whitelist` e `forbidNonWhitelisted`
 
 ---
 
 ## Testes
 
+Comandos principais:
+
 ```bash
-# Testes unitários
-npm run test
-
-# Testes com cobertura (threshold mínimo: 80% em statements, branches, functions e lines)
-npm run test:cov
-
-# Testes e2e
-npm run test:e2e
+npm run build
+npm test -- --runInBand
+npm run test:e2e -- --runInBand
 ```
 
-A cobertura atual é de **35 suites / 183 testes**, medida sobre domain, casos de uso e validators (excluindo controllers, repositórios e módulos).
+Estado verificado mais recente:
+
+- unit/spec: `43` suites e `266` testes passando
+- e2e: `1` smoke suite passando
+
+O e2e versionado continua sendo um smoke test sem PostgreSQL real. O roteiro manual com banco esta documentado em `guia-teste-end-to-end.md`.
 
 ---
 
-## Documentação DDD
+## Documentacao Complementar
 
-Os seguintes documentos de modelagem estão disponíveis na raiz do repositório:
-
-| Documento | Conteúdo |
+| Documento | Conteudo |
 |---|---|
-| `Dicionário Ubíquo v3.md` | Linguagem ubíqua completa: entidades, aggregates, papéis, ciclo de vida |
-| `fluxos-negocio-oficina.md` | Fluxos de negócio detalhados, atores e regras |
-| `decisoes-arquiteturais-oficina.md` | Decisões de modelagem com justificativas e trade-offs |
+| `guia-teste-end-to-end.md` | estado atual dos testes e roteiro manual |
+| `Dicionário Ubíquo v3.md` | linguagem ubiqua do dominio |
+| `fluxos-negocio-oficina.md` | fluxos implementados hoje |
+| `decisoes-arquiteturais-oficina.md` | decisoes e trade-offs refletidos no codigo |

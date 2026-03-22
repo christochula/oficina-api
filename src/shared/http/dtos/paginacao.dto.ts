@@ -1,6 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, Min } from 'class-validator';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 /**
  * DTO de parâmetros de paginação para endpoints que retornam listas.
@@ -29,10 +29,11 @@ export class PaginacaoDto {
    * Quantidade de registros por página.
    * Padrão: 20 itens por página.
    */
-  @ApiPropertyOptional({ default: 20, minimum: 1 })
+  @ApiPropertyOptional({ default: 20, minimum: 1, maximum: 100 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(100)
   porPagina: number = 20;
 }

@@ -1,45 +1,48 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { BuscarClientePorUsuarioUseCase } from '../../../cliente/application/casos-de-uso/buscar-cliente-por-usuario.usecase';
 import { RespostaPaginadaDto } from '../../../shared/http/dtos/resposta-paginada.dto';
 import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { ORDEM_SERVICO_REPOSITORY } from '../../domain/ordem-servico.repository';
 import type { OrdemServicoRepository } from '../../domain/ordem-servico.repository';
 
 /**
- * Dados de entrada para listagem das OS de um cliente específico.
+ * Dados de entrada para listagem das OS do cliente autenticado.
  */
 export interface ListarMinhasOrdensServicoInput {
-  /** ID do cliente autenticado (extraído do JWT). Filtra apenas suas próprias OS. */
-  clienteId: string;
-  /** Número da página (padrão: 1). */
+  /** ID do usuario autenticado (extraido do JWT). */
+  usuarioId: string;
+  /** Numero da pagina (padrao: 1). */
   pagina?: number;
-  /** Quantidade de registros por página (padrão: 20). */
+  /** Quantidade de registros por pagina (padrao: 20). */
   porPagina?: number;
 }
 
 /**
- * Caso de uso responsável por listar as Ordens de Serviço de um CLIENTE específico.
- * O clienteId é usado como filtro mandatório, garantindo que o cliente só veja suas próprias OS.
- * Para listagem irrestrita por usuários internos, use {@link ListarOrdensServicoUseCase}.
+ * Caso de uso responsavel por listar as Ordens de Servico do CLIENTE autenticado.
+ * O usuario autenticado e resolvido para o aggregate Cliente antes da consulta.
+ * Para listagem irrestrita por usuarios internos, use {@link ListarOrdensServicoUseCase}.
  */
 @Injectable()
 export class ListarMinhasOrdensServicoUseCase {
-  /** @param osRepository - Repositório de ordens de serviço. */
+  /** @param osRepository - Repositorio de ordens de servico. */
   constructor(
     @Inject(ORDEM_SERVICO_REPOSITORY)
     private readonly osRepository: OrdemServicoRepository,
+    private readonly buscarClientePorUsuario: BuscarClientePorUsuarioUseCase,
   ) {}
 
   /**
    * Lista as OS do cliente autenticado de forma paginada.
-   * @param input - ClienteId e parâmetros de paginação.
-   * @returns Resposta paginada com a lista de OS do cliente e metadados de paginação.
+   * @param input - Usuario autenticado e parametros de paginacao.
+   * @returns Resposta paginada com a lista de OS do cliente e metadados de paginacao.
    */
   async executar(input: ListarMinhasOrdensServicoInput): Promise<RespostaPaginadaDto<OrdemServico>> {
     const pagina = input.pagina ?? 1;
     const porPagina = input.porPagina ?? 20;
+    const cliente = await this.buscarClientePorUsuario.executar(input.usuarioId);
 
     const { itens, total } = await this.osRepository.listar({
-      clienteId: input.clienteId,
+      clienteId: cliente.id.valor,
       pagina,
       porPagina,
     });

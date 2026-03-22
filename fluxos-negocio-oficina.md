@@ -1,654 +1,452 @@
-# Fluxos de Negócio — Sistema de Gestão de Oficina Mecânica
+﻿# Fluxos de Negocio - oficina_api
 
-## 1. Objetivo do documento
+## 1. Objetivo
 
-Este documento descreve, em linguagem natural, os principais fluxos de negócio do sistema de gestão de uma oficina mecânica, desde a chegada do cliente com um veículo até a entrega do veículo após a execução dos serviços.
-
-O objetivo é registrar de forma clara:
-
-- os atores envolvidos em cada etapa
-- as regras de negócio principais
-- os estados da Ordem de Serviço
-- os pontos de decisão do processo
-- a relação entre o fluxo operacional e o modelo de domínio orientado a DDD
-
-Este documento serve como base para:
-
-- modelagem do domínio
-- desenho da API
-- definição de casos de uso
-- implementação do backend em NestJS
+Este documento descreve os fluxos que o repositorio implementa hoje, incluindo regras de negocio ja refletidas no codigo.
 
 ---
 
-## 2. Visão geral do processo
+## 2. Visao geral
 
-O processo de atendimento da oficina segue, de forma geral, as seguintes etapas:
+Fluxo principal implementado:
 
-1. identificação ou cadastro do cliente
-2. identificação ou cadastro do veículo
-3. abertura da Ordem de Serviço
-4. atribuição da OS a um mecânico
-5. diagnóstico técnico, quando necessário
-6. geração e submissão do orçamento
-7. aprovação ou rejeição do orçamento
-8. execução dos serviços aprovados
-9. finalização técnica da OS
-10. entrega do veículo ao cliente
+1. criacao ou identificacao do usuario
+2. criacao ou identificacao do cliente
+3. criacao ou identificacao do veiculo
+4. abertura da OS
+5. atribuicao de mecanico
+6. diagnostico opcional
+7. geracao de orcamento
+8. aprovacao ou rejeicao pelo cliente titular
+9. inicio de execucao
+10. consumo de pecas
+11. finalizacao tecnica
+12. entrega do veiculo
 
-Nem toda Ordem de Serviço percorre exatamente o mesmo caminho. Existem variações importantes, por exemplo:
+Fluxos de apoio:
 
-- OS com problema relatado e necessidade de diagnóstico
-- OS com apenas serviço solicitado, sem diagnóstico
-- OS com problema relatado e serviço solicitado ao mesmo tempo
-- OS cancelada após rejeição do orçamento
-
----
-
-## 3. Atores envolvidos
-
-### Cliente
-Pessoa física ou jurídica que solicita atendimento para um veículo.
-
-### Consultor Técnico
-Responsável pelo atendimento inicial, identificação do cliente e do veículo, abertura da OS, acompanhamento do processo e confirmação da entrega.
-
-### Mecânico
-Responsável pela execução técnica da OS, incluindo diagnóstico, execução dos serviços e conclusão técnica do atendimento.
-
-### Sistema
-Responsável por persistir dados, validar regras, executar buscas e controlar os estados da OS.
+- catalogo de servicos
+- estoque
+- autenticacao com refresh token
+- relatorios operacionais
 
 ---
 
-## 4. Fluxo 1 — Identificação e cadastro do cliente
+## 3. Atores
 
-### Objetivo
-Garantir que o cliente esteja devidamente identificado no sistema antes da abertura de uma Ordem de Serviço.
+### Administrador
 
-### Tipos de cliente
-O sistema suporta dois tipos de cliente:
+Atua em cadastros administrativos, estoque, consultas internas e entrega.
 
-- **Pessoa Física** — identificada por CPF
-- **Pessoa Jurídica** — identificada por CNPJ (incluindo o novo formato alfanumérico vigente a partir de julho/2026)
+### Consultor Tecnico
 
-O tipo de documento (`tipoDoc`) e o número do documento (`numeroDoc`) são informados no momento do cadastro e são imutáveis após a criação. A busca de cliente aceita ambos os formatos, com ou sem máscara.
+Atua no balcao e no acompanhamento do atendimento.
 
-### Pré-condições
-- o cliente comparece à oficina solicitando atendimento
-- o consultor técnico está autenticado no sistema
+### Mecanico
 
-### Descrição do fluxo
+Atua no fluxo tecnico da OS.
 
-1. O cliente informa seu número de documento (CPF ou CNPJ) ao consultor técnico.
-2. O consultor técnico recebe o número de documento informado.
-3. O consultor técnico consulta o cadastro de clientes no sistema.
-4. O sistema executa a busca do cliente pelo número de documento.
+### Cliente autenticado
 
-### Decisão: cliente encontrado?
-
-#### Caso A — Cliente encontrado
-5. O sistema retorna o cadastro existente ao consultor técnico.
-6. O consultor técnico pode atualizar os dados do cliente, se necessário.
-7. O sistema salva as alterações.
-8. O sistema confirma a atualização do cadastro.
-
-Dados tipicamente atualizáveis:
-- nome
-- e-mail
-- telefone
-- endereço
-
-#### Caso B — Cliente não encontrado
-5. O sistema informa que não existe cliente com o número de documento informado.
-6. O consultor técnico cria um novo cadastro de cliente.
-7. O sistema salva o novo cadastro.
-8. O sistema confirma a criação do cliente.
-
-Dados mínimos do cadastro:
-- tipo de documento (CPF ou CNPJ)
-- número do documento
-- nome completo
-- e-mail
-- telefone
-- endereço
-
-### Pós-condições
-- o cliente está cadastrado ou atualizado
-- o cliente está apto a abrir uma OS
-
-### Regras de negócio
-- o número de documento do cliente deve ser único no sistema
-- o tipo e o número do documento são imutáveis após o cadastro
-- o cliente deve existir antes da abertura de uma OS
-- dados cadastrais podem ser atualizados pelo consultor técnico
-
-### Observação de domínio
-O cliente também pode existir como usuário externo do sistema para futuras funcionalidades, como consulta de OS e aprovação de orçamento, mas não possui permissão para alterar dados operacionais da oficina.
+Consulta e decide apenas sobre as proprias OS, desde que exista vinculacao para um `Cliente` ativo.
 
 ---
 
-## 5. Fluxo 2 — Identificação e cadastro do veículo
+## 4. Fluxo de autenticacao
 
-### Objetivo
-Garantir que o veículo esteja devidamente identificado no sistema antes da abertura da Ordem de Serviço.
+### Login
 
-### Pré-condições
-- cliente identificado ou cadastrado
-- consultor técnico autenticado
+- rota: `POST /api/v1/auth/login`
+- entrada: `email` e `senha`
+- saida: `accessToken` e `refreshToken`
 
-### Descrição do fluxo
+Regra atual:
 
-9. O cliente informa a placa do veículo ao consultor técnico.
-10. O consultor técnico recebe a placa.
-11. O consultor técnico consulta o cadastro de veículos no sistema.
-12. O sistema executa a busca do veículo pela placa.
+- usuario inexistente, senha invalida ou usuario inativo recebem `401`
 
-### Decisão: veículo encontrado?
+### Refresh
 
-#### Caso A — Veículo encontrado
-13. O sistema retorna o cadastro existente ao consultor técnico.
-14. O consultor técnico pode atualizar os dados do veículo, se necessário.
-15. O sistema salva as alterações.
-16. O sistema confirma a atualização do cadastro.
+- rota: `POST /api/v1/auth/refresh`
+- auth: refresh token no header `Authorization: Bearer <token>`
 
-Dados tipicamente atualizáveis:
-- cor
-- quilometragem atual
+Regra atual:
 
-#### Caso B — Veículo não encontrado
-13. O sistema informa que o veículo não foi encontrado.
-14. O consultor técnico cria um novo cadastro de veículo.
-15. O sistema salva o novo cadastro.
-16. O sistema confirma a criação do veículo.
+- refresh token e validado contra `refreshTokenHash`
+- usuario inativo nao consegue renovar sessao
 
-Dados mínimos do cadastro:
-- placa
-- marca
-- modelo
-- ano
-- cor
-- quilometragem
+### Logout
 
-### Pós-condições
-- o veículo está cadastrado ou atualizado
-- o veículo está apto a ser vinculado a uma OS
+- rota: `POST /api/v1/auth/logout`
+- auth: access token
 
-### Regras de negócio
-- a placa deve ser única no sistema
-- o veículo deve existir antes da abertura da OS
-- a quilometragem pode ser atualizada a cada atendimento
-- o formato da placa deve ser validado
+Efeito:
 
-### Observação de domínio
-Não existe relação estrutural direta entre Cliente e Veículo. A relação entre ambos ocorre exclusivamente por meio da Ordem de Serviço.
-
-Essa decisão permite representar corretamente situações como:
-- venda do veículo
-- terceiros levando o veículo para atendimento
-- veículos corporativos
-- compartilhamento de uso do veículo
+- limpa `refreshTokenHash`
 
 ---
 
-## 6. Fluxo 3 — Abertura da Ordem de Serviço
+## 5. Fluxo de usuarios
 
-### Objetivo
-Criar formalmente a Ordem de Serviço que representa a solicitação de atendimento para um cliente e um veículo.
+### Endpoints
 
-### Pré-condições
-- cliente identificado
-- veículo identificado
-- consultor técnico autenticado
+- `POST /api/v1/usuarios` (criacao)
+- `GET /api/v1/usuarios/:id` (consulta)
 
-### Descrição do fluxo
+### Regras implementadas
 
-17. O cliente informa ao consultor técnico um ou mais problemas relatados e/ou um ou mais serviços solicitados.
-18. O consultor técnico recebe as informações do cliente.
-19. O consultor técnico abre a Ordem de Serviço no sistema.
-20. O sistema salva a OS.
-21. O sistema confirma a criação da OS.
-22. O consultor técnico atribui a OS a um mecânico responsável.
-23. O mecânico recebe a OS atribuída.
+- ambos os endpoints sao restritos ao papel `ADMINISTRADOR`
+- email precisa ser unico
+- senha e persistida apenas como hash
+- `papel` define o escopo de acesso
 
-### Regras de negócio
-- a OS deve estar vinculada a exatamente um cliente
-- a OS deve estar vinculada a exatamente um veículo
-- a OS não pode ser criada vazia
-- deve existir pelo menos um problema relatado ou um serviço solicitado
-- a OS deve ser atribuída a um mecânico para seguir o fluxo operacional
+### Uso relevante no ownership do cliente
 
-### Sobre problemas relatados e serviços solicitados
-
-Uma OS pode conter:
-
-#### Apenas problema relatado
-Descrito em texto livre pelo cliente. Normalmente requer diagnóstico técnico.
-
-Exemplo:
-- "direção com folga"
-- "terceira marcha não entra"
-
-#### Apenas serviço solicitado
-Selecionado a partir do catálogo de serviços da oficina (`ServicoOficina`). Pode ser acompanhado de uma observação livre do cliente.
-
-Exemplo:
-- serviço: Troca de óleo do motor — observação: "última troca há 10.000 km"
-- serviço: Troca de fluido de arrefecimento
-
-#### Ambos
-Exemplo:
-- problema relatado: "folga na direção"
-- serviço solicitado: Troca de fluido de arrefecimento
-
-### Seleção de serviços do catálogo
-O consultor técnico seleciona os serviços solicitados pelo cliente a partir do catálogo `ServicoOficina`, gerenciado pelo administrador. O sistema valida que o `servicoId` existe no catálogo e captura um snapshot do nome (`nomeServico`) no momento da abertura — preservando o registro histórico mesmo que o catálogo seja alterado depois.
-
-### Pós-condições
-- a OS foi criada
-- a OS está atribuída a um mecânico
-- a OS está pronta para diagnóstico ou evolução direta para orçamento
-
-### Estados envolvidos
-- **RECEBIDA**: status inicial da OS após sua criação
-- **ATRIBUIDA**: status após designação do mecânico responsável
-
-### Observação importante
-Não foi modelado o estado **RASCUNHO** no MVP, porque o domínio atual não possui fluxo de persistência parcial ou edição posterior antes da abertura efetiva da OS.
+Para que um cliente externo use as rotas `minhas/*` e aprove/rejeite orcamento, e necessario existir um `Usuario` com papel `CLIENTE` vinculado a um aggregate `Cliente`.
 
 ---
 
-## 7. Fluxo 4 — Diagnóstico e geração de orçamento
+## 6. Fluxo de cliente
 
-### Objetivo
-Definir o escopo técnico e financeiro da execução do serviço.
+### Ator
 
-### Pré-condições
-- OS existente e atribuída
-- mecânico responsável identificado
+`ADMINISTRADOR` ou `CONSULTOR_TECNICO`
 
-### Descrição do fluxo
+### Endpoints
 
-24. O mecânico consulta suas OS ativas via `GET /ordens-servico/mecanico/minhas-ordens` — retorna apenas OS nos status ATRIBUIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, APROVADA e EM_EXECUCAO atribuídas a ele.
-25. O mecânico seleciona a OS e consulta os detalhes via `GET /ordens-servico/mecanico/:id` — o sistema valida que ele é o mecânico responsável antes de retornar os dados; qualquer tentativa de acessar OS de outro mecânico resulta em 403.
+- `POST /api/v1/clientes`
+- `GET /api/v1/clientes`
+- `GET /api/v1/clientes/documento/:numeroDoc`
+- `PATCH /api/v1/clientes/:id`
 
-### Decisão: existe problema relatado que exige análise técnica?
+### Regras implementadas
 
-#### Caso A — Há necessidade de diagnóstico
-26. A OS evolui para **EM_DIAGNOSTICO**.
-27. O mecânico realiza a análise técnica do veículo.
-28. O mecânico registra o diagnóstico na OS.
-29. Com base no diagnóstico, o sistema permite a composição do orçamento.
+- `tipoDoc` e `numeroDoc` sao obrigatorios na criacao
+- `tipoDoc` e `numeroDoc` nao podem ser alterados depois
+- o documento e normalizado antes de persistir
+- CPF e CNPJ sao validados por utilitarios internos
+- o endereco e enviado como objeto `endereco`
+- criacao e update aceitam `usuarioId` opcional
+- se nao houver `usuarioId`, o caso de uso tenta auto-vincular por email a um `Usuario CLIENTE` compativel e ainda nao vinculado
 
-#### Caso B — Não há necessidade de diagnóstico
-26. A OS não entra em diagnóstico.
-27. O orçamento é montado diretamente com base nos serviços solicitados.
+### Consequencia no negocio
 
-### Composição do orçamento
-O orçamento é estruturado em **grupos temáticos** (`GrupoOrcamento`), cada um com título livre definido pelo mecânico e um conjunto de linhas de serviço.
-
-#### Estrutura do orçamento
-
-```
-Orçamento
-  └─ Grupo: "Retífica do Motor"
-       ├─ Linha MATERIAL: Junta do cabeçote × 1 — R$ 350,00
-       ├─ Linha MATERIAL: Óleo 5W30 (1L) × 4 — R$ 40,00/un
-       └─ Linha SERVICO: Mão de obra retífica × 1 — R$ 800,00
-  └─ Grupo: "Troca de Óleo"
-       ├─ Linha MATERIAL: Filtro de óleo × 1 — R$ 45,00
-       └─ Linha SERVICO: Troca de óleo × 1 — R$ 60,00
-```
-
-O mecânico define os títulos dos grupos livremente para organizar o orçamento de forma legível ao cliente.
-
-Cada linha de serviço possui:
-- tipo (`MATERIAL` ou `SERVICO`)
-- descrição
-- quantidade
-- valor unitário
-- subtotal (quantidade × valor unitário)
-
-O total de cada grupo é a soma dos subtotais de suas linhas.
-O total do orçamento é a soma dos totais de todos os grupos.
-
-#### Linha do tipo MATERIAL
-Representa consumo de peça ou item físico.
-
-Exemplos:
-- óleo 5W30
-- filtro de óleo
-- pastilha de freio
-
-Características:
-- pode referenciar uma peça do estoque (`pecaId`)
-- afeta estoque quando consumida
-
-#### Linha do tipo SERVICO
-Representa mão de obra ou atividade técnica executada pela oficina.
-
-Exemplos:
-- troca de óleo
-- alinhamento
-- diagnóstico eletrônico
-
-Características:
-- não referencia peça
-- não afeta estoque diretamente
-
-### Notas do orçamento
-O mecânico pode incluir duas categorias de notas ao gerar o orçamento:
-- **notasInternas**: observações da equipe da oficina — não visíveis ao cliente
-- **notasCliente**: notas enviadas ao cliente junto com o orçamento
-
-### Regras de negócio
-- o orçamento deve conter ao menos um grupo
-- cada grupo deve conter ao menos uma linha de serviço
-- linha MATERIAL pode referenciar uma peça do estoque (`pecaId`)
-- linha SERVICO não deve exigir peça associada
-- o orçamento pertence à OS e não existe isoladamente no fluxo do MVP
-
-### Pós-condições
-- a OS possui orçamento montado
-- a OS está pronta para submissão ao cliente
-
-### Estados envolvidos
-- **EM_DIAGNOSTICO**: quando existe análise técnica a ser realizada
-- **AGUARDANDO_APROVACAO**: após orçamento gerado e pendente de decisão do cliente
+O aggregate `Cliente` passou a ser a referencia de ownership da OS, enquanto `Usuario` continua sendo a identidade de autenticacao.
 
 ---
 
-## 8. Fluxo 5 — Aprovação ou rejeição do orçamento
+## 7. Fluxo de veiculo
 
-### Objetivo
-Permitir que o cliente autorize ou recuse a execução dos serviços orçados.
+### Ator
 
-### Pré-condições
-- OS com orçamento gerado
-- orçamento apresentado ao cliente
+`ADMINISTRADOR` ou `CONSULTOR_TECNICO`
 
-### Descrição do fluxo
+### Endpoints
 
-30. O orçamento é apresentado ao cliente.
-31. O cliente avalia o orçamento.
+- `POST /api/v1/veiculos`
+- `GET /api/v1/veiculos`
+- `GET /api/v1/veiculos/placa/:placa`
+- `PATCH /api/v1/veiculos/:id`
 
-### Decisão: cliente aprova o orçamento?
+### Regras implementadas
 
-#### Caso A — Orçamento aprovado
-32. O cliente aprova o orçamento.
-33. O sistema registra a aprovação.
-34. A OS evolui para **APROVADA**.
-
-#### Caso B — Orçamento rejeitado
-32. O cliente rejeita o orçamento.
-33. O sistema registra a rejeição.
-34. A OS evolui para **CANCELADA**.
-
-### Regras de negócio
-- somente OS com orçamento pode ser aprovada ou rejeitada
-- uma OS cancelada não retorna ao fluxo operacional normal
-- a rejeição do orçamento encerra o atendimento operacional da OS
-
-### Pós-condições
-
-#### Se aprovado
-- a OS está apta a ser executada
-
-#### Se rejeitado
-- a OS está cancelada
-
-### Estado alternativo
-Pode existir uma retenção administrativa da OS cancelada por alguns dias para fins de consulta, mas isso não altera o encerramento do fluxo operacional.
+- `placa`, `renavam` e `chassi` sao imutaveis apos criacao
+- update atual permite apenas `cor` e `quilometragem`
+- a placa e normalizada antes de persistir e antes de consultar
 
 ---
 
-## 9. Fluxo 6 — Execução do serviço
+## 8. Fluxo do catalogo de servicos
 
-### Objetivo
-Executar os serviços aprovados e registrar o resultado técnico da OS.
+### Atores
 
-### Pré-condições
-- OS aprovada
-- mecânico responsável definido
+- criacao e update: `ADMINISTRADOR`
+- consulta: `ADMINISTRADOR`, `CONSULTOR_TECNICO`, `MECANICO`
 
-### Descrição do fluxo
+### Endpoints
 
-35. O mecânico inicia a execução da OS.
-36. O sistema altera o status para **EM_EXECUCAO**.
-37. O mecânico executa os serviços previstos.
-38. O sistema registra o consumo de peças e a execução das linhas de serviço.
-39. O mecânico conclui tecnicamente o atendimento.
-40. O sistema altera o status da OS para **FINALIZADA**.
+- `POST /api/v1/servicos-oficina`
+- `GET /api/v1/servicos-oficina`
+- `GET /api/v1/servicos-oficina/:id`
+- `PATCH /api/v1/servicos-oficina/:id`
 
-### Regras de negócio
-- a execução só pode começar após aprovação do orçamento
-- o consumo de peça deve refletir no estoque
-- o histórico da OS deve registrar eventos relevantes da execução
-- após a finalização técnica, a OS não retorna às etapas anteriores do fluxo normal
+### Estado atual
 
-### Pós-condições
-- os serviços foram tecnicamente concluídos
-- o veículo está pronto para retirada
+- o catalogo possui `nome`, `descricao`, `categoria` e `ativo`
+- a listagem retorna apenas servicos ativos
+- ainda nao existe endpoint de desativacao/delete
 
-### Estados envolvidos
-- **EM_EXECUCAO**
-- **FINALIZADA**
+### Uso no negocio
+
+Na abertura da OS, `servicoId` e validado e o nome atual e capturado em `nomeServico`.
 
 ---
 
-## 10. Fluxo 7 — Entrega do veículo
+## 9. Fluxo de estoque
 
-### Objetivo
-Registrar a retirada do veículo pelo cliente e concluir o ciclo operacional da OS.
+### Atores
 
-### Pré-condições
-- OS finalizada
-- veículo pronto para retirada
+- manutencao: `ADMINISTRADOR`
+- consulta: `ADMINISTRADOR`, `MECANICO`
 
-### Descrição do fluxo
+### Endpoints
 
-41. O sistema ou o consultor técnico notifica o cliente de que o veículo está pronto.
-42. O cliente comparece à oficina para retirar o veículo.
-43. O consultor técnico confirma a entrega do veículo.
-44. O sistema altera o status da OS para **ENTREGUE**.
+- `POST /api/v1/estoque/pecas`
+- `GET /api/v1/estoque`
+- `GET /api/v1/estoque/pecas/:pecaId`
+- `PATCH /api/v1/estoque/pecas/:pecaId`
+- `PATCH /api/v1/estoque/pecas/:pecaId/entrada`
 
-### Regras de negócio
-- apenas OS finalizada pode ser entregue
-- após a entrega, a OS não pode mais ser alterada no fluxo operacional
-- a entrega deve ser registrada explicitamente
+### Regras implementadas
 
-### Pós-condições
-- o veículo foi entregue ao cliente
-- a OS concluiu seu ciclo operacional
-
-### Estados envolvidos
-- **FINALIZADA**
-- **ENTREGUE**
-
-### Observação importante
-No MVP, o estado **ENCERRADA** não é necessário. O status **ENTREGUE** já representa adequadamente o fim do fluxo operacional. Um estado adicional de encerramento administrativo só faria sentido quando existirem processos complementares, como faturamento, emissão de nota fiscal, fechamento financeiro ou pós-atendimento.
+- cadastro da peca ja cria ou inicializa o saldo
+- update atual altera nome, descricao e preco de venda
+- entrada aumenta `quantidadeDisponivel`
 
 ---
 
-## 11. Fluxo 8 — Gestão do Catálogo de Serviços
+## 10. Fluxo principal da OrdemServico
 
-### Objetivo
-Manter o catálogo de serviços padrão da oficina (`ServicoOficina`), utilizado pelo consultor técnico ao abrir uma OS com serviços solicitados.
+### 10.1 Abertura
 
-### Ator principal
-Administrador
+Ator:
 
-### Descrição do fluxo
+- `ADMINISTRADOR` ou `CONSULTOR_TECNICO`
 
-O administrador pode:
+Endpoint:
 
-1. **Registrar um novo serviço** — informa nome e, opcionalmente, descrição. O sistema cria o serviço como ativo.
-2. **Listar serviços** — visualiza todos os serviços do catálogo (ativos e inativos).
-3. **Atualizar um serviço** — edita nome, descrição ou status ativo/inativo.
-4. **Desativar um serviço** — marca como inativo, impedindo novas seleções. OS históricas preservam o snapshot do nome.
+- `POST /api/v1/ordens-servico`
 
-### Regras de negócio
-- Somente `ADMINISTRADOR` pode criar ou atualizar serviços do catálogo
-- Usuários internos (`CONSULTOR_TECNICO`, `MECANICO`) podem listar e consultar serviços
-- A desativação não exclui o serviço — preserva integridade referencial com OS históricas
-- Não há preço base no catálogo — o preço é definido pelo mecânico no orçamento
+Regras:
 
-### Endpoints da API
-- `POST /api/v1/servicos-oficina` — registrar serviço (ADMIN)
-- `GET /api/v1/servicos-oficina` — listar serviços (usuários internos)
-- `GET /api/v1/servicos-oficina/:id` — buscar serviço por ID (usuários internos)
-- `PATCH /api/v1/servicos-oficina/:id` — atualizar serviço (ADMIN)
+- a OS precisa de `clienteId` e `veiculoId`
+- nao pode ser criada vazia
+- precisa ter ao menos um problema relatado ou um servico solicitado
+- `notasInternas` e `notasCliente` podem ser informadas
 
----
+Estado resultante:
 
-## 12. Consolidação dos estados da Ordem de Serviço
+- `RECEBIDA`
 
-### Fluxo principal
-- RECEBIDA
-- ATRIBUIDA
-- EM_DIAGNOSTICO (opcional)
-- AGUARDANDO_APROVACAO
-- APROVADA
-- EM_EXECUCAO
-- FINALIZADA
-- ENTREGUE
+### 10.2 Atribuicao de mecanico
 
-### Fluxo alternativo
-- CANCELADA
+Ator:
 
----
+- `ADMINISTRADOR` ou `CONSULTOR_TECNICO`
 
-## 13. Regras globais do processo
+Endpoint:
 
-- cliente e veículo devem existir antes da criação da OS
-- cliente e veículo não possuem relação estrutural direta
-- a OS é o ponto de vínculo entre cliente e veículo
-- a OS deve possuir ao menos um problema relatado ou um serviço solicitado
-- diagnóstico é opcional
-- orçamento é obrigatório antes da execução
-- execução depende de aprovação do cliente
-- entrega só pode ocorrer após finalização técnica
-- o ciclo operacional termina em ENTREGUE ou CANCELADA
-- o cliente pode ser pessoa física (CPF) ou pessoa jurídica (CNPJ); o número de documento é único e imutável
+- `PATCH /api/v1/ordens-servico/:id/atribuir/:mecanicoId`
 
----
+Regra:
 
-## 14. Relação com o modelo de domínio (DDD)
+- apenas usuario com papel `MECANICO` pode ser atribuido
 
-### Aggregate Roots principais
-- Cliente
-- Veiculo
-- OrdemServico
-- Estoque
-- ServicoOficina
+Estado resultante:
 
-`Peca` é uma entidade interna do aggregate `Estoque`, não um aggregate root independente.
-`ServicoOficina` é o catálogo de serviços — aggregate simples gerenciado pelo administrador.
+- `ATRIBUIDA`
 
-### Aggregate Root central do sistema
-**OrdemServico**
+### 10.3 Diagnostico
 
-A OrdemServico concentra o fluxo principal do negócio e encapsula:
+Ator:
 
-- clienteId
-- veiculoId
-- mecanicoResponsavelId
-- problemas relatados
-- serviços solicitados
-- diagnóstico
-- orçamento
-- linhas de serviço
-- histórico
-- status
+- `MECANICO`
 
-### Observação sobre o orçamento
-No MVP, o orçamento é tratado como parte da OrdemServico, e não como aggregate separado.
+Endpoint:
 
-Isso simplifica:
-- modelagem
-- persistência
-- transações
-- implementação do backend
+- `PATCH /api/v1/ordens-servico/:id/diagnostico`
 
----
+Regras:
 
-## 15. Possíveis casos de uso derivados
+- diagnostico e opcional
+- se a OS estiver `ATRIBUIDA`, o caso de uso entra em `EM_DIAGNOSTICO`
+- se a OS ja estiver `EM_DIAGNOSTICO`, apenas grava o diagnostico
 
-**Catálogo de Serviços (ServicoOficina):**
-- RegistrarServicoOficina
-- ListarServicosOficina
-- BuscarServicoOficinaPorId
-- AtualizarServicoOficina
+Estado resultante:
 
-**Clientes:**
-- BuscarClientePorNumeroDoc
-- CriarCliente
-- AtualizarCliente
-- ListarClientes
+- `EM_DIAGNOSTICO`
 
-**Veículos:**
-- BuscarVeiculoPorPlaca
-- CriarVeiculo
-- AtualizarVeiculo
-- ListarVeiculos
+### 10.4 Geracao de orcamento
 
-**Ordens de Serviço (usuários internos — ADMINISTRADOR, CONSULTOR_TECNICO):**
-- AbrirOrdemServico
-- AtribuirOrdemServico
-- ListarOrdensServico
-- BuscarOrdemServicoPorId
-- AprovarOrcamento
-- RejeitarOrcamento
-- EntregarVeiculo
+Ator:
 
-**Ordens de Serviço (MECANICO — isolado às suas OS):**
-- ListarOrdensMecanico — `GET /mecanico/minhas-ordens`
-- BuscarOrdemServicoMecanico — `GET /mecanico/:id` (valida ownership)
-- RegistrarDiagnostico
-- GerarOrcamento
-- IniciarExecucao
-- RegistrarConsumoPeca
-- FinalizarOrdemServico
+- `MECANICO`
 
-**Ordens de Serviço (CLIENTE — isolado às suas OS):**
-- ListarMinhasOrdensServico — `GET /minhas/lista`
-- BuscarMinhaOrdemServico — `GET /minhas/:id` (valida ownership)
-- AprovarOrcamento
-- RejeitarOrcamento
+Endpoint:
 
-**Análise operacional:**
-- RelatorioLeadTime
-- KpisOrdemServico
-- TempoCicloPersonalizado
+- `PATCH /api/v1/ordens-servico/:id/orcamento`
 
----
+Regras:
 
-## 16. Rastreabilidade e Histórico
+- o input usa `grupos`
+- cada grupo possui `titulo` e `linhas`
+- cada linha possui `tipo`, `descricao`, `quantidade`, `valorUnitario` e `pecaId` opcional
+- `notasInternas` e `notasCliente` podem ser enviadas
 
-Cada transição de estado da OS gera automaticamente uma entrada no histórico com:
-- o evento ocorrido (ex: `MECANICO_ATRIBUIDO`)
-- `statusAnterior`: status tipado antes da transição (null apenas em `ORDEM_ABERTA`)
-- `statusNovo`: status tipado resultante da transição
-- `descricao`: texto human-readable `"STATUS_ANTERIOR → STATUS_NOVO | detalhe"`
-- o identificador do usuário que executou a ação
-- o timestamp preciso do evento
+Caminhos de entrada:
 
-Essa rastreabilidade permite auditar o ciclo completo de qualquer OS e alimentar relatórios operacionais.
+- `ATRIBUIDA -> AGUARDANDO_APROVACAO`
+- `EM_DIAGNOSTICO -> AGUARDANDO_APROVACAO`
 
----
+### 10.5 Aprovacao ou rejeicao
 
-## 17. Relatório de Lead-time
+Atores:
 
-Após a entrega do veículo, o sistema permite gerar um relatório de lead-time que calcula o tempo médio de atendimento das OS entregues.
+- `CLIENTE` (titular)
+- `ADMINISTRADOR` (fallback operacional)
 
-O lead-time é medido da abertura da OS (`RECEBIDA`) até o registro de entrega do veículo (`ENTREGUE`), com base no timestamp do evento `VEICULO_ENTREGUE` no histórico.
+Endpoints:
 
-O relatório é acessível a administradores e consultores técnicos.
+- `PATCH /api/v1/ordens-servico/:id/aprovar`
+- `PATCH /api/v1/ordens-servico/:id/rejeitar`
+
+Regras implementadas:
+
+- apenas OS em `AGUARDANDO_APROVACAO` podem ser decididas
+- `CLIENTE`: o usuario autenticado precisa resolver para um `Cliente` ativo e a OS precisa pertencer a esse `Cliente`
+- `ADMINISTRADOR`: pode aprovar/rejeitar como fallback quando o cliente nao consegue usar a aplicacao
+- aprovacao leva a `APROVADA`
+- rejeicao leva a `CANCELADA`
+
+Consequencia:
+
+- `CONSULTOR_TECNICO` nao aprova nem rejeita pela API atual
+
+### 10.6 Inicio de execucao
+
+Ator:
+
+- `MECANICO`
+
+Endpoint:
+
+- `PATCH /api/v1/ordens-servico/:id/iniciar-execucao`
+
+Estado resultante:
+
+- `EM_EXECUCAO`
+
+### 10.7 Consumo de peca
+
+Ator:
+
+- `MECANICO`
+
+Endpoint:
+
+- `PATCH /api/v1/ordens-servico/:id/consumo-peca`
+
+Comportamento implementado:
+
+1. a OS registra o consumo e gera evento de dominio
+2. o caso de uso abre uma transacao
+3. o estoque processa a saida
+4. a OS e salva no mesmo contexto transacional
+5. os eventos sao limpos apenas apos sucesso
+
+Consequencia:
+
+- baixa de estoque e persistencia da OS confirmam ou falham juntas
+
+### 10.8 Finalizacao tecnica
+
+Ator:
+
+- `MECANICO`
+
+Endpoint:
+
+- `PATCH /api/v1/ordens-servico/:id/finalizar`
+
+Estado resultante:
+
+- `FINALIZADA`
+
+### 10.9 Entrega do veiculo
+
+Atores:
+
+- `ADMINISTRADOR`
+- `CONSULTOR_TECNICO`
+
+Endpoint:
+
+- `PATCH /api/v1/ordens-servico/:id/entregar`
+
+Estado resultante:
+
+- `ENTREGUE`
 
 ---
 
-## 18. Fechamento
+## 11. Fluxos de consulta por ator
 
-Os fluxos aqui descritos formam a espinha dorsal funcional do sistema da oficina mecânica e servem como referência direta para o desenho da API, para a implementação dos casos de uso e para a definição das regras centrais do domínio.
+### Consultas internas
 
-A principal decisão de modelagem é tratar a Ordem de Serviço como o centro do processo, concentrando nela a ligação entre cliente, veículo, diagnóstico, orçamento, execução e entrega.
+`ADMINISTRADOR` e `CONSULTOR_TECNICO` usam:
+
+- `GET /api/v1/ordens-servico`
+- `GET /api/v1/ordens-servico/:id`
+
+### Consultas do mecanico
+
+`MECANICO` usa:
+
+- `GET /api/v1/ordens-servico/mecanico/minhas-ordens`
+- `GET /api/v1/ordens-servico/mecanico/:id`
+
+Regra:
+
+- o use case valida `mecanicoResponsavelId`
+
+### Consultas do cliente
+
+`CLIENTE` usa:
+
+- `GET /api/v1/ordens-servico/minhas/lista`
+- `GET /api/v1/ordens-servico/minhas/:id`
+
+Regra:
+
+- o usuario autenticado e resolvido para `Cliente` por `Cliente.usuarioId`
+- a consulta so retorna ordens em que `ordemServico.clienteId` corresponde ao `Cliente.id` resolvido
+
+---
+
+## 12. Fluxo de relatorios operacionais
+
+### Atores
+
+- `ADMINISTRADOR`
+- `CONSULTOR_TECNICO`
+
+### Endpoints
+
+- `GET /api/v1/ordens-servico/relatorio/lead-time`
+- `GET /api/v1/ordens-servico/relatorio/kpis`
+- `GET /api/v1/ordens-servico/relatorio/tempo-ciclo`
+
+### Fonte de dados
+
+Todos os relatorios usam o historico da OS.
+
+### Implementacao atual
+
+- os calculos rodam na camada de aplicacao
+- o repositorio carrega OS com historico completo
+- isso e adequado para o volume atual do MVP, mas nao e um desenho analitico de alta escala
+
+---
+
+## 13. Regras globais consolidadas
+
+- cliente e veiculo devem existir antes da abertura da OS
+- cliente e veiculo nao possuem relacao estrutural direta
+- a OS precisa ter problema relatado ou servico solicitado
+- diagnostico e opcional
+- orcamento e obrigatorio antes da execucao
+- aprovacao ou rejeicao do orcamento sao exclusivas do cliente titular
+- execucao depende de aprovacao
+- entrega depende de finalizacao tecnica
+- o fluxo termina em `ENTREGUE` ou `CANCELADA`
+- historico da OS e append-only
+- consumo de peca e transacionalmente consistente entre OS e estoque

@@ -1,9 +1,9 @@
-import { RegistrarDiagnosticoUseCase } from './registrar-diagnostico.usecase';
 import { RecursoNaoEncontrado } from '../../../shared/excecoes/dominio.exception';
-import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { Usuario } from '../../../usuario/domain/usuario.entity';
 import { PapelUsuario } from '../../../usuario/domain/papel-usuario.enum';
+import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { StatusOrdemServico } from '../../domain/status-ordem-servico.enum';
+import { RegistrarDiagnosticoUseCase } from './registrar-diagnostico.usecase';
 
 const mockOsRepo = { buscarPorId: jest.fn(), salvar: jest.fn() };
 
@@ -11,15 +11,25 @@ function criarUseCase() {
   return new RegistrarDiagnosticoUseCase(mockOsRepo as any);
 }
 
-function osEmDiagnostico() {
+function osAtribuida() {
   const os = OrdemServico.abrir({
     clienteId: 'cl_01',
     veiculoId: 've_01',
     problemasRelatados: [{ descricao: 'Motor' }],
   });
-  const mecanico = Usuario.criar({ nome: 'M', email: 'm@m.com', senhaHash: 'h', papel: PapelUsuario.MECANICO });
+  const mecanico = Usuario.criar({
+    nome: 'M',
+    email: 'm@m.com',
+    senhaHash: 'h',
+    papel: PapelUsuario.MECANICO,
+  });
   os.atribuirMecanico(mecanico);
-  os.iniciarDiagnostico(mecanico.id.valor);
+  return os;
+}
+
+function osEmDiagnostico() {
+  const os = osAtribuida();
+  os.iniciarDiagnostico('us_01');
   return os;
 }
 
@@ -30,11 +40,13 @@ describe('RegistrarDiagnosticoUseCase', () => {
     mockOsRepo.buscarPorId.mockResolvedValue(null);
 
     const uc = criarUseCase();
-    await expect(uc.executar('os_01', 'Diagnóstico', 'us_01')).rejects.toThrow(RecursoNaoEncontrado);
+    await expect(uc.executar('os_01', 'Diagnóstico', 'us_01')).rejects.toThrow(
+      RecursoNaoEncontrado,
+    );
   });
 
-  it('deve registrar diagnóstico na OS', async () => {
-    const os = osEmDiagnostico();
+  it('deve registrar diagnóstico na OS partindo de ATRIBUIDA', async () => {
+    const os = osAtribuida();
     mockOsRepo.buscarPorId.mockResolvedValue(os);
     mockOsRepo.salvar.mockResolvedValue(undefined);
 
@@ -52,6 +64,7 @@ describe('RegistrarDiagnosticoUseCase', () => {
 
     const uc = criarUseCase();
     await uc.executar('os_01', 'Diagnóstico', 'us_01');
+
     expect(mockOsRepo.salvar).toHaveBeenCalledWith(os);
   });
 });

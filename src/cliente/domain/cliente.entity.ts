@@ -33,6 +33,7 @@ interface Endereco {
  */
 interface PropriedadesCliente {
   id?: ClienteId;
+  usuarioId?: string | null;
   tipoDoc: TipoDocumento;
   numeroDoc: string;
   nome: string;
@@ -52,6 +53,7 @@ interface PropriedadesCliente {
  * O cliente não possui vínculo direto com veículos; essa relação se dá via OrdemServico.
  */
 export class Cliente extends EntidadeBase<ClienteId> {
+  usuarioId: string | null;
   readonly tipoDoc: TipoDocumento; // imutável — define se é pessoa física ou jurídica
   readonly numeroDoc: string;      // imutável — CPF ou CNPJ, identificador único de negócio
   nome: string;
@@ -72,6 +74,7 @@ export class Cliente extends EntidadeBase<ClienteId> {
    */
   private constructor(props: PropriedadesCliente) {
     super(props.id ?? ClienteId.novo(), props.criadoEm, props.atualizadoEm);
+    this.usuarioId = props.usuarioId ?? null;
     this.tipoDoc = props.tipoDoc;
     this.numeroDoc = props.numeroDoc;
     this.nome = props.nome;
@@ -117,11 +120,13 @@ export class Cliente extends EntidadeBase<ClienteId> {
     nome?: string;
     email?: string;
     telefone?: string;
+    usuarioId?: string | null;
     endereco?: Endereco;
   }): void {
     if (dados.nome !== undefined) this.nome = dados.nome;
     if (dados.email !== undefined) this.email = dados.email;
     if (dados.telefone !== undefined) this.telefone = dados.telefone;
+    if (dados.usuarioId !== undefined) this.usuarioId = dados.usuarioId;
     if (dados.endereco) {
       this.logradouro = dados.endereco.logradouro ?? this.logradouro;
       this.numero = dados.endereco.numero ?? this.numero;

@@ -1,6 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ConflitoDeRecurso } from '../../../shared/excecoes/dominio.exception';
+import { ConflitoDeRecurso, RecursoNaoEncontrado, RegraDeNegocio } from '../../../shared/excecoes/dominio.exception';
 import { cleanCNPJ, cleanCPF } from '../../../shared/utils/documento-validator';
+import { PapelUsuario } from '../../../usuario/domain/papel-usuario.enum';
+import { UsuarioId } from '../../../usuario/domain/usuario-id.value-object';
+import { USUARIO_REPOSITORY } from '../../../usuario/domain/usuario.repository';
+import type { UsuarioRepository } from '../../../usuario/domain/usuario.repository';
 import { Cliente, TipoDocumento } from '../../domain/cliente.entity';
 import { CLIENTE_REPOSITORY } from '../../domain/cliente.repository';
 import type { ClienteRepository } from '../../domain/cliente.repository';
@@ -18,6 +22,8 @@ export interface CriarClienteInput {
   nome: string;
   email: string;
   telefone: string;
+  /** Vinculo opcional com um usuario autenticavel de papel CLIENTE. */
+  usuarioId?: string | null;
   /** Endereço completo ou parcial do cliente. Todos os subcampos são opcionais. */
   endereco?: {
     logradouro?: string;
@@ -43,6 +49,8 @@ export class CriarClienteUseCase {
   constructor(
     @Inject(CLIENTE_REPOSITORY)
     private readonly clienteRepository: ClienteRepository,
+    @Inject(USUARIO_REPOSITORY)
+    private readonly usuarioRepository: UsuarioRepository,
   ) {}
 
   /**
@@ -67,8 +75,32 @@ export class CriarClienteUseCase {
       throw new ConflitoDeRecurso(`Já existe um cliente com o documento '${numeroDocNormalizado}'`);
     }
 
-    const cliente = Cliente.criar(inputNormalizado);
+    const usuarioId = await this.resolverUsuarioAssociado(input.email, input.usuarioId ?? undefined);
+    const cliente = Cliente.criar({ ...inputNormalizado, usuarioId });
     await this.clienteRepository.salvar(cliente);
     return cliente;
+  }
+
+  private async resolverUsuarioAssociado(email: string, usuarioId?: string): Promise<string | null> {
+    if (usuarioId) {
+      const usuario = await this.usuarioRepository.buscarPorId(UsuarioId.de(usuarioId));
+      if (!usuario) throw new RecursoNaoEncontrado('Usuário', usuarioId);
+      if (usuario.papel !== PapelUsuario.CLIENTE) {
+        throw new RegraDeNegocio('Apenas usuários com papel CLIENTE podem ser vinculados a clientes.');
+      }
+
+      const clienteExistente = await this.clienteRepository.buscarPorUsuarioId(usuarioId);
+      if (clienteExistente) {
+        throw new ConflitoDeRecurso(`Usuário '${usuarioId}' já está vinculado a outro cliente.`);
+      }
+      return usuario.id.valor;
+    }
+
+    const usuario = await this.usuarioRepository.buscarPorEmail(email);
+    if (!usuario || usuario.papel !== PapelUsuario.CLIENTE) return null;
+
+    const clienteExistente = await this.clienteRepository.buscarPorUsuarioId(usuario.id.valor);
+    if (clienteExistente) return null;
+    return usuario.id.valor;
   }
 }

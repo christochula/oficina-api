@@ -63,6 +63,11 @@ export class CriarClienteDto {
   @IsString()
   telefone: string;
 
+  @ApiPropertyOptional({ description: 'ID do usuario CLIENTE a ser vinculado ao cadastro (prefixo us)' })
+  @IsOptional()
+  @IsString()
+  usuarioId?: string;
+
   /** Endereço do cliente. Todos os subcampos são opcionais. */
   @ApiPropertyOptional({ type: EnderecoDto })
   @IsOptional()

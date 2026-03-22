@@ -70,6 +70,7 @@ model Usuario {
   atualizadoEm   DateTime    @updatedAt
 
   // Relações
+  cliente            Cliente?
   ordensComoMecanico OrdemServico[] @relation("MecanicoResponsavel")
 
   @@map("usuarios")
@@ -81,6 +82,7 @@ model Usuario {
 
 model Cliente {
   id          String        @id                     // ULID com prefixo 'cl'
+  usuarioId   String?       @unique                 // vínculo opcional com usuário autenticável (papel CLIENTE)
   tipoDoc     TipoDocumento                         // CPF (pessoa física) ou CNPJ (pessoa jurídica)
   numeroDoc   String        @unique                 // CPF ou CNPJ — identificador único de negócio
   nome        String
@@ -98,6 +100,7 @@ model Cliente {
   atualizadoEm DateTime @updatedAt
 
   // Relações
+  usuario       Usuario?        @relation(fields: [usuarioId], references: [id])
   ordensServico OrdemServico[]
 
   @@map("clientes")
@@ -173,6 +176,9 @@ model OrdemServico {
   historico            HistoricoOS[]
   consumosPeca         ConsumoPeca[]
 
+  @@index([clienteId])
+  @@index([status])
+  @@index([mecanicoResponsavelId])
   @@map("ordens_servico")
 }
 
@@ -186,6 +192,7 @@ model ProblemaRelatado {
 
   ordemServico   OrdemServico @relation(fields: [ordemServicoId], references: [id])
 
+  @@index([ordemServicoId])
   @@map("problemas_relatados")
 }
 
@@ -202,6 +209,7 @@ model ServicoSolicitado {
   ordemServico   OrdemServico   @relation(fields: [ordemServicoId], references: [id])
   servico        ServicoOficina @relation(fields: [servicoId], references: [id])
 
+  @@index([ordemServicoId])
   @@map("servicos_solicitados")
 }
 
@@ -284,6 +292,7 @@ model HistoricoOS {
 
   ordemServico   OrdemServico       @relation(fields: [ordemServicoId], references: [id])
 
+  @@index([ordemServicoId, criadoEm])
   @@map("historico_os")
 }
 
@@ -299,6 +308,7 @@ model ConsumoPeca {
   ordemServico   OrdemServico @relation(fields: [ordemServicoId], references: [id])
   peca           Peca         @relation(fields: [pecaId], references: [id])
 
+  @@index([ordemServicoId])
   @@map("consumos_peca")
 }
 

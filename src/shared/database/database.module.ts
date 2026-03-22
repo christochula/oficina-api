@@ -1,5 +1,7 @@
 import { Global, Module } from '@nestjs/common';
+import { DATABASE_TRANSACTION } from './database-transaction';
 import { PrismaService } from './prisma.service';
+import { PrismaTransactionManager } from './prisma-transaction.manager';
 
 /**
  * Módulo global de banco de dados.
@@ -14,7 +16,11 @@ import { PrismaService } from './prisma.service';
  */
 @Global()
 @Module({
-  providers: [PrismaService],
-  exports: [PrismaService],
+  providers: [
+    PrismaService,
+    PrismaTransactionManager,
+    { provide: DATABASE_TRANSACTION, useExisting: PrismaTransactionManager },
+  ],
+  exports: [PrismaService, PrismaTransactionManager, DATABASE_TRANSACTION],
 })
 export class DatabaseModule {}

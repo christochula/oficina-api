@@ -1,31 +1,29 @@
-import { cnpj } from 'cpf-cnpj-validator';
 import { validate } from 'class-validator';
+import { isValidCNPJ } from '../../utils/documento-validator';
 import { IsValidCnpj } from './cnpj.validator';
 
-// Testa a lógica de validação de CNPJ usando a lib usada pelo validator
-describe('CnpjValido - validação direta da biblioteca', () => {
+describe('CnpjValido - validação direta do utilitário interno', () => {
   it('deve considerar CNPJ válido (somente dígitos)', () => {
-    expect(cnpj.isValid('11222333000181')).toBe(true);
+    expect(isValidCNPJ('11222333000181')).toBe(true);
   });
 
   it('deve considerar CNPJ válido com formatação', () => {
-    expect(cnpj.isValid('11.222.333/0001-81')).toBe(true);
+    expect(isValidCNPJ('11.222.333/0001-81')).toBe(true);
   });
 
   it('deve considerar CNPJ inválido (todos zeros)', () => {
-    expect(cnpj.isValid('00000000000000')).toBe(false);
+    expect(isValidCNPJ('00000000000000')).toBe(false);
   });
 
   it('deve considerar CNPJ inválido (dígitos repetidos)', () => {
-    expect(cnpj.isValid('11111111111111')).toBe(false);
+    expect(isValidCNPJ('11111111111111')).toBe(false);
   });
 
   it('deve considerar CNPJ inválido (número qualquer)', () => {
-    expect(cnpj.isValid('12345678000100')).toBe(false);
+    expect(isValidCNPJ('12345678000100')).toBe(false);
   });
 });
 
-// Testa o decorator IsValidCnpj integrado com class-validator
 describe('IsValidCnpj - decorator', () => {
   class DtoTeste {
     @IsValidCnpj()

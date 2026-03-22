@@ -1,293 +1,285 @@
-# CLAUDE.md — Contexto do Projeto oficina_api
+# CLAUDE.md - Contexto do Projeto oficina_api
 
-## Documentação de Referência
+## Documentacao de referencia
 
-| Documento | Conteúdo |
+| Documento | Foco |
 |---|---|
-| `Dicionário Ubíquo v3.md` | Linguagem ubíqua completa: entidades, aggregates, papéis, ciclo de vida |
-| `fluxos-negocio-oficina.md` | Fluxos de negócio detalhados, atores, regras, casos de uso derivados |
-| `decisoes-arquiteturais-oficina.md` | Decisões de modelagem e arquitetura com justificativas e trade-offs |
+| `dicionario-ubiquo.md` | Linguagem ubiqua, aggregates, papeis e termos do dominio |
+| `fluxos-negocio-oficina.md` | Fluxos operacionais e regras de negocio do sistema |
+| `decisoes-arquiteturais-oficina.md` | Decisoes de modelagem, transacoes, migracoes e trade-offs |
+| `guia-teste-end-to-end.md` | Estado atual dos testes automatizados e roteiro manual |
 
 ---
 
-## Visão Geral
+## Visao geral
 
-Backend de um sistema de gestão de oficina mecânica, desenvolvido como projeto de pós-graduação em Arquitetura de Software (POSTECH). O sistema gerencia clientes, veículos e ordens de serviço de uma oficina.
+Backend de gestao de oficina mecanica construido com NestJS 11, Prisma 5 e PostgreSQL 16.
 
----
+O repositorio esta organizado como um monolito modular em camadas, com `OrdemServico` como aggregate central e os modulos:
 
-## Stack Tecnológica
-
-- **Framework**: NestJS v11
-- **ORM**: Prisma **v5** (v7 tem breaking changes na configuração de datasource — manter em v5)
-- **Banco de dados**: PostgreSQL 16
-- **Autenticação**: JWT
-- **Documentação de API**: Swagger (`@nestjs/swagger`)
-- **Infraestrutura local**: Docker + docker-compose
-- **Deploy futuro**: AWS (fase posterior)
-- **IDs únicos**: ULID com prefixo por entidade (ex: `os`, `cl`, `ve`) via biblioteca `ulid` ou `ulidx` — não usar gerador customizado
+- `auth`
+- `usuario`
+- `cliente`
+- `veiculo`
+- `servico-oficina`
+- `estoque`
+- `ordem-servico`
+- `shared`
 
 ---
 
-## Arquitetura
+## Stack atual
 
-- **Padrão**: DDD (Domain-Driven Design) em monólito em camadas
-- **Evolução planejada**: migração para microserviços em fase futura
-- **Camadas**:
-  - `domain/` — entidades, objetos de valor, interfaces de repositório, eventos de domínio
-  - `application/` — casos de uso, serviços de aplicação
-  - `infrastructure/` — implementações Prisma, serviços externos
-  - `interfaces/` — controllers, DTOs, decorators Swagger
-
-**Regra crítica**: tipos Prisma não devem vazar para a camada de domínio. Manter mapeamento explícito entre modelos de persistência e entidades de domínio.
+- Framework: NestJS 11
+- ORM: Prisma 5
+- Banco: PostgreSQL 16
+- Autenticacao: JWT access + refresh token
+- Documentacao HTTP: Swagger em `/api/docs`
+- Build e runtime local: Node.js + Docker Compose
+- IDs publicos: ULID com prefixo por entidade, gerados na camada de dominio com `ulidx`
 
 ---
 
-## Linguagem Ubíqua
+## Arquitetura atual
 
-Todo o código deve usar **português brasileiro** alinhado ao dicionário ubíquo:
-- nomes de classes, métodos, variáveis, enums e eventos em português
-- referência completa: `Dicionário Ubíquo v3.md`
+- Estilo: monolito modular em camadas
+- Camada `domain`: entidades, enums, value objects, contratos de repositorio, eventos
+- Camada `application`: casos de uso
+- Camada `infrastructure`: Prisma e persistencia
+- Camada `interfaces`: controllers HTTP v1 e DTOs
 
-### Entidades e Aggregates
+### Modulo compartilhado
 
-| Aggregate Root       | Descrição                                         |
-|----------------------|---------------------------------------------------|
-| `OrdemServico`       | Aggregate central — ciclo completo de atendimento |
-| `Cliente`            | Quem solicita o serviço                           |
-| `Veiculo`            | Veículo atendido                                  |
-| `Estoque`            | Controle de peças e quantidades disponíveis       |
-| `Usuario`            | Acesso ao sistema (interno e externo)             |
-| `ServicoOficina`     | Catálogo de serviços padrão — gerenciado pelo ADMINISTRADOR |
+`src/shared` concentra:
 
-### Enum PapelUsuario
+- `domain/`: `EntidadeBase` e `IdUnico`
+- `database/`: `PrismaService`, `DatabaseModule`, `DatabaseTransactionManager`, `PrismaTransactionManager`
+- `http/`: `RespostaInterceptor`, `ExcecaoHttpFilter`, DTOs de paginacao e validadores
+- `utils/`: normalizacao e validacao de documentos
 
-```typescript
-enum PapelUsuario {
-  ADMINISTRADOR,
-  CONSULTOR_TECNICO,
-  MECANICO,
-  CLIENTE,
-}
-```
+### Contrato HTTP global
 
-### Prefixos de ID por entidade
+Configurado em `src/main.ts`:
 
-| Entidade       | Prefixo |
-|----------------|---------|
-| OrdemServico   | `os`    |
-| Cliente        | `cl`    |
-| Veiculo        | `ve`    |
-| Usuario        | `us`    |
-| Peca           | `pc`    |
-| ServicoOficina | `sv`    |
+- prefixo global `/api`
+- versionamento por URI em `/api/v1`
+- `ValidationPipe` com `whitelist: true`, `forbidNonWhitelisted: true` e `transform: true`
+- `RespostaInterceptor` para respostas `{ data }` ou `{ data, meta }`
+- `ExcecaoHttpFilter` para erros padronizados
+- Swagger em `/api/docs`
+
+### Transacoes de banco
+
+O estado atual do repositorio possui uma fronteira transacional explicita para fluxos cross-aggregate.
+
+- `DatabaseTransactionManager` define o contrato de unidade transacional
+- `PrismaTransactionManager` usa `AsyncLocalStorage` para propagar o `TransactionClient`
+- `RegistrarConsumoPecaUseCase` executa baixa no estoque e persistencia da OS na mesma transacao
+- `PrismaOrdemServicoRepository` e `PrismaEstoqueRepository` aderem ao mesmo client transacional quando o contexto esta ativo
+
+Isso substitui o comportamento anterior em que o estoque podia ser confirmado antes da OS.
+
+### Migracoes Prisma
+
+Migration unica consolidada:
+
+1. `prisma/migrations/20260322000000_init` — schema completo com todos os indices de performance
+
+O `Dockerfile` executa `npx prisma migrate deploy` antes de subir a aplicacao.
 
 ---
 
-## Decisões de Domínio Relevantes
+## Modelo de dominio atual
 
-- **Veiculo não tem vínculo permanente com Cliente** — a relação ocorre apenas através da `OrdemServico`
-- **MecanicoResponsavel não é entidade** — é uma referência (`UsuarioId`) dentro de `OrdemServico`. A validação de que só `MECANICO` pode ser atribuído é responsabilidade do aggregate `OrdemServico`
-- **ConsumoPeca é evento de domínio** — disparado por `OrdemServico`, processado por `Estoque`
-- **Peça é entidade interna do aggregate Estoque**
-- **ServicoOficina é catálogo sem preço base** — preço sempre definido pelo mecânico no orçamento
-- **ServicoSolicitado referencia o catálogo** — ao abrir a OS, captura snapshot de `nomeServico` para preservar histórico mesmo com renomeação futura do catálogo
-- **Orcamento estruturado em GrupoOrcamento[]** — cada grupo tem título livre + LinhaServico[]; o total é a soma dos totais dos grupos
-- **notasInternas / notasCliente** — existem em `OrdemServico` e em `Orcamento`; distinção de visibilidade é responsabilidade do front-end
+### Aggregate roots
+
+- `OrdemServico`
+- `Cliente`
+- `Veiculo`
+- `Usuario`
+- `Estoque`
+- `ServicoOficina`
+
+### Entidades internas relevantes
+
+- `ProblemaRelatado`
+- `ServicoSolicitado`
+- `Diagnostico`
+- `Orcamento`
+- `GrupoOrcamento`
+- `LinhaServico`
+- `HistoricoOS`
+- `ConsumoPeca`
+- `Peca` como entidade interna do aggregate `Estoque`
+
+### Regras de dominio importantes
+
+- `Cliente` e `Veiculo` nao possuem relacao estrutural direta; a ligacao acontece via `OrdemServico`
+- `MecanicoResponsavel` e uma referencia para `Usuario`
+- `Diagnostico` e opcional
+- `Orcamento` e interno a `OrdemServico`
+- `ServicoSolicitado` referencia `ServicoOficina` por ID e persiste `nomeServico` em snapshot
+- `ServicoOficina` possui `nome`, `descricao`, `categoria` e `ativo`
+- `HistoricoOS` guarda `evento`, `descricao`, `usuarioId`, `statusAnterior`, `statusNovo` e `criadoEm`
 
 ### Ciclo de vida da OrdemServico
 
-```
-Recebida → Atribuída → Em Diagnóstico* → Aguardando Aprovação → Aprovada → Em Execução → Finalizada → Entregue
-                                                                  ↘ Cancelada (rejeição do orçamento)
-```
-*Em Diagnóstico é opcional — OS com apenas serviços solicitados avançam direto para Aguardando Aprovação.
-Estado Rascunho descartado no MVP (ver decisoes-arquiteturais-oficina.md §4).
+Fluxo principal:
+
+`RECEBIDA -> ATRIBUIDA -> EM_DIAGNOSTICO? -> AGUARDANDO_APROVACAO -> APROVADA -> EM_EXECUCAO -> FINALIZADA -> ENTREGUE`
+
+Fluxo alternativo:
+
+`AGUARDANDO_APROVACAO -> CANCELADA`
+
+Observacao importante:
+
+- o endpoint de diagnostico aceita OS em `ATRIBUIDA`; o use case primeiro chama `iniciarDiagnostico()` e depois registra o diagnostico
+- ordens simples podem ir direto de `ATRIBUIDA` para `AGUARDANDO_APROVACAO` ao gerar o orcamento
 
 ---
 
-## Estrutura de Pastas (src/)
+## Autenticacao e autorizacao
 
-```
-shared/                         ← Kernel compartilhado
-  domain/
-    id.value-object.ts          ← IdUnico base com ULID (ulidx)
-    entidade-base.ts            ← id, criadoEm, atualizadoEm, equals()
-  eventos/evento-dominio.ts     ← interface EventoDominio
-  excecoes/dominio.exception.ts ← RecursoNaoEncontrado, RegraDeNegocio, AcessoNegado
-                                   (usa NestJS por ora — ver TODO no arquivo)
-  database/
-    prisma.service.ts           ← PrismaService (global)
-    database.module.ts          ← DatabaseModule @Global — importado no AppModule
-  http/
-    interceptors/resposta.interceptor.ts   ← envelope { data } / { data, meta }
-    filtros/excecao-http.filter.ts         ← erro padrão { erro, mensagem, statusCode, caminho, timestamp }
-    dtos/paginacao.dto.ts                  ← pagina, porPagina
-    dtos/resposta-paginada.dto.ts          ← RespostaPaginadaDto<T> com meta
+- `POST /api/v1/auth/login` retorna `accessToken` e `refreshToken`
+- `POST /api/v1/auth/refresh` usa refresh token no header `Authorization: Bearer <token>`
+- `POST /api/v1/auth/logout` invalida o refresh token armazenado
 
-auth/                           ← JWT access + refresh (parametrizável via .env)
-  strategies/  guards/  decorators/
-  interfaces/http/v1/dtos/
+Estado atual da implementacao:
 
-usuario/ cliente/ veiculo/ ordem-servico/ estoque/ servico-oficina/
-  domain/          ← entidades, enums, interfaces de repositório, value objects
-  application/casos-de-uso/
-  infrastructure/persistencia/
-  interfaces/http/v1/dtos/
-  *.module.ts
-```
+- login, refresh e validacao do access token bloqueiam usuarios inativos
+- `JwtStrategy` consulta o repositorio a cada validacao; nao confia apenas no payload do token
+- RBAC e feito com `JwtAuthGuard`, `PapeisGuard` e decorator `@Papeis`
 
-## Schema Prisma (prisma/schema.prisma)
+---
 
-Tabelas: `usuarios`, `clientes`, `veiculos`, `ordens_servico`, `problemas_relatados`, `servicos_solicitados`, `diagnosticos`, `orcamentos`, `grupos_orcamento`, `linhas_servico`, `historico_os`, `consumos_peca`, `pecas`, `estoque`, `servicos_oficina`
+## Endpoints e papeis relevantes
 
-- IDs das entidades principais: String (ULID com prefixo gerado na camada de domínio)
-- IDs de entidades filhas (ProblemaRelatado, GrupoOrcamento, LinhaServico etc.): `@default(cuid())`
-- Valores monetários: `Decimal @db.Decimal(10,2)`
-- `ordens_servico.numero`: Int `@default(autoincrement())` — referência operacional humana
-- `usuarios.refreshTokenHash`: armazena hash do refresh token ativo (nullable)
-- `clientes.tipoDoc`: enum `TipoDocumento { CPF, CNPJ }` — distingue pessoa física de jurídica
-- `clientes.numeroDoc`: String `@unique` — CPF ou CNPJ, identificador único de negócio do cliente
-- `servicos_solicitados.servicoId`: FK para `servicos_oficina` — referência ao catálogo
-- `servicos_solicitados.nomeServico`: snapshot do nome do serviço no momento da abertura da OS
-- `orcamentos.notasInternas` / `orcamentos.notasCliente`: campos opcionais de notas
-- `ordens_servico.notasInternas` / `ordens_servico.notasCliente`: campos opcionais de notas
-- `historico_os.statusAnterior` / `historico_os.statusNovo`: enum `StatusOrdemServico?` — transição estruturada (nullable para compatibilidade histórica; `statusAnterior` é null em `ORDEM_ABERTA`)
+### Usuarios
 
-## Configuração HTTP (main.ts)
+Acesso restrito a:
 
-- Prefixo global: `/api`
-- Versionamento URI: `/api/v1/...`
-- Swagger: `/api/docs` com `addBearerAuth()`
-- ValidationPipe global com `whitelist: true`, `transform: true`
-- CORS configurável via `CORS_ORIGIN` (default `*`)
+- `ADMINISTRADOR`
 
-## Variáveis de Ambiente necessárias
+Tanto criacao (`POST`) quanto consulta (`GET /:id`) exigem autenticacao e papel `ADMINISTRADOR`.
 
-```env
-DATABASE_URL=postgresql://...
-PORT=3000
-CORS_ORIGIN=http://localhost:5173
-JWT_SECRET=
-JWT_EXPIRATION=15m
-JWT_REFRESH_SECRET=
-JWT_REFRESH_EXPIRATION=7d
-```
+### Clientes e Veiculos
 
-## Casos de Uso de ServicoOficina
+Acesso restrito a:
 
-- `RegistrarServicoOficinaUseCase` — cria novo serviço no catálogo; rota `POST /servicos-oficina` (ADMINISTRADOR)
-- `ListarServicosOficinaUseCase` — lista todos os serviços (ativos e inativos); rota `GET /servicos-oficina` (internos)
-- `BuscarServicoOficinaPorIdUseCase` — busca por ID; rota `GET /servicos-oficina/:id` (internos)
-- `AtualizarServicoOficinaUseCase` — atualiza nome, descrição ou `ativo`; rota `PATCH /servicos-oficina/:id` (ADMINISTRADOR)
+- `ADMINISTRADOR`
+- `CONSULTOR_TECNICO`
 
-## Casos de Uso de OrdemServico
+### ServicoOficina
 
-Consultas separadas por ator:
-- `BuscarOrdemServicoPorId` + `ListarOrdensServico` — ADMINISTRADOR, CONSULTOR_TECNICO (acesso total)
-- `ListarOrdensMecanico` — MECANICO; rota `GET /ordens-servico/mecanico/minhas-ordens` — OS atribuídas a ele nos status ATRIBUIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, APROVADA, EM_EXECUCAO
-- `BuscarOrdemServicoMecanico` — MECANICO; rota `GET /ordens-servico/mecanico/:id` — busca OS por ID validando que ele é o `mecanicoResponsavelId`; retorna 403 se não for
-- `BuscarMinhaOrdemServico` + `ListarMinhasOrdensServico` — CLIENTE (apenas suas próprias OS)
+- `POST` e `PATCH`: apenas `ADMINISTRADOR`
+- `GET` lista e busca: `ADMINISTRADOR`, `CONSULTOR_TECNICO`, `MECANICO`
+- a listagem atual retorna apenas servicos ativos
+- apesar de existir `ativo` na entidade e no schema, a API atual nao expõe rota para ativar ou desativar servicos
 
-`AbrirOrdemServicoUseCase` — valida `servicoId` no catálogo `ServicoOficina` e captura snapshot `nomeServico` para cada serviço solicitado. Aceita também `notasInternas` e `notasCliente` opcionais.
+### Estoque
 
-`GerarOrcamentoUseCase` — input: `{ osId, mecanicoId, grupos: GrupoOrcamentoInput[], notasInternas?, notasCliente? }`. Cada grupo tem `titulo` + `linhas[]`. O total é calculado pela soma dos grupos.
+- cadastro, entrada e atualizacao de peca: `ADMINISTRADOR`
+- consulta e listagem: `ADMINISTRADOR`, `MECANICO`
 
-## Casos de Uso de Cliente
+### OrdemServico
 
-Todos os endpoints de clientes e veículos são restritos a **ADMINISTRADOR e CONSULTOR_TECNICO**. MECANICO e CLIENTE não têm acesso.
+- abertura, atribuicao, entrega e consultas internas: `ADMINISTRADOR`, `CONSULTOR_TECNICO`
+- diagnostico, orcamento, inicio de execucao, consumo de peca e finalizacao: `MECANICO`
+- aprovacao e rejeicao de orcamento: `CLIENTE`, `ADMINISTRADOR`
+- rotas do mecanico usam ownership por `mecanicoResponsavelId`
+- rotas do cliente (`minhas/*`, aprovar, rejeitar) usam ownership por `Cliente.usuarioId`
 
-- `CriarClienteUseCase` — valida unicidade por `numeroDoc`; rejeita com 409 se documento duplicado
-- `BuscarClientePorNumeroDocUseCase` — busca por CPF ou CNPJ; rota `GET /clientes/documento/:numeroDoc`
-- `AtualizarClienteUseCase` — atualiza apenas nome, email, telefone e endereço; `tipoDoc` e `numeroDoc` são imutáveis
+### Ownership do CLIENTE
 
-## Validação de Documentos
+O schema possui relacao explicita `Cliente.usuarioId -> Usuario.id` (campo opcional e unico).
 
-Utilitário interno: `src/shared/utils/documento-validator.ts`
-- Baseado no projeto open-source `cnpj-cpf-validator` de Frederico Ferreira (MIT) — embutido por não estar publicado no npm
-- Suporta CPF, CNPJ numérico tradicional e **novo CNPJ alfanumérico** (vigente julho/2026)
-- Exporta: `isValidCPF`, `isValidCNPJ`, `cleanCPF`, `cleanCNPJ`, `cleanNumbers`, `cleanAlphanumeric`, `formatCPF`, `formatCNPJ`, `isValidDocument`, `formatDocument`
-- `@IsValidCpf()` — `src/shared/http/validators/cpf.validator.ts` → usa `isValidCPF()`
-- `@IsValidCnpj()` — `src/shared/http/validators/cnpj.validator.ts` → usa `isValidCNPJ()`
-- Aplicados condicionalmente no DTO via `@ValidateIf(o => o.tipoDoc === TipoDocumento.CPF/CNPJ)`
+Rotas do CLIENTE:
 
-## Normalização de Dados
+- `GET /api/v1/ordens-servico/minhas/lista`
+- `GET /api/v1/ordens-servico/minhas/:id`
+- `PATCH /api/v1/ordens-servico/:id/aprovar`
+- `PATCH /api/v1/ordens-servico/:id/rejeitar`
 
-Campos normalizados **antes de persistir** (camada application/use case):
-- `numeroDoc` (Cliente): `cleanCPF(doc)` para CPF, `cleanCNPJ(doc)` para CNPJ — remove máscara, preserva letras em CNPJ alfanumérico
-- `placa` (Veiculo): `.toUpperCase().replace(/[^A-Z0-9]/g, '')` — uppercase + remove separadores
-- Busca aceita entrada formatada ou sem máscara — normaliza antes de consultar
-- **O front-end é responsável por aplicar máscaras de exibição**
+O fluxo de ownership resolve `usuario.sub` para um `Cliente` via `BuscarClientePorUsuarioUseCase` e valida `ordemServico.clienteId === cliente.id`. ADMINISTRADOR pode aprovar/rejeitar como fallback operacional.
 
-## Histórico de Transições de Estado (OrdemServico)
+---
 
-Cada transição de estado registra uma entrada em `historico` com:
-- `evento`: código `EventoHistoricoOS` (ex: `MECANICO_ATRIBUIDO`)
-- `descricao`: formato `"STATUS_A → STATUS_B | detalhe opcional"` (ex: `"RECEBIDA → ATRIBUIDA | Mecânico João atribuído"`)
-- `usuarioId`: ID do usuário que executou a ação
-- `statusAnterior`: `StatusOrdemServico | null` — status antes da transição (null apenas em `ORDEM_ABERTA`)
-- `statusNovo`: `StatusOrdemServico | null` — status resultante da transição
-- `criadoEm`: timestamp automático
+## Persistencia Prisma
 
-Eventos sem mudança de status (`PECA_CONSUMIDA`) têm `statusAnterior === statusNovo`. Primeiro evento do ciclo: `ORDEM_ABERTA` registrado em `OrdemServico.abrir()` com `statusAnterior = null`, `statusNovo = RECEBIDA`.
+Tabelas centrais:
 
-## Relatório de Lead-time
+- `usuarios`
+- `clientes`
+- `veiculos`
+- `servicos_oficina`
+- `ordens_servico`
+- `problemas_relatados`
+- `servicos_solicitados`
+- `diagnosticos`
+- `orcamentos`
+- `grupos_orcamento`
+- `linhas_servico`
+- `historico_os`
+- `consumos_peca`
+- `pecas`
+- `estoque`
 
-`GET /api/v1/ordens-servico/relatorio/lead-time` — papéis: ADMINISTRADOR, CONSULTOR_TECNICO
-- Lead-time = `criadoEm` da OS até o `criadoEm` do evento `VEICULO_ENTREGUE` no histórico
-- Retorna: `totalOSEntregues`, `leadTimeMedioHoras`, `leadTimeMinimoHoras`, `leadTimeMaximoHoras`, `ordens[]`
-- Use case: `RelatorioLeadTimeUseCase`
+Observacoes:
 
-## Sistema de KPIs e Tempo de Ciclo
+- IDs principais sao `String`
+- `ordens_servico.numero` e autoincremental para referencia operacional
+- valores monetarios usam `Decimal(10,2)` no banco; a conversao para `number` no dominio e segura para esta escala
+- `historico_os.statusAnterior` e `historico_os.statusNovo` fazem parte do schema atual
 
-### KPIs Pré-definidos
+Indices de performance:
 
-`GET /api/v1/ordens-servico/relatorio/kpis` — papéis: ADMINISTRADOR, CONSULTOR_TECNICO
-- Use case: `KpisOrdemServicoUseCase`
-- Calcula KPIs sobre **todas as OS** (não apenas ENTREGUE), agrupados por segmento do ciclo
-- Cada KPI retorna `{ mediaHoras, minimoHoras, maximoHoras, totalAmostras }`
+- `ordens_servico`: `clienteId`, `status`, `mecanicoResponsavelId`
+- `historico_os`: composto `(ordemServicoId, criadoEm)`
+- `consumos_peca`, `problemas_relatados`, `servicos_solicitados`: `ordemServicoId`
 
-| KPI | Evento início | Evento fim | Significado |
-|---|---|---|---|
-| `esperaAtribuicao` | `ORDEM_ABERTA` | `MECANICO_ATRIBUIDO` | Eficiência da recepção |
-| `diagnosticoOrcamento` | `MECANICO_ATRIBUIDO` | `ORCAMENTO_GERADO` | Agilidade técnica inicial |
-| `aprovacaoCliente` | `ORCAMENTO_GERADO` | `ORCAMENTO_APROVADO` | Tempo fora do controle da oficina |
-| `execucao` | `EXECUCAO_INICIADA` | `ORDEM_FINALIZADA` | Produtividade do mecânico |
-| `esperaEntrega` | `ORDEM_FINALIZADA` | `VEICULO_ENTREGUE` | Eficiência de entrega |
-| `leadTimeTotal` | `ORDEM_ABERTA` | `VEICULO_ENTREGUE` | Ocupação de "vaga de garagem" |
-| `tempoTecnicoLiquido` | — | — | leadTime − esperaAtribuicao − aprovacaoCliente − esperaEntrega |
+Paginacao:
 
-- `taxaAprovacaoOrcamento`: percentual de orçamentos aprovados sobre o total gerado
+- `PaginacaoDto` limita `porPagina` entre 1 e 100 (`@Min(1)`, `@Max(100)`)
 
-### Tempo de Ciclo Personalizado
+---
 
-`GET /api/v1/ordens-servico/relatorio/tempo-ciclo` — papéis: ADMINISTRADOR, CONSULTOR_TECNICO
-- Use case: `TempoCicloPersonalizadoUseCase`
-- Permite medir o intervalo entre **quaisquer dois eventos** do histórico
-- Aceita múltiplos descontos via query string
+## Testes
 
-**Query params:**
-- `eventoInicio` (obrigatório) — ex: `MECANICO_ATRIBUIDO`
-- `eventoFim` (obrigatório) — ex: `ORDEM_FINALIZADA`
-- `descontar` (repetível, opcional) — formato `EVENTO_A:EVENTO_B`
+Estado atual do repositorio:
 
-**Exemplo:** tempo do mecânico descontando aprovação do cliente:
-```
-GET /relatorio/tempo-ciclo?eventoInicio=MECANICO_ATRIBUIDO&eventoFim=ORDEM_FINALIZADA&descontar=ORCAMENTO_GERADO:ORCAMENTO_APROVADO
-```
+- `npm run build` compila a aplicacao
+- `npm test -- --runInBand` executa a suite principal sob `src/**/*.spec.ts`
+- `npm run test:e2e -- --runInBand` executa apenas um smoke test em `test/app.e2e-spec.ts`
 
-**Retorno por OS:** `duracaoBrutaHoras`, `duracaoLiquidaHoras`, `totalDescontadoHoras`
-**Retorno agregado:** `mediaHoras`, `minimoHoras`, `maximoHoras`, `totalAmostras`
+O e2e atual:
 
-**Regra de desconto:** se a OS não possuir os dois eventos de um par de desconto, o desconto é ignorado para aquela OS específica (não invalida a amostra).
+- sobe o `AppModule`
+- faz override do `PrismaService`
+- nao usa banco real
+- verifica que uma rota protegida responde `401` sem JWT
 
-### Método de repositório
-`buscarTodasComHistorico()` — adicionado a `OrdemServicoRepository` — retorna todas as OS (qualquer status) com historico completo, usado pelos dois use cases de análise.
+Nao existe hoje uma suite automatizada de e2e com fluxo completo contra PostgreSQL.
 
-## Convenções
+---
 
-- Idioma do código: **português brasileiro**
-- Idioma de commits e documentação técnica: **português brasileiro**
-- Comunicação com Claude: **português brasileiro**
-- Envelope de resposta: `{ data }` simples ou `{ data, meta }` para listas paginadas
-- Erro padrão: `{ erro, mensagem, statusCode, caminho, timestamp }`
+## Convencoes do repositorio
+
+- linguagem de codigo: portugues brasileiro
+- respostas de sucesso: `{ data }` ou `{ data, meta }`
+- respostas de erro: `{ erro, mensagem, statusCode, caminho, timestamp }`
+- Prisma nao deve vazar para a camada de dominio
+- repositores fazem mapeamento explicito entre persistencia e entidades
+
+---
+
+## Arquivos de entrada rapida
+
+- `src/app.module.ts`
+- `src/main.ts`
+- `prisma/schema.prisma`
+- `src/shared/database/database.module.ts`
+- `src/shared/database/prisma-transaction.manager.ts`
+- `src/ordem-servico/interfaces/http/v1/ordem-servico.controller.ts`
+- `src/ordem-servico/domain/ordem-servico.entity.ts`
+- `test/app.e2e-spec.ts`

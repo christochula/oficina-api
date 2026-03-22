@@ -25,6 +25,8 @@ export class AtualizarClienteDto {
   @ApiPropertyOptional() @IsOptional() @IsString() nome?: string;
   @ApiPropertyOptional() @IsOptional() @IsEmail() email?: string;
   @ApiPropertyOptional() @IsOptional() @IsString() telefone?: string;
+  @ApiPropertyOptional({ description: 'ID do usuario CLIENTE vinculado. Envie null para remover o vinculo.' })
+  @IsOptional() @IsString() usuarioId?: string | null;
 
   /** Atualização parcial do endereço. Subcampos omitidos preservam o valor existente. */
   @ApiPropertyOptional({ type: EnderecoDto })

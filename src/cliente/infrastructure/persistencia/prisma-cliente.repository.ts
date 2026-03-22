@@ -27,6 +27,7 @@ export class PrismaClienteRepository implements ClienteRepository {
       where: { id: cliente.id.valor },
       create: {
         id: cliente.id.valor,
+        usuarioId: cliente.usuarioId,
         tipoDoc: cliente.tipoDoc,
         numeroDoc: cliente.numeroDoc,
         nome: cliente.nome,
@@ -44,6 +45,7 @@ export class PrismaClienteRepository implements ClienteRepository {
         atualizadoEm: cliente.atualizadoEm,
       },
       update: {
+        usuarioId: cliente.usuarioId,
         nome: cliente.nome,
         email: cliente.email,
         telefone: cliente.telefone,
@@ -67,6 +69,17 @@ export class PrismaClienteRepository implements ClienteRepository {
    */
   async buscarPorId(id: ClienteId): Promise<Cliente | null> {
     const registro = await this.prisma.cliente.findUnique({ where: { id: id.valor } });
+    if (!registro) return null;
+    return this.mapear(registro);
+  }
+
+  /**
+   * Busca um cliente pelo usuário autenticável associado.
+   * @param usuarioId - ID do usuário autenticado.
+   * @returns Cliente reconstituído ou null se não houver vínculo.
+   */
+  async buscarPorUsuarioId(usuarioId: string): Promise<Cliente | null> {
+    const registro = await this.prisma.cliente.findUnique({ where: { usuarioId } });
     if (!registro) return null;
     return this.mapear(registro);
   }
@@ -108,7 +121,7 @@ export class PrismaClienteRepository implements ClienteRepository {
    * @returns Instância de Cliente reconstituída com estado idêntico ao persistido.
    */
   private mapear(r: {
-    id: string; tipoDoc: string; numeroDoc: string; nome: string; email: string;
+    id: string; usuarioId: string | null; tipoDoc: string; numeroDoc: string; nome: string; email: string;
     telefone: string; logradouro: string | null; numero: string | null;
     complemento: string | null; bairro: string | null; cidade: string | null;
     estado: string | null; cep: string | null; ativo: boolean;
@@ -116,6 +129,7 @@ export class PrismaClienteRepository implements ClienteRepository {
   }): Cliente {
     return Cliente.reconstituir({
       id: ClienteId.de(r.id),
+      usuarioId: r.usuarioId,
       tipoDoc: r.tipoDoc as TipoDocumento,
       numeroDoc: r.numeroDoc,
       nome: r.nome,

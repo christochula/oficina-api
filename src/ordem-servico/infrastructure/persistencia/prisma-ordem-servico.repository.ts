@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { Prisma } from '@prisma/client';
-import { PrismaService } from '../../../shared/database/prisma.service';
+import { $Enums, Prisma } from '@prisma/client';
+import type { PrismaService } from '../../../shared/database/prisma.service';
+import { PrismaTransactionManager } from '../../../shared/database/prisma-transaction.manager';
 import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { OrdemServicoId } from '../../domain/ordem-servico-id.value-object';
 import {
@@ -13,9 +14,6 @@ import { GrupoOrcamento } from '../../domain/value-objects/grupo-orcamento.vo';
 import { LinhaServico, TipoLinhaServico } from '../../domain/value-objects/linha-servico.vo';
 import { Orcamento } from '../../domain/value-objects/orcamento.vo';
 
-/**
- * Include completo para carregar uma OS com todas as relações necessárias.
- */
 const INCLUDE_COMPLETO = {
   problemasRelatados: true,
   servicosSolicitados: true,
@@ -34,144 +32,144 @@ const INCLUDE_COMPLETO = {
 
 type OrdemServicoRaw = Prisma.OrdemServicoGetPayload<{ include: typeof INCLUDE_COMPLETO }>;
 
-/**
- * Implementação do repositório de OrdemServico utilizando Prisma ORM.
- */
 @Injectable()
 export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly transactionManager: PrismaTransactionManager) {}
+
+  private get db(): Prisma.TransactionClient | PrismaService {
+    return this.transactionManager.client;
+  }
 
   async salvar(os: OrdemServico): Promise<void> {
-    const existente = await this.prisma.ordemServico.findUnique({ where: { id: os.id.valor } });
+    await this.transactionManager.executar(async () => {
+      const db = this.db;
+      const existente = await db.ordemServico.findUnique({ where: { id: os.id.valor } });
 
-    if (!existente) {
-      await this.prisma.ordemServico.create({
-        data: {
-          id: os.id.valor,
-          status: os.status,
-          clienteId: os.clienteId,
-          veiculoId: os.veiculoId,
-          mecanicoResponsavelId: os.mecanicoResponsavelId,
-          notasInternas: os.notasInternas,
-          notasCliente: os.notasCliente,
-          criadoEm: os.criadoEm,
-          atualizadoEm: os.atualizadoEm,
-          problemasRelatados: {
-            create: os.problemasRelatados.map((p) => ({ descricao: p.descricao })),
-          },
-          servicosSolicitados: {
-            create: os.servicosSolicitados.map((s) => ({
-              servicoId: s.servicoId,
-              nomeServico: s.nomeServico,
-              observacao: s.observacao,
-            })),
-          },
-        },
-      });
-      return;
-    }
-
-    await this.prisma.ordemServico.update({
-      where: { id: os.id.valor },
-      data: {
-        status: os.status,
-        mecanicoResponsavelId: os.mecanicoResponsavelId,
-        notasInternas: os.notasInternas,
-        notasCliente: os.notasCliente,
-        atualizadoEm: os.atualizadoEm,
-      },
-    });
-
-    // Sincroniza diagnóstico
-    if (os.diagnostico) {
-      await this.prisma.diagnostico.upsert({
-        where: { ordemServicoId: os.id.valor },
-        create: { ordemServicoId: os.id.valor, descricao: os.diagnostico.descricao },
-        update: { descricao: os.diagnostico.descricao },
-      });
-    }
-
-    // Sincroniza orçamento com grupos
-    if (os.orcamento) {
-      const orcamentoExistente = await this.prisma.orcamento.findUnique({
-        where: { ordemServicoId: os.id.valor },
-      });
-
-      if (!orcamentoExistente) {
-        await this.prisma.orcamento.create({
+      if (!existente) {
+        await db.ordemServico.create({
           data: {
-            ordemServicoId: os.id.valor,
-            total: os.orcamento.total,
-            notasInternas: os.orcamento.notasInternas,
-            notasCliente: os.orcamento.notasCliente,
-            aprovadoEm: os.orcamento.aprovadoEm,
-            rejeitadoEm: os.orcamento.rejeitadoEm,
-            criadoEm: os.orcamento.criadoEm,
-            grupos: {
-              create: os.orcamento.grupos.map((g) => ({
-                titulo: g.titulo,
-                total: g.total,
-                ordem: g.ordem,
-                linhasServico: {
-                  create: g.linhasServico.map((l) => ({
-                    tipo: l.tipo,
-                    descricao: l.descricao,
-                    quantidade: l.quantidade,
-                    valorUnitario: l.valorUnitario,
-                    subtotal: l.subtotal,
-                    pecaId: l.pecaId,
-                  })),
-                },
+            id: os.id.valor,
+            status: os.status,
+            clienteId: os.clienteId,
+            veiculoId: os.veiculoId,
+            mecanicoResponsavelId: os.mecanicoResponsavelId,
+            notasInternas: os.notasInternas,
+            notasCliente: os.notasCliente,
+            criadoEm: os.criadoEm,
+            atualizadoEm: os.atualizadoEm,
+            problemasRelatados: {
+              create: os.problemasRelatados.map((p) => ({ descricao: p.descricao })),
+            },
+            servicosSolicitados: {
+              create: os.servicosSolicitados.map((s) => ({
+                servicoId: s.servicoId,
+                nomeServico: s.nomeServico,
+                observacao: s.observacao,
               })),
             },
           },
         });
-      } else {
-        await this.prisma.orcamento.update({
+        return;
+      }
+
+      await db.ordemServico.update({
+        where: { id: os.id.valor },
+        data: {
+          status: os.status,
+          mecanicoResponsavelId: os.mecanicoResponsavelId,
+          notasInternas: os.notasInternas,
+          notasCliente: os.notasCliente,
+          atualizadoEm: os.atualizadoEm,
+        },
+      });
+
+      if (os.diagnostico) {
+        await db.diagnostico.upsert({
           where: { ordemServicoId: os.id.valor },
-          data: {
-            total: os.orcamento.total,
-            notasInternas: os.orcamento.notasInternas,
-            notasCliente: os.orcamento.notasCliente,
-            aprovadoEm: os.orcamento.aprovadoEm,
-            rejeitadoEm: os.orcamento.rejeitadoEm,
-          },
+          create: { ordemServicoId: os.id.valor, descricao: os.diagnostico.descricao },
+          update: { descricao: os.diagnostico.descricao },
         });
       }
-    }
 
-    // Sincroniza histórico — adiciona apenas entradas sem id (novas)
-    const novasEntradas = os.historico.filter((h) => !h.id);
-    if (novasEntradas.length > 0) {
-      await this.prisma.historicoOS.createMany({
-        data: novasEntradas.map((h) => ({
-          ordemServicoId: os.id.valor,
-          evento: h.evento as never,
-          descricao: h.descricao,
-          usuarioId: h.usuarioId,
-          statusAnterior: (h.statusAnterior ?? null) as never,
-          statusNovo: (h.statusNovo ?? null) as never,
-          criadoEm: h.criadoEm ?? new Date(),
-        })),
-      });
-    }
+      if (os.orcamento) {
+        const orcamentoExistente = await db.orcamento.findUnique({
+          where: { ordemServicoId: os.id.valor },
+        });
 
-    // Sincroniza consumos de peça — adiciona apenas entradas sem id (novas)
-    const novosConsumos = os.consumosPeca.filter((c) => !c.id);
-    if (novosConsumos.length > 0) {
-      await this.prisma.consumoPeca.createMany({
-        data: novosConsumos.map((c) => ({
-          ordemServicoId: os.id.valor,
-          pecaId: c.pecaId,
-          quantidade: c.quantidade,
-          criadoEm: c.criadoEm ?? new Date(),
-        })),
-      });
-    }
+        if (!orcamentoExistente) {
+          await db.orcamento.create({
+            data: {
+              ordemServicoId: os.id.valor,
+              total: os.orcamento.total,
+              notasInternas: os.orcamento.notasInternas,
+              notasCliente: os.orcamento.notasCliente,
+              aprovadoEm: os.orcamento.aprovadoEm,
+              rejeitadoEm: os.orcamento.rejeitadoEm,
+              criadoEm: os.orcamento.criadoEm,
+              grupos: {
+                create: os.orcamento.grupos.map((g) => ({
+                  titulo: g.titulo,
+                  total: g.total,
+                  ordem: g.ordem,
+                  linhasServico: {
+                    create: g.linhasServico.map((l) => ({
+                      tipo: l.tipo,
+                      descricao: l.descricao,
+                      quantidade: l.quantidade,
+                      valorUnitario: l.valorUnitario,
+                      subtotal: l.subtotal,
+                      pecaId: l.pecaId,
+                    })),
+                  },
+                })),
+              },
+            },
+          });
+        } else {
+          await db.orcamento.update({
+            where: { ordemServicoId: os.id.valor },
+            data: {
+              total: os.orcamento.total,
+              notasInternas: os.orcamento.notasInternas,
+              notasCliente: os.orcamento.notasCliente,
+              aprovadoEm: os.orcamento.aprovadoEm,
+              rejeitadoEm: os.orcamento.rejeitadoEm,
+            },
+          });
+        }
+      }
+
+      const novasEntradas = os.historico.filter((h) => !h.id);
+      if (novasEntradas.length > 0) {
+        await db.historicoOS.createMany({
+          data: novasEntradas.map((h) => ({
+            ordemServicoId: os.id.valor,
+            evento: h.evento as $Enums.EventoHistoricoOS,
+            descricao: h.descricao,
+            usuarioId: h.usuarioId,
+            statusAnterior: (h.statusAnterior ?? null) as $Enums.StatusOrdemServico | null,
+            statusNovo: (h.statusNovo ?? null) as $Enums.StatusOrdemServico | null,
+            criadoEm: h.criadoEm ?? new Date(),
+          })),
+        });
+      }
+
+      const novosConsumos = os.consumosPeca.filter((c) => !c.id);
+      if (novosConsumos.length > 0) {
+        await db.consumoPeca.createMany({
+          data: novosConsumos.map((c) => ({
+            ordemServicoId: os.id.valor,
+            pecaId: c.pecaId,
+            quantidade: c.quantidade,
+            criadoEm: c.criadoEm ?? new Date(),
+          })),
+        });
+      }
+    });
   }
 
   async buscarPorId(id: OrdemServicoId): Promise<OrdemServico | null> {
-    const registro = await this.prisma.ordemServico.findUnique({
+    const registro = await this.db.ordemServico.findUnique({
       where: { id: id.valor },
       include: INCLUDE_COMPLETO,
     });
@@ -181,30 +179,31 @@ export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
 
   async listar(filtros: FiltrosListagemOS): Promise<RepositorioListagem> {
     const where: Prisma.OrdemServicoWhereInput = {};
-    if (filtros.statusIn?.length) where.status = { in: filtros.statusIn as never[] };
-    else if (filtros.status) where.status = filtros.status as never;
+    if (filtros.statusIn?.length) where.status = { in: filtros.statusIn as $Enums.StatusOrdemServico[] };
+    else if (filtros.status) where.status = filtros.status as $Enums.StatusOrdemServico;
     if (filtros.clienteId) where.clienteId = filtros.clienteId;
     if (filtros.mecanicoResponsavelId) where.mecanicoResponsavelId = filtros.mecanicoResponsavelId;
 
     const pagina = filtros.pagina ?? 1;
     const porPagina = filtros.porPagina ?? 20;
+    const db = this.db;
 
     const [registros, total] = await Promise.all([
-      this.prisma.ordemServico.findMany({
+      db.ordemServico.findMany({
         where,
         include: INCLUDE_COMPLETO,
         orderBy: { criadoEm: 'desc' },
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
-      this.prisma.ordemServico.count({ where }),
+      db.ordemServico.count({ where }),
     ]);
 
     return { itens: registros.map((r) => this.mapear(r)), total };
   }
 
   async buscarEntregues(): Promise<OrdemServico[]> {
-    const registros = await this.prisma.ordemServico.findMany({
+    const registros = await this.db.ordemServico.findMany({
       where: { status: 'ENTREGUE' },
       include: INCLUDE_COMPLETO,
       orderBy: { criadoEm: 'asc' },
@@ -213,7 +212,7 @@ export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
   }
 
   async buscarTodasComHistorico(osIds?: string[]): Promise<OrdemServico[]> {
-    const registros = await this.prisma.ordemServico.findMany({
+    const registros = await this.db.ordemServico.findMany({
       where: osIds?.length ? { id: { in: osIds } } : undefined,
       include: INCLUDE_COMPLETO,
       orderBy: { criadoEm: 'asc' },
@@ -275,8 +274,8 @@ export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
         evento: h.evento,
         descricao: h.descricao ?? undefined,
         usuarioId: h.usuarioId ?? undefined,
-        statusAnterior: h.statusAnterior ?? null,
-        statusNovo: h.statusNovo ?? null,
+        statusAnterior: (h.statusAnterior as StatusOrdemServico | null) ?? null,
+        statusNovo: (h.statusNovo as StatusOrdemServico | null) ?? null,
         criadoEm: h.criadoEm,
       })),
       consumosPeca: r.consumosPeca.map((c) => ({

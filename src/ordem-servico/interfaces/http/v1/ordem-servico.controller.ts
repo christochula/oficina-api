@@ -73,7 +73,7 @@ export class OrdemServicoController {
     private readonly listarOS: ListarOrdensServicoUseCase,
     private readonly buscarMinhaOS: BuscarMinhaOrdemServicoUseCase,
     private readonly listarMinhasOS: ListarMinhasOrdensServicoUseCase,
-    private readonly listarOrdensMecanico: ListarOrdensMecanicoUseCase,
+    private readonly listarOrdensMecanicoUseCase: ListarOrdensMecanicoUseCase,
     private readonly buscarOSMecanico: BuscarOrdemServicoMecanicoUseCase,
     private readonly relatorioLeadTime: RelatorioLeadTimeUseCase,
     private readonly kpisOS: KpisOrdemServicoUseCase,
@@ -148,11 +148,11 @@ export class OrdemServicoController {
 
   /**
    * Aprova o orçamento da OS, avançando o status para APROVADA.
-   * Papéis permitidos: ADMINISTRADOR, CONSULTOR_TECNICO, CLIENTE.
+   * Papéis permitidos: ADMINISTRADOR, CLIENTE.
    */
   @Patch(':id/aprovar')
   @Version('1')
-  @Papeis(PapelUsuario.ADMINISTRADOR, PapelUsuario.CONSULTOR_TECNICO, PapelUsuario.CLIENTE)
+  @Papeis(PapelUsuario.CLIENTE, PapelUsuario.ADMINISTRADOR)
   @ApiOperation({ summary: 'Aprovar orçamento' })
   async aprovar(@Param('id') id: string, @UsuarioAtual() usuario: JwtPayload) {
     return this.aprovarOrcamento.executar(id, usuario.sub);
@@ -160,11 +160,11 @@ export class OrdemServicoController {
 
   /**
    * Rejeita o orçamento da OS, avançando o status para CANCELADA.
-   * Papéis permitidos: ADMINISTRADOR, CONSULTOR_TECNICO, CLIENTE.
+   * Papéis permitidos: ADMINISTRADOR, CLIENTE.
    */
   @Patch(':id/rejeitar')
   @Version('1')
-  @Papeis(PapelUsuario.ADMINISTRADOR, PapelUsuario.CONSULTOR_TECNICO, PapelUsuario.CLIENTE)
+  @Papeis(PapelUsuario.CLIENTE, PapelUsuario.ADMINISTRADOR)
   @ApiOperation({ summary: 'Rejeitar orçamento' })
   async rejeitar(@Param('id') id: string, @UsuarioAtual() usuario: JwtPayload) {
     return this.rejeitarOrcamento.executar(id, usuario.sub);
@@ -333,7 +333,10 @@ export class OrdemServicoController {
   @Papeis(PapelUsuario.MECANICO)
   @ApiOperation({ summary: 'Listar minhas OS em andamento (mecânico)' })
   async listarOrdensMecanico(@UsuarioAtual() usuario: JwtPayload, @Query() paginacao: PaginacaoDto) {
-    return this.listarOrdensMecanico.executar({ mecanicoId: usuario.sub, ...paginacao });
+    return this.listarOrdensMecanicoUseCase.executar({
+      mecanicoId: usuario.sub,
+      ...paginacao,
+    });
   }
 
   /**
@@ -363,7 +366,7 @@ export class OrdemServicoController {
   @Papeis(PapelUsuario.CLIENTE)
   @ApiOperation({ summary: 'Listar minhas OS (cliente)' })
   async listarMinhas(@UsuarioAtual() usuario: JwtPayload, @Query() paginacao: PaginacaoDto) {
-    return this.listarMinhasOS.executar({ clienteId: usuario.sub, ...paginacao });
+    return this.listarMinhasOS.executar({ usuarioId: usuario.sub, ...paginacao });
   }
 
   /**
