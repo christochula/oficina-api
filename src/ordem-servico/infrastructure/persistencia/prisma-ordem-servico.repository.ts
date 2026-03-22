@@ -149,6 +149,8 @@ export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
           evento: h.evento as never,
           descricao: h.descricao,
           usuarioId: h.usuarioId,
+          statusAnterior: (h.statusAnterior ?? null) as never,
+          statusNovo: (h.statusNovo ?? null) as never,
           criadoEm: h.criadoEm ?? new Date(),
         })),
       });
@@ -272,6 +274,8 @@ export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
         evento: h.evento,
         descricao: h.descricao ?? undefined,
         usuarioId: h.usuarioId ?? undefined,
+        statusAnterior: h.statusAnterior ?? null,
+        statusNovo: h.statusNovo ?? null,
         criadoEm: h.criadoEm,
       })),
       consumosPeca: r.consumosPeca.map((c) => ({

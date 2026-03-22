@@ -99,6 +99,13 @@ describe('OrdemServico', () => {
       expect(evento).toBeDefined();
     });
 
+    it('deve registrar ORDEM_ABERTA com statusAnterior null e statusNovo RECEBIDA', () => {
+      const os = osRecebida();
+      const evento = os.historico.find((h) => h.evento === 'ORDEM_ABERTA');
+      expect(evento?.statusAnterior).toBeNull();
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.RECEBIDA);
+    });
+
     it('deve atribuir clienteId e veiculoId corretamente', () => {
       const os = osRecebida();
       expect(os.clienteId).toBe('cl_01');
@@ -153,6 +160,14 @@ describe('OrdemServico', () => {
       expect(evento?.descricao).toContain('RECEBIDA → ATRIBUIDA');
     });
 
+    it('deve registrar MECANICO_ATRIBUIDO com statusAnterior RECEBIDA e statusNovo ATRIBUIDA', () => {
+      const os = osRecebida();
+      os.atribuirMecanico(criarMecanico());
+      const evento = os.historico.find((h) => h.evento === 'MECANICO_ATRIBUIDO');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.RECEBIDA);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.ATRIBUIDA);
+    });
+
     it('deve preencher mecanicoResponsavelId', () => {
       const os = osRecebida();
       const mecanico = criarMecanico();
@@ -178,6 +193,14 @@ describe('OrdemServico', () => {
       os.iniciarDiagnostico('us_01');
       const evento = os.historico.find((h) => h.evento === 'DIAGNOSTICO_REGISTRADO');
       expect(evento).toBeDefined();
+    });
+
+    it('deve registrar DIAGNOSTICO_REGISTRADO com statusAnterior ATRIBUIDA e statusNovo EM_DIAGNOSTICO', () => {
+      const os = osAtribuida();
+      os.iniciarDiagnostico('us_01');
+      const evento = os.historico.find((h) => h.evento === 'DIAGNOSTICO_REGISTRADO');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.ATRIBUIDA);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.EM_DIAGNOSTICO);
     });
   });
 
@@ -233,6 +256,22 @@ describe('OrdemServico', () => {
       const evento = os.historico.find((h) => h.evento === 'ORCAMENTO_GERADO');
       expect(evento).toBeDefined();
     });
+
+    it('deve registrar ORCAMENTO_GERADO com statusAnterior ATRIBUIDA e statusNovo AGUARDANDO_APROVACAO', () => {
+      const os = osAtribuida();
+      os.gerarOrcamento(grupos, 'us_01');
+      const evento = os.historico.find((h) => h.evento === 'ORCAMENTO_GERADO');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.ATRIBUIDA);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.AGUARDANDO_APROVACAO);
+    });
+
+    it('deve registrar ORCAMENTO_GERADO com statusAnterior EM_DIAGNOSTICO quando veio do diagnóstico', () => {
+      const os = osEmDiagnostico();
+      os.gerarOrcamento(grupos, 'us_01');
+      const evento = os.historico.find((h) => h.evento === 'ORCAMENTO_GERADO');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.EM_DIAGNOSTICO);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.AGUARDANDO_APROVACAO);
+    });
   });
 
   describe('aprovarOrcamento()', () => {
@@ -258,6 +297,14 @@ describe('OrdemServico', () => {
       os.aprovarOrcamento('us_cliente');
       const evento = os.historico.find((h) => h.evento === 'ORCAMENTO_APROVADO');
       expect(evento).toBeDefined();
+    });
+
+    it('deve registrar ORCAMENTO_APROVADO com statusAnterior AGUARDANDO_APROVACAO e statusNovo APROVADA', () => {
+      const os = osAguardandoAprovacao();
+      os.aprovarOrcamento('us_cliente');
+      const evento = os.historico.find((h) => h.evento === 'ORCAMENTO_APROVADO');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.AGUARDANDO_APROVACAO);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.APROVADA);
     });
   });
 
@@ -285,6 +332,14 @@ describe('OrdemServico', () => {
       const evento = os.historico.find((h) => h.evento === 'ORCAMENTO_REJEITADO');
       expect(evento).toBeDefined();
     });
+
+    it('deve registrar ORCAMENTO_REJEITADO com statusAnterior AGUARDANDO_APROVACAO e statusNovo CANCELADA', () => {
+      const os = osAguardandoAprovacao();
+      os.rejeitarOrcamento('us_cliente');
+      const evento = os.historico.find((h) => h.evento === 'ORCAMENTO_REJEITADO');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.AGUARDANDO_APROVACAO);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.CANCELADA);
+    });
   });
 
   describe('iniciarExecucao()', () => {
@@ -304,6 +359,14 @@ describe('OrdemServico', () => {
       os.iniciarExecucao('us_01');
       const evento = os.historico.find((h) => h.evento === 'EXECUCAO_INICIADA');
       expect(evento).toBeDefined();
+    });
+
+    it('deve registrar EXECUCAO_INICIADA com statusAnterior APROVADA e statusNovo EM_EXECUCAO', () => {
+      const os = osAprovada();
+      os.iniciarExecucao('us_01');
+      const evento = os.historico.find((h) => h.evento === 'EXECUCAO_INICIADA');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.APROVADA);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.EM_EXECUCAO);
     });
   });
 
@@ -344,6 +407,14 @@ describe('OrdemServico', () => {
       const evento = os.historico.find((h) => h.evento === 'PECA_CONSUMIDA');
       expect(evento).toBeDefined();
     });
+
+    it('deve registrar PECA_CONSUMIDA com statusAnterior e statusNovo iguais a EM_EXECUCAO', () => {
+      const os = osEmExecucao();
+      os.registrarConsumoPeca('pc_01', 1, 'us_01');
+      const evento = os.historico.find((h) => h.evento === 'PECA_CONSUMIDA');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.EM_EXECUCAO);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.EM_EXECUCAO);
+    });
   });
 
   describe('limparEventos()', () => {
@@ -374,6 +445,14 @@ describe('OrdemServico', () => {
       const evento = os.historico.find((h) => h.evento === 'ORDEM_FINALIZADA');
       expect(evento).toBeDefined();
     });
+
+    it('deve registrar ORDEM_FINALIZADA com statusAnterior EM_EXECUCAO e statusNovo FINALIZADA', () => {
+      const os = osEmExecucao();
+      os.finalizar('us_01');
+      const evento = os.historico.find((h) => h.evento === 'ORDEM_FINALIZADA');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.EM_EXECUCAO);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.FINALIZADA);
+    });
   });
 
   describe('entregarVeiculo()', () => {
@@ -393,6 +472,14 @@ describe('OrdemServico', () => {
       os.entregarVeiculo('us_consultor');
       const evento = os.historico.find((h) => h.evento === 'VEICULO_ENTREGUE');
       expect(evento).toBeDefined();
+    });
+
+    it('deve registrar VEICULO_ENTREGUE com statusAnterior FINALIZADA e statusNovo ENTREGUE', () => {
+      const os = osFinalizada();
+      os.entregarVeiculo('us_consultor');
+      const evento = os.historico.find((h) => h.evento === 'VEICULO_ENTREGUE');
+      expect(evento?.statusAnterior).toBe(StatusOrdemServico.FINALIZADA);
+      expect(evento?.statusNovo).toBe(StatusOrdemServico.ENTREGUE);
     });
   });
 });

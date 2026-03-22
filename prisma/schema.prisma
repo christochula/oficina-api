@@ -273,14 +273,16 @@ model LinhaServico {
 // ── Histórico da OS ───────────────────────────────────────────────────────────
 
 model HistoricoOS {
-  id             String            @id @default(cuid())
+  id             String             @id @default(cuid())
   ordemServicoId String
   evento         EventoHistoricoOS
   descricao      String?
-  usuarioId      String?                             // quem gerou o evento
-  criadoEm      DateTime          @default(now())
+  usuarioId      String?                              // quem gerou o evento
+  statusAnterior StatusOrdemServico?                  // status antes da transição (null na abertura)
+  statusNovo     StatusOrdemServico?                  // status resultante da transição
+  criadoEm      DateTime           @default(now())
 
-  ordemServico   OrdemServico      @relation(fields: [ordemServicoId], references: [id])
+  ordemServico   OrdemServico       @relation(fields: [ordemServicoId], references: [id])
 
   @@map("historico_os")
 }

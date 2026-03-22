@@ -152,6 +152,7 @@ Tabelas: `usuarios`, `clientes`, `veiculos`, `ordens_servico`, `problemas_relata
 - `servicos_solicitados.nomeServico`: snapshot do nome do serviço no momento da abertura da OS
 - `orcamentos.notasInternas` / `orcamentos.notasCliente`: campos opcionais de notas
 - `ordens_servico.notasInternas` / `ordens_servico.notasCliente`: campos opcionais de notas
+- `historico_os.statusAnterior` / `historico_os.statusNovo`: enum `StatusOrdemServico?` — transição estruturada (nullable para compatibilidade histórica; `statusAnterior` é null em `ORDEM_ABERTA`)
 
 ## Configuração HTTP (main.ts)
 
@@ -220,9 +221,11 @@ Cada transição de estado registra uma entrada em `historico` com:
 - `evento`: código `EventoHistoricoOS` (ex: `MECANICO_ATRIBUIDO`)
 - `descricao`: formato `"STATUS_A → STATUS_B | detalhe opcional"` (ex: `"RECEBIDA → ATRIBUIDA | Mecânico João atribuído"`)
 - `usuarioId`: ID do usuário que executou a ação
+- `statusAnterior`: `StatusOrdemServico | null` — status antes da transição (null apenas em `ORDEM_ABERTA`)
+- `statusNovo`: `StatusOrdemServico | null` — status resultante da transição
 - `criadoEm`: timestamp automático
 
-Primeiro evento do ciclo: `ORDEM_ABERTA` registrado em `OrdemServico.abrir()`.
+Eventos sem mudança de status (`PECA_CONSUMIDA`) têm `statusAnterior === statusNovo`. Primeiro evento do ciclo: `ORDEM_ABERTA` registrado em `OrdemServico.abrir()` com `statusAnterior = null`, `statusNovo = RECEBIDA`.
 
 ## Relatório de Lead-time
 

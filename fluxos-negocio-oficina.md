@@ -615,7 +615,9 @@ Isso simplifica:
 
 Cada transição de estado da OS gera automaticamente uma entrada no histórico com:
 - o evento ocorrido (ex: `MECANICO_ATRIBUIDO`)
-- a transição de estado no formato `STATUS_ANTERIOR → STATUS_NOVO`
+- `statusAnterior`: status tipado antes da transição (null apenas em `ORDEM_ABERTA`)
+- `statusNovo`: status tipado resultante da transição
+- `descricao`: texto human-readable `"STATUS_ANTERIOR → STATUS_NOVO | detalhe"`
 - o identificador do usuário que executou a ação
 - o timestamp preciso do evento
 

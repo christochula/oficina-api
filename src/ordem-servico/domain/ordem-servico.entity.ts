@@ -48,6 +48,17 @@ export interface HistoricoOSItem {
   descricao?: string;
   /** ID do usuário que realizou a operação (opcional). */
   usuarioId?: string;
+  /**
+   * Status da OS imediatamente antes da transição.
+   * Null apenas no evento ORDEM_ABERTA (criação — sem estado anterior).
+   * Igual a statusNovo em eventos sem mudança de status (ex: PECA_CONSUMIDA).
+   */
+  statusAnterior?: StatusOrdemServico | null;
+  /**
+   * Status da OS resultante da transição.
+   * Null apenas em registros históricos anteriores à adoção deste campo.
+   */
+  statusNovo?: StatusOrdemServico | null;
   /** Data e hora em que o evento foi registrado. */
   criadoEm?: Date;
 }
@@ -174,7 +185,7 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
       notasCliente: props.notasCliente ?? null,
     });
 
-    os.registrarHistorico('ORDEM_ABERTA', 'Ordem de serviço aberta', props.usuarioId);
+    os.registrarHistorico('ORDEM_ABERTA', 'Ordem de serviço aberta', props.usuarioId, null, StatusOrdemServico.RECEBIDA);
     return os;
   }
 
@@ -193,9 +204,10 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
     if (mecanico.papel !== PapelUsuario.MECANICO) {
       throw new RegraDeNegocio('Somente um mecânico pode ser atribuído à ordem de serviço');
     }
+    const anterior = this.status;
     this.mecanicoResponsavelId = mecanico.id.valor;
     this.status = StatusOrdemServico.ATRIBUIDA;
-    this.registrarHistorico('MECANICO_ATRIBUIDO', `RECEBIDA → ATRIBUIDA | Mecânico ${mecanico.nome} atribuído`, mecanico.id.valor);
+    this.registrarHistorico('MECANICO_ATRIBUIDO', `RECEBIDA → ATRIBUIDA | Mecânico ${mecanico.nome} atribuído`, mecanico.id.valor, anterior, StatusOrdemServico.ATRIBUIDA);
     this.tocarAtualizadoEm();
   }
 
@@ -204,8 +216,9 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
    */
   iniciarDiagnostico(mecanicoId: string): void {
     this.garantirStatus([StatusOrdemServico.ATRIBUIDA]);
+    const anterior = this.status;
     this.status = StatusOrdemServico.EM_DIAGNOSTICO;
-    this.registrarHistorico('DIAGNOSTICO_REGISTRADO', 'ATRIBUIDA → EM_DIAGNOSTICO', mecanicoId);
+    this.registrarHistorico('DIAGNOSTICO_REGISTRADO', 'ATRIBUIDA → EM_DIAGNOSTICO', mecanicoId, anterior, StatusOrdemServico.EM_DIAGNOSTICO);
     this.tocarAtualizadoEm();
   }
 
@@ -215,7 +228,7 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
   registrarDiagnostico(descricao: string, mecanicoId: string): void {
     this.garantirStatus([StatusOrdemServico.EM_DIAGNOSTICO]);
     this.diagnostico = { descricao };
-    this.registrarHistorico('DIAGNOSTICO_REGISTRADO', descricao, mecanicoId);
+    this.registrarHistorico('DIAGNOSTICO_REGISTRADO', descricao, mecanicoId, StatusOrdemServico.EM_DIAGNOSTICO, StatusOrdemServico.EM_DIAGNOSTICO);
     this.tocarAtualizadoEm();
   }
 
@@ -262,6 +275,8 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
       'ORCAMENTO_GERADO',
       `${statusAnterior} → AGUARDANDO_APROVACAO | Total: R$ ${this.orcamento.total.toFixed(2)}`,
       mecanicoId,
+      statusAnterior,
+      StatusOrdemServico.AGUARDANDO_APROVACAO,
     );
     this.tocarAtualizadoEm();
   }
@@ -273,8 +288,9 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
     this.garantirStatus([StatusOrdemServico.AGUARDANDO_APROVACAO]);
     if (!this.orcamento) throw new RegraDeNegocio('Não existe orçamento para aprovar');
     this.orcamento.aprovadoEm = new Date();
+    const anterior = this.status;
     this.status = StatusOrdemServico.APROVADA;
-    this.registrarHistorico('ORCAMENTO_APROVADO', 'AGUARDANDO_APROVACAO → APROVADA', usuarioId);
+    this.registrarHistorico('ORCAMENTO_APROVADO', 'AGUARDANDO_APROVACAO → APROVADA', usuarioId, anterior, StatusOrdemServico.APROVADA);
     this.tocarAtualizadoEm();
   }
 
@@ -285,8 +301,9 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
     this.garantirStatus([StatusOrdemServico.AGUARDANDO_APROVACAO]);
     if (!this.orcamento) throw new RegraDeNegocio('Não existe orçamento para rejeitar');
     this.orcamento.rejeitadoEm = new Date();
+    const anterior = this.status;
     this.status = StatusOrdemServico.CANCELADA;
-    this.registrarHistorico('ORCAMENTO_REJEITADO', 'AGUARDANDO_APROVACAO → CANCELADA', usuarioId);
+    this.registrarHistorico('ORCAMENTO_REJEITADO', 'AGUARDANDO_APROVACAO → CANCELADA', usuarioId, anterior, StatusOrdemServico.CANCELADA);
     this.tocarAtualizadoEm();
   }
 
@@ -295,8 +312,9 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
    */
   iniciarExecucao(mecanicoId: string): void {
     this.garantirStatus([StatusOrdemServico.APROVADA]);
+    const anterior = this.status;
     this.status = StatusOrdemServico.EM_EXECUCAO;
-    this.registrarHistorico('EXECUCAO_INICIADA', 'APROVADA → EM_EXECUCAO', mecanicoId);
+    this.registrarHistorico('EXECUCAO_INICIADA', 'APROVADA → EM_EXECUCAO', mecanicoId, anterior, StatusOrdemServico.EM_EXECUCAO);
     this.tocarAtualizadoEm();
   }
 
@@ -309,7 +327,8 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
 
     this.consumosPeca.push({ pecaId, quantidade });
     this._eventos.push(new ConsumoPecaEvento(this.id.valor, pecaId, quantidade));
-    this.registrarHistorico('PECA_CONSUMIDA', `Peça ${pecaId} (qtd: ${quantidade})`, mecanicoId);
+    // Sem mudança de status — statusAnterior === statusNovo === EM_EXECUCAO
+    this.registrarHistorico('PECA_CONSUMIDA', `Peça ${pecaId} (qtd: ${quantidade})`, mecanicoId, StatusOrdemServico.EM_EXECUCAO, StatusOrdemServico.EM_EXECUCAO);
     this.tocarAtualizadoEm();
   }
 
@@ -318,8 +337,9 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
    */
   finalizar(mecanicoId: string): void {
     this.garantirStatus([StatusOrdemServico.EM_EXECUCAO]);
+    const anterior = this.status;
     this.status = StatusOrdemServico.FINALIZADA;
-    this.registrarHistorico('ORDEM_FINALIZADA', 'EM_EXECUCAO → FINALIZADA', mecanicoId);
+    this.registrarHistorico('ORDEM_FINALIZADA', 'EM_EXECUCAO → FINALIZADA', mecanicoId, anterior, StatusOrdemServico.FINALIZADA);
     this.tocarAtualizadoEm();
   }
 
@@ -328,8 +348,9 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
    */
   entregarVeiculo(consultorId: string): void {
     this.garantirStatus([StatusOrdemServico.FINALIZADA]);
+    const anterior = this.status;
     this.status = StatusOrdemServico.ENTREGUE;
-    this.registrarHistorico('VEICULO_ENTREGUE', 'FINALIZADA → ENTREGUE', consultorId);
+    this.registrarHistorico('VEICULO_ENTREGUE', 'FINALIZADA → ENTREGUE', consultorId, anterior, StatusOrdemServico.ENTREGUE);
     this.tocarAtualizadoEm();
   }
 
@@ -341,7 +362,13 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
     }
   }
 
-  private registrarHistorico(evento: string, descricao?: string, usuarioId?: string): void {
-    this.historico.push({ evento, descricao, usuarioId, criadoEm: new Date() });
+  private registrarHistorico(
+    evento: string,
+    descricao?: string,
+    usuarioId?: string,
+    statusAnterior?: StatusOrdemServico | null,
+    statusNovo?: StatusOrdemServico | null,
+  ): void {
+    this.historico.push({ evento, descricao, usuarioId, statusAnterior, statusNovo, criadoEm: new Date() });
   }
 }

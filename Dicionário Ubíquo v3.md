@@ -448,9 +448,13 @@ Registro cronológico de eventos ocorridos durante o ciclo de vida de uma ordem 
 
 Cada entrada do histórico registra:
 - o código do evento (`EventoHistoricoOS`)
-- a transição de estado no formato `"STATUS_ANTERIOR → STATUS_NOVO"` e eventuais detalhes na descrição
+- `statusAnterior`: status imediatamente anterior à transição (null na abertura da OS)
+- `statusNovo`: status resultante da transição
+- `descricao`: texto human-readable no formato `"STATUS_ANTERIOR → STATUS_NOVO | detalhe opcional"`
 - o identificador do usuário que executou a ação
 - o timestamp exato do evento
+
+Eventos sem mudança de status (ex: `PECA_CONSUMIDA`) registram `statusAnterior === statusNovo`.
 
 Eventos registrados (por ordem de ocorrência no fluxo normal):
 

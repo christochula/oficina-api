@@ -507,28 +507,32 @@ Normalizar esses campos na camada de **application** (use cases), antes de persi
 
 ---
 
-## 19. Decisão: Histórico de transições de estado com formato STATUS_A → STATUS_B
+## 19. Decisão: Histórico de transições de estado com campos estruturados statusAnterior/statusNovo
 
 ### Contexto
-O histórico da OS precisa rastrear não apenas o evento ocorrido, mas também qual foi a mudança de estado, quem a executou e quando.
+O histórico da OS precisa rastrear não apenas o evento ocorrido, mas também qual foi a mudança de estado, quem a executou e quando. A versão inicial registrava a transição apenas no campo `descricao` como texto livre (`"RECEBIDA → ATRIBUIDA | detalhe"`), o que impedia processamento programático confiável.
 
 ### Decisão
 Toda transição de estado registra uma entrada em `HistoricoOS` com:
 - `evento`: código do enum `EventoHistoricoOS`
-- `descricao`: formato `"STATUS_ANTERIOR → STATUS_NOVO | detalhe opcional"`
+- `descricao`: formato `"STATUS_ANTERIOR → STATUS_NOVO | detalhe opcional"` (human-readable, mantido para rastreabilidade)
 - `usuarioId`: ID do usuário que executou a ação
+- `statusAnterior`: enum `StatusOrdemServico?` — status antes da transição (null apenas em `ORDEM_ABERTA`)
+- `statusNovo`: enum `StatusOrdemServico?` — status resultante da transição
 - `criadoEm`: timestamp do momento da transição
 
-O primeiro evento do ciclo de vida (`ORDEM_ABERTA`) é registrado no factory method `OrdemServico.abrir()`.
+Eventos sem mudança de status (`PECA_CONSUMIDA`, `DIAGNOSTICO_REGISTRADO` após `iniciarDiagnostico`) registram `statusAnterior === statusNovo` (nenhum campo fica null exceto `ORDEM_ABERTA` no `statusAnterior`).
+
+O primeiro evento do ciclo de vida (`ORDEM_ABERTA`) é registrado no factory method `OrdemServico.abrir()` com `statusAnterior = null` e `statusNovo = RECEBIDA`.
 
 ### Justificativa
-- Permite reconstrução completa do histórico operacional a partir do banco
-- Facilita auditoria e cálculo de métricas como lead-time e tempo por etapa
-- O formato textual na descrição é human-readable e dispensável para processamento programático (o campo `evento` já é tipado)
+- Campos tipados permitem filtros, análises e relatórios sem parsing de string
+- Complementa o campo `evento` (que indica *o que aconteceu*) com informação estruturada sobre *como o status mudou*
+- Compatibilidade retroativa: ambos os campos são nullable na migration, evitando quebra de registros históricos pré-existentes
+- O campo `descricao` é mantido por ser human-readable e útil para auditoria manual
 
 ### Trade-offs
-- A descrição é texto livre — não é parseável de forma estruturada sem convenção adicional
-- Se no futuro for necessário processar as transições programaticamente, seria melhor criar campos `statusAnterior` e `statusNovo` separados
+- Leve redundância entre `descricao` (textual) e `statusAnterior`/`statusNovo` (tipados) — aceitável dado o valor analítico dos campos estruturados
 
 ---
 
