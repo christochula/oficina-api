@@ -738,6 +738,33 @@ Os campos existem em ambos os agregados pois as notas têm contextos distintos:
 
 ---
 
+## 28. Decisão: RBAC por papel — isolamento de acesso a clientes, veículos e OS por ator
+
+### Contexto
+O sistema atende quatro papéis com necessidades de acesso radicalmente diferentes: ADMINISTRADOR, CONSULTOR_TECNICO, MECANICO e CLIENTE. Sem controle de acesso granular, qualquer usuário autenticado poderia visualizar dados de outros clientes, criar registros fora de sua responsabilidade ou navegar por OS que não lhe pertencem.
+
+### Decisão
+
+**Clientes e Veículos** — restritos a ADMINISTRADOR e CONSULTOR_TECNICO. Mecânicos não têm acesso a esses aggregates porque não fazem cadastro nem consulta de clientes ou veículos; esses dados chegam a eles via OS. CLIENTEs nunca acessam esses endpoints.
+
+**Ordens de Serviço — MECANICO** — acesso isolado via prefixo `/mecanico/`:
+- `GET /ordens-servico/mecanico/minhas-ordens` — lista apenas as OS atribuídas ao mecânico autenticado, filtradas pelos status em que ele tem ação ativa (ATRIBUIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, APROVADA, EM_EXECUCAO)
+- `GET /ordens-servico/mecanico/:id` — busca OS por ID validando `mecanicoResponsavelId === mecanicoId` do JWT; retorna 403 se não for o responsável
+
+**Ordens de Serviço — CLIENTE** — acesso isolado via prefixo `/minhas/`:
+- `GET /ordens-servico/minhas/lista` — lista apenas as OS do cliente autenticado
+- `GET /ordens-servico/minhas/:id` — busca OS por ID validando `clienteId === clienteId` do JWT; retorna 403 se não for o dono
+
+### Justificativa
+- Princípio do menor privilégio: cada ator acessa apenas o que precisa para desempenhar sua função
+- Isolamento de dados: cliente nunca vê OS de outro cliente; mecânico nunca vê OS de outro mecânico via acesso direto
+- Segurança por design: a validação de ownership é feita na camada de aplicação (use case), não apenas no guard — garante isolamento mesmo se houver bypass do guard
+
+### Trade-offs
+- Dois endpoints de leitura de OS por ator interno (mecânico tem `minhas-ordens` + `mecanico/:id`) — aceitável dado o ganho em segurança e clareza de responsabilidade
+
+---
+
 ## 23. Síntese para defesa do projeto
 
 As decisões adotadas priorizam:

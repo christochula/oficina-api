@@ -16,6 +16,7 @@ import { IniciarExecucaoUseCase } from './application/casos-de-uso/iniciar-execu
 import { ListarMinhasOrdensServicoUseCase } from './application/casos-de-uso/listar-minhas-ordens-servico.usecase';
 import { ListarOrdensServicoUseCase } from './application/casos-de-uso/listar-ordens-servico.usecase';
 import { ListarOrdensMecanicoUseCase } from './application/casos-de-uso/listar-ordens-mecanico.usecase';
+import { BuscarOrdemServicoMecanicoUseCase } from './application/casos-de-uso/buscar-ordem-servico-mecanico.usecase';
 import { RegistrarConsumoPecaUseCase } from './application/casos-de-uso/registrar-consumo-peca.usecase';
 import { RegistrarDiagnosticoUseCase } from './application/casos-de-uso/registrar-diagnostico.usecase';
 import { RejeitarOrcamentoUseCase } from './application/casos-de-uso/rejeitar-orcamento.usecase';
@@ -57,6 +58,7 @@ import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.contr
     BuscarMinhaOrdemServicoUseCase,
     ListarMinhasOrdensServicoUseCase,
     ListarOrdensMecanicoUseCase,
+    BuscarOrdemServicoMecanicoUseCase,
     RelatorioLeadTimeUseCase,
     KpisOrdemServicoUseCase,
     TempoCicloPersonalizadoUseCase,

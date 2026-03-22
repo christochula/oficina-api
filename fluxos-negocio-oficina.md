@@ -269,8 +269,8 @@ Definir o escopo técnico e financeiro da execução do serviço.
 
 ### Descrição do fluxo
 
-24. O mecânico recebe a OS atribuída.
-25. O mecânico avalia o conteúdo da OS.
+24. O mecânico consulta suas OS ativas via `GET /ordens-servico/mecanico/minhas-ordens` — retorna apenas OS nos status ATRIBUIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, APROVADA e EM_EXECUCAO atribuídas a ele.
+25. O mecânico seleciona a OS e consulta os detalhes via `GET /ordens-servico/mecanico/:id` — o sistema valida que ele é o mecânico responsável antes de retornar os dados; qualquer tentativa de acessar OS de outro mecânico resulta em 403.
 
 ### Decisão: existe problema relatado que exige análise técnica?
 
@@ -592,17 +592,29 @@ Isso simplifica:
 - AtualizarVeiculo
 - ListarVeiculos
 
-**Ordens de Serviço:**
+**Ordens de Serviço (usuários internos — ADMINISTRADOR, CONSULTOR_TECNICO):**
 - AbrirOrdemServico
 - AtribuirOrdemServico
-- RegistrarDiagnostico
-- GerarOrcamento
+- ListarOrdensServico
+- BuscarOrdemServicoPorId
 - AprovarOrcamento
 - RejeitarOrcamento
+- EntregarVeiculo
+
+**Ordens de Serviço (MECANICO — isolado às suas OS):**
+- ListarOrdensMecanico — `GET /mecanico/minhas-ordens`
+- BuscarOrdemServicoMecanico — `GET /mecanico/:id` (valida ownership)
+- RegistrarDiagnostico
+- GerarOrcamento
 - IniciarExecucao
 - RegistrarConsumoPeca
 - FinalizarOrdemServico
-- EntregarVeiculo
+
+**Ordens de Serviço (CLIENTE — isolado às suas OS):**
+- ListarMinhasOrdensServico — `GET /minhas/lista`
+- BuscarMinhaOrdemServico — `GET /minhas/:id` (valida ownership)
+- AprovarOrcamento
+- RejeitarOrcamento
 
 **Análise operacional:**
 - RelatorioLeadTime

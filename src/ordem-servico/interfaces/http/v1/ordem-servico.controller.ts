@@ -29,6 +29,7 @@ import { IniciarExecucaoUseCase } from '../../../application/casos-de-uso/inicia
 import { ListarMinhasOrdensServicoUseCase } from '../../../application/casos-de-uso/listar-minhas-ordens-servico.usecase';
 import { ListarOrdensServicoUseCase } from '../../../application/casos-de-uso/listar-ordens-servico.usecase';
 import { ListarOrdensMecanicoUseCase } from '../../../application/casos-de-uso/listar-ordens-mecanico.usecase';
+import { BuscarOrdemServicoMecanicoUseCase } from '../../../application/casos-de-uso/buscar-ordem-servico-mecanico.usecase';
 import { RegistrarConsumoPecaUseCase } from '../../../application/casos-de-uso/registrar-consumo-peca.usecase';
 import { RegistrarDiagnosticoUseCase } from '../../../application/casos-de-uso/registrar-diagnostico.usecase';
 import { RejeitarOrcamentoUseCase } from '../../../application/casos-de-uso/rejeitar-orcamento.usecase';
@@ -73,6 +74,7 @@ export class OrdemServicoController {
     private readonly buscarMinhaOS: BuscarMinhaOrdemServicoUseCase,
     private readonly listarMinhasOS: ListarMinhasOrdensServicoUseCase,
     private readonly listarOrdensMecanico: ListarOrdensMecanicoUseCase,
+    private readonly buscarOSMecanico: BuscarOrdemServicoMecanicoUseCase,
     private readonly relatorioLeadTime: RelatorioLeadTimeUseCase,
     private readonly kpisOS: KpisOrdemServicoUseCase,
     private readonly tempoCiclo: TempoCicloPersonalizadoUseCase,
@@ -228,11 +230,11 @@ export class OrdemServicoController {
 
   /**
    * Lista todas as OS do sistema com paginação e filtro opcional por status.
-   * Papéis permitidos: ADMINISTRADOR, CONSULTOR_TECNICO, MECANICO.
+   * Papéis permitidos: ADMINISTRADOR, CONSULTOR_TECNICO.
    */
   @Get()
   @Version('1')
-  @Papeis(PapelUsuario.ADMINISTRADOR, PapelUsuario.CONSULTOR_TECNICO, PapelUsuario.MECANICO)
+  @Papeis(PapelUsuario.ADMINISTRADOR, PapelUsuario.CONSULTOR_TECNICO)
   @ApiOperation({ summary: 'Listar todas as OS (usuários internos)' })
   async listar(@Query() paginacao: PaginacaoDto, @Query('status') status?: string) {
     return this.listarOS.executar({ status, ...paginacao });
@@ -303,12 +305,13 @@ export class OrdemServicoController {
   }
 
   /**
-   * Busca uma OS específica pelo ID (acesso irrestrito para usuários internos).
-   * Papéis permitidos: ADMINISTRADOR, CONSULTOR_TECNICO, MECANICO.
+   * Busca uma OS específica pelo ID.
+   * Papéis permitidos: ADMINISTRADOR, CONSULTOR_TECNICO.
+   * Para MECANICO, usar GET mecanico/:id (valida ownership).
    */
   @Get(':id')
   @Version('1')
-  @Papeis(PapelUsuario.ADMINISTRADOR, PapelUsuario.CONSULTOR_TECNICO, PapelUsuario.MECANICO)
+  @Papeis(PapelUsuario.ADMINISTRADOR, PapelUsuario.CONSULTOR_TECNICO)
   @ApiOperation({ summary: 'Buscar OS por ID (usuários internos)' })
   async buscar(@Param('id') id: string) {
     return this.buscarOSPorId.executar(id);
@@ -331,6 +334,21 @@ export class OrdemServicoController {
   @ApiOperation({ summary: 'Listar minhas OS em andamento (mecânico)' })
   async listarOrdensMecanico(@UsuarioAtual() usuario: JwtPayload, @Query() paginacao: PaginacaoDto) {
     return this.listarOrdensMecanico.executar({ mecanicoId: usuario.sub, ...paginacao });
+  }
+
+  /**
+   * Busca os detalhes de uma OS específica do mecânico autenticado.
+   * Retorna 403 se o mecânico não for o responsável pela OS.
+   * Papéis permitidos: MECANICO.
+   *
+   * IMPORTANTE: declarado antes de ':id' para evitar conflito de rota.
+   */
+  @Get('mecanico/:id')
+  @Version('1')
+  @Papeis(PapelUsuario.MECANICO)
+  @ApiOperation({ summary: 'Buscar minha OS por ID (mecânico)' })
+  async buscarOrdemMecanico(@Param('id') id: string, @UsuarioAtual() usuario: JwtPayload) {
+    return this.buscarOSMecanico.executar(id, usuario.sub);
   }
 
   // ── CLIENTE: acesso apenas às suas OS ───────────────────────────────────────

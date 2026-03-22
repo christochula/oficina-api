@@ -184,8 +184,9 @@ JWT_REFRESH_EXPIRATION=7d
 ## Casos de Uso de OrdemServico
 
 Consultas separadas por ator:
-- `BuscarOrdemServicoPorId` + `ListarOrdensServico` — ADMINISTRADOR, CONSULTOR_TECNICO (acesso total); MECANICO também pode usar `BuscarOrdemServicoPorId`
-- `ListarOrdensMecanico` — MECANICO (apenas suas OS nos status ATRIBUIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, APROVADA, EM_EXECUCAO); rota `GET /ordens-servico/mecanico/minhas-ordens`
+- `BuscarOrdemServicoPorId` + `ListarOrdensServico` — ADMINISTRADOR, CONSULTOR_TECNICO (acesso total)
+- `ListarOrdensMecanico` — MECANICO; rota `GET /ordens-servico/mecanico/minhas-ordens` — OS atribuídas a ele nos status ATRIBUIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, APROVADA, EM_EXECUCAO
+- `BuscarOrdemServicoMecanico` — MECANICO; rota `GET /ordens-servico/mecanico/:id` — busca OS por ID validando que ele é o `mecanicoResponsavelId`; retorna 403 se não for
 - `BuscarMinhaOrdemServico` + `ListarMinhasOrdensServico` — CLIENTE (apenas suas próprias OS)
 
 `AbrirOrdemServicoUseCase` — valida `servicoId` no catálogo `ServicoOficina` e captura snapshot `nomeServico` para cada serviço solicitado. Aceita também `notasInternas` e `notasCliente` opcionais.
