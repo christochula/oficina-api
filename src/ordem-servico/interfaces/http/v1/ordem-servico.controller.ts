@@ -28,6 +28,7 @@ import { GerarOrcamentoUseCase } from '../../../application/casos-de-uso/gerar-o
 import { IniciarExecucaoUseCase } from '../../../application/casos-de-uso/iniciar-execucao.usecase';
 import { ListarMinhasOrdensServicoUseCase } from '../../../application/casos-de-uso/listar-minhas-ordens-servico.usecase';
 import { ListarOrdensServicoUseCase } from '../../../application/casos-de-uso/listar-ordens-servico.usecase';
+import { ListarOrdensMecanicoUseCase } from '../../../application/casos-de-uso/listar-ordens-mecanico.usecase';
 import { RegistrarConsumoPecaUseCase } from '../../../application/casos-de-uso/registrar-consumo-peca.usecase';
 import { RegistrarDiagnosticoUseCase } from '../../../application/casos-de-uso/registrar-diagnostico.usecase';
 import { RejeitarOrcamentoUseCase } from '../../../application/casos-de-uso/rejeitar-orcamento.usecase';
@@ -71,6 +72,7 @@ export class OrdemServicoController {
     private readonly listarOS: ListarOrdensServicoUseCase,
     private readonly buscarMinhaOS: BuscarMinhaOrdemServicoUseCase,
     private readonly listarMinhasOS: ListarMinhasOrdensServicoUseCase,
+    private readonly listarOrdensMecanico: ListarOrdensMecanicoUseCase,
     private readonly relatorioLeadTime: RelatorioLeadTimeUseCase,
     private readonly kpisOS: KpisOrdemServicoUseCase,
     private readonly tempoCiclo: TempoCicloPersonalizadoUseCase,
@@ -310,6 +312,25 @@ export class OrdemServicoController {
   @ApiOperation({ summary: 'Buscar OS por ID (usuários internos)' })
   async buscar(@Param('id') id: string) {
     return this.buscarOSPorId.executar(id);
+  }
+
+  // ── MECÂNICO: acesso apenas às suas OS em andamento ─────────────────────────
+
+  /**
+   * Lista as OS atribuídas ao mecânico autenticado nos status em que ele atua:
+   * ATRIBUIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, APROVADA, EM_EXECUCAO.
+   * OS finalizadas, entregues e canceladas não aparecem nesta listagem.
+   * O mecanicoId é extraído automaticamente do token JWT.
+   * Papéis permitidos: MECANICO.
+   *
+   * IMPORTANTE: declarado antes de ':id' e 'minhas/' para evitar conflito de rota.
+   */
+  @Get('mecanico/minhas-ordens')
+  @Version('1')
+  @Papeis(PapelUsuario.MECANICO)
+  @ApiOperation({ summary: 'Listar minhas OS em andamento (mecânico)' })
+  async listarOrdensMecanico(@UsuarioAtual() usuario: JwtPayload, @Query() paginacao: PaginacaoDto) {
+    return this.listarOrdensMecanico.executar({ mecanicoId: usuario.sub, ...paginacao });
   }
 
   // ── CLIENTE: acesso apenas às suas OS ───────────────────────────────────────

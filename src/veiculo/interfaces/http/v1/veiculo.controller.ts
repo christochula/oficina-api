@@ -1,6 +1,9 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards, Version } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
+import { PapeisGuard } from '../../../../auth/guards/papeis.guard';
+import { Papeis } from '../../../../auth/decorators/papeis.decorator';
+import { PapelUsuario } from '../../../../usuario/domain/papel-usuario.enum';
 import { PaginacaoDto } from '../../../../shared/http/dtos/paginacao.dto';
 import { RespostaPaginadaDto } from '../../../../shared/http/dtos/resposta-paginada.dto';
 import { AtualizarVeiculoUseCase } from '../../../application/casos-de-uso/atualizar-veiculo.usecase';
@@ -22,7 +25,8 @@ import { CriarVeiculoDto } from './dtos/criar-veiculo.dto';
  */
 @ApiTags('Veículos')
 @ApiBearerAuth()
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, PapeisGuard)
+@Papeis(PapelUsuario.ADMINISTRADOR, PapelUsuario.CONSULTOR_TECNICO)
 @Controller('veiculos')
 export class VeiculoController {
   /**

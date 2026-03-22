@@ -11,6 +11,8 @@ export const ORDEM_SERVICO_REPOSITORY = 'ORDEM_SERVICO_REPOSITORY';
 export interface FiltrosListagemOS {
   /** Filtra por status da OS (ex: 'RECEBIDA', 'EM_EXECUCAO'). */
   status?: string;
+  /** Filtra por múltiplos status simultaneamente (OR). Tem precedência sobre `status` quando informado. */
+  statusIn?: string[];
   /** Filtra OS pertencentes a um cliente específico (usado para acesso do CLIENTE). */
   clienteId?: string;
   /** Filtra OS atribuídas a um mecânico específico. */

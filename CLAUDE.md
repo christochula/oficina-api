@@ -184,7 +184,8 @@ JWT_REFRESH_EXPIRATION=7d
 ## Casos de Uso de OrdemServico
 
 Consultas separadas por ator:
-- `BuscarOrdemServicoPorId` + `ListarOrdensServico` — usuários internos (acesso total)
+- `BuscarOrdemServicoPorId` + `ListarOrdensServico` — ADMINISTRADOR, CONSULTOR_TECNICO (acesso total); MECANICO também pode usar `BuscarOrdemServicoPorId`
+- `ListarOrdensMecanico` — MECANICO (apenas suas OS nos status ATRIBUIDA, EM_DIAGNOSTICO, AGUARDANDO_APROVACAO, APROVADA, EM_EXECUCAO); rota `GET /ordens-servico/mecanico/minhas-ordens`
 - `BuscarMinhaOrdemServico` + `ListarMinhasOrdensServico` — CLIENTE (apenas suas próprias OS)
 
 `AbrirOrdemServicoUseCase` — valida `servicoId` no catálogo `ServicoOficina` e captura snapshot `nomeServico` para cada serviço solicitado. Aceita também `notasInternas` e `notasCliente` opcionais.
@@ -192,6 +193,8 @@ Consultas separadas por ator:
 `GerarOrcamentoUseCase` — input: `{ osId, mecanicoId, grupos: GrupoOrcamentoInput[], notasInternas?, notasCliente? }`. Cada grupo tem `titulo` + `linhas[]`. O total é calculado pela soma dos grupos.
 
 ## Casos de Uso de Cliente
+
+Todos os endpoints de clientes e veículos são restritos a **ADMINISTRADOR e CONSULTOR_TECNICO**. MECANICO e CLIENTE não têm acesso.
 
 - `CriarClienteUseCase` — valida unicidade por `numeroDoc`; rejeita com 409 se documento duplicado
 - `BuscarClientePorNumeroDocUseCase` — busca por CPF ou CNPJ; rota `GET /clientes/documento/:numeroDoc`

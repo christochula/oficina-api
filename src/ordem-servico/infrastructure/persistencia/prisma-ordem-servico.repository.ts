@@ -181,7 +181,8 @@ export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
 
   async listar(filtros: FiltrosListagemOS): Promise<RepositorioListagem> {
     const where: Prisma.OrdemServicoWhereInput = {};
-    if (filtros.status) where.status = filtros.status as never;
+    if (filtros.statusIn?.length) where.status = { in: filtros.statusIn as never[] };
+    else if (filtros.status) where.status = filtros.status as never;
     if (filtros.clienteId) where.clienteId = filtros.clienteId;
     if (filtros.mecanicoResponsavelId) where.mecanicoResponsavelId = filtros.mecanicoResponsavelId;
 
