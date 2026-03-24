@@ -73,9 +73,7 @@ docker compose up -d db
 
 Historico atual:
 
-1. `20260320000000_init`
-2. `20260321000000_historico_os_status_anterior_novo`
-3. `20260322000000_cliente_usuario_vinculo`
+1. `20260322000000_init`
 
 Comandos:
 
@@ -84,7 +82,22 @@ npx prisma migrate deploy
 npx prisma generate
 ```
 
-### 3.4 Subir a API
+### 3.4 Seed do primeiro administrador
+
+`POST /api/v1/usuarios` exige papel `ADMINISTRADOR`, portanto o primeiro usuario precisa ser inserido via seed:
+
+```bash
+npm run seed
+```
+
+O script `prisma/seed.ts` cria um usuario administrador com:
+
+- email: `admin@oficina.com`
+- senha: `Admin@123`
+
+O comando e idempotente; se o admin ja existir, nao duplica.
+
+### 3.5 Subir a API
 
 ```bash
 npm run start:dev
@@ -95,7 +108,7 @@ URLs uteis:
 - API: `http://localhost:3000/api/v1`
 - Swagger: `http://localhost:3000/api/docs`
 
-### 3.5 Prisma Studio
+### 3.6 Prisma Studio
 
 Opcional:
 
@@ -121,14 +134,22 @@ npm run test:e2e -- --runInBand
 
 ## 5.1 Criar usuarios
 
+Pre-requisito:
+
+- o seed do passo 3.4 ja deve ter sido executado para criar o admin inicial
+
 Rotas:
 
-- `POST /api/v1/usuarios`
-- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/login` (publico)
+- `POST /api/v1/usuarios` (requer `ADMINISTRADOR`)
 
-Sugestao de usuarios:
+Fluxo:
 
-- `ADMINISTRADOR`
+1. fazer login com o admin seed (`admin@oficina.com` / `Admin@123`) para obter o `accessToken`
+2. usar esse token para criar os demais usuarios via `POST /api/v1/usuarios`
+
+Sugestao de usuarios a criar:
+
 - `CONSULTOR_TECNICO`
 - `MECANICO`
 - `CLIENTE` titular da OS
@@ -137,7 +158,7 @@ Sugestao de usuarios:
 
 Verificacoes:
 
-- criacao de usuario continua publica
+- criacao de usuario exige autenticacao e papel `ADMINISTRADOR`
 - login retorna `accessToken` e `refreshToken`
 - usuarios inativos nao conseguem logar
 
@@ -395,10 +416,24 @@ Checklist util:
 
 ---
 
-## 7. Limitacoes atuais
+## 7. Collection Postman
+
+O repositorio inclui uma collection Postman versionada em `postman/`:
+
+- `oficina-api.postman_collection.json` — requisicoes organizadas na ordem do roteiro (5.1 a 5.14)
+- `oficina-api.postman_environment.json` — variaveis de ambiente para `http://localhost:3000/api/v1`
+
+Cada request possui scripts de teste que capturam IDs e tokens automaticamente nas variaveis de ambiente, permitindo executar o fluxo completo em sequencia.
+
+Para importar: abra o Postman, clique em Import e selecione ambos os arquivos. Selecione o environment "Oficina API - Local" antes de executar.
+
+Observacao sobre IDs nas respostas: as entidades de dominio serializam `id` como value object `{ valor: "xx01..." }`. Os scripts da collection ja tratam ambos os formatos (string direta ou objeto com `.valor`).
+
+---
+
+## 8. Limitacoes atuais
 
 - o repositorio ainda nao possui e2e automatizado completo com PostgreSQL real
 - a suite e2e versionada continua sendo um smoke test
-- nao existe collection Postman versionada no repositorio
 
 O proximo passo natural, quando o produto estiver funcionalmente fechado, e automatizar o roteiro manual acima com fixtures controladas.

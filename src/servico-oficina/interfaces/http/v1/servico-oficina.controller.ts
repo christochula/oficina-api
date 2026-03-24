@@ -6,8 +6,10 @@ import { Papeis } from '../../../../auth/decorators/papeis.decorator';
 import { PaginacaoDto } from '../../../../shared/http/dtos/paginacao.dto';
 import { RespostaPaginadaDto } from '../../../../shared/http/dtos/resposta-paginada.dto';
 import { PapelUsuario } from '../../../../usuario/domain/papel-usuario.enum';
+import { AtivarServicoOficinaUseCase } from '../../../application/casos-de-uso/ativar-servico-oficina.usecase';
 import { AtualizarServicoOficinaUseCase } from '../../../application/casos-de-uso/atualizar-servico-oficina.usecase';
 import { BuscarServicoOficinaPorIdUseCase } from '../../../application/casos-de-uso/buscar-servico-oficina-por-id.usecase';
+import { DesativarServicoOficinaUseCase } from '../../../application/casos-de-uso/desativar-servico-oficina.usecase';
 import { ListarServicosOficinaUseCase } from '../../../application/casos-de-uso/listar-servicos-oficina.usecase';
 import { RegistrarServicoOficinaUseCase } from '../../../application/casos-de-uso/registrar-servico-oficina.usecase';
 import { ServicoOficina } from '../../../domain/servico-oficina.entity';
@@ -22,6 +24,8 @@ import { RegistrarServicoOficinaDto } from './dtos/registrar-servico-oficina.dto
  *   GET   /api/v1/servicos-oficina               — listar serviços ativos (paginado, todos os papéis)
  *   GET   /api/v1/servicos-oficina/:id           — buscar serviço por ID (todos os papéis)
  *   PATCH /api/v1/servicos-oficina/:id           — atualizar serviço (ADMINISTRADOR)
+ *   PATCH /api/v1/servicos-oficina/:id/desativar — desativar serviço (ADMINISTRADOR)
+ *   PATCH /api/v1/servicos-oficina/:id/ativar    — reativar serviço (ADMINISTRADOR)
  */
 @ApiTags('Catálogo de Serviços')
 @ApiBearerAuth()
@@ -33,6 +37,8 @@ export class ServicoOficinaController {
     private readonly listar: ListarServicosOficinaUseCase,
     private readonly buscarPorId: BuscarServicoOficinaPorIdUseCase,
     private readonly atualizar: AtualizarServicoOficinaUseCase,
+    private readonly desativarUseCase: DesativarServicoOficinaUseCase,
+    private readonly ativarUseCase: AtivarServicoOficinaUseCase,
   ) {}
 
   /**
@@ -77,6 +83,29 @@ export class ServicoOficinaController {
   @ApiOperation({ summary: 'Buscar serviço por ID' })
   async buscarServico(@Param('id') id: string): Promise<ServicoOficina> {
     return this.buscarPorId.executar(id);
+  }
+
+  /**
+   * Desativa um serviço do catálogo.
+   * Serviços desativados deixam de aparecer na listagem e não podem ser selecionados em novas OS.
+   */
+  @Patch(':id/desativar')
+  @Version('1')
+  @Papeis(PapelUsuario.ADMINISTRADOR)
+  @ApiOperation({ summary: 'Desativar serviço do catálogo' })
+  async desativarServico(@Param('id') id: string): Promise<ServicoOficina> {
+    return this.desativarUseCase.executar(id);
+  }
+
+  /**
+   * Reativa um serviço do catálogo previamente desativado.
+   */
+  @Patch(':id/ativar')
+  @Version('1')
+  @Papeis(PapelUsuario.ADMINISTRADOR)
+  @ApiOperation({ summary: 'Reativar serviço do catálogo' })
+  async ativarServico(@Param('id') id: string): Promise<ServicoOficina> {
+    return this.ativarUseCase.executar(id);
   }
 
   /**

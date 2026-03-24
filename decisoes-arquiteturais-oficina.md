@@ -364,7 +364,82 @@ Para a escala do MVP (valores ate 99.999.999,99), `Number` do JavaScript (IEEE 7
 
 ---
 
-## 20. Sintese
+## 20. Bootstrap do primeiro administrador via seed
+
+### Decisao
+
+`POST /api/v1/usuarios` exige papel `ADMINISTRADOR`, criando um problema de bootstrap. O repositorio resolve isso com um script de seed (`prisma/seed.ts`) que insere o primeiro admin diretamente no banco.
+
+### Justificativa
+
+Manter a rota de criacao de usuario protegida e a escolha correta de seguranca. O seed e a forma controlada de resolver o bootstrap sem expor a rota publicamente.
+
+### Trade-offs
+
+- o seed depende de acesso direto ao banco
+- credenciais do admin seed estao no codigo-fonte e devem ser trocadas em producao
+- o script e idempotente e pode ser re-executado sem duplicar dados
+
+---
+
+## 21. Serializacao de IDs como value objects nas respostas HTTP
+
+### Decisao
+
+Controllers retornam entidades de dominio diretamente. Como `id` e um value object (`IdUnico` com propriedade `valor`), as respostas JSON serializam IDs no formato `{ valor: "xx01..." }` em vez de string plana.
+
+### Justificativa
+
+Evita criar DTOs de resposta para todas as entidades durante o MVP. A camada de dominio permanece intacta.
+
+### Trade-offs
+
+- clientes HTTP precisam acessar `id.valor` em vez de `id` diretamente
+- a collection Postman trata ambos os formatos nos scripts de teste
+- futuramente, DTOs de resposta podem normalizar para string plana
+
+---
+
+## 22. Collection Postman versionada no repositorio
+
+### Decisao
+
+O repositorio inclui uma collection Postman em `postman/` com o fluxo completo do roteiro manual, incluindo scripts de captura automatica de IDs e tokens.
+
+### Justificativa
+
+Reduz o atrito para validar o fluxo ponta a ponta enquanto nao existe e2e automatizado com banco real.
+
+### Trade-offs
+
+- a collection precisa ser atualizada manualmente quando endpoints mudam
+- nao substitui testes automatizados
+
+---
+
+## 23. Desativacao e reativacao de ServicoOficina
+
+### Decisao
+
+O catalogo de servicos agora expoe dois endpoints administrativos:
+
+- `PATCH /api/v1/servicos-oficina/:id/desativar`
+- `PATCH /api/v1/servicos-oficina/:id/ativar`
+
+Ambos sao restritos a `ADMINISTRADOR`. A operacao e idempotente no sentido de persistencia, mas retorna erro de regra de negocio se o servico ja esta no estado alvo.
+
+### Justificativa
+
+A entidade ja possuia o campo `ativo` e o metodo `desativar()`, mas nao existia endpoint HTTP nem metodo `ativar()` para reverter a desativacao. Servicos desativados deixam de aparecer na listagem (que filtra `ativo: true`) e nao podem ser selecionados em novas OS.
+
+### Trade-offs
+
+- OS existentes que referenciam um servico desativado nao sao afetadas (o snapshot em `ServicoSolicitado` preserva o nome)
+- nao ha endpoint de delete fisico, apenas desativacao logica
+
+---
+
+## 24. Sintese
 
 O estado atual do repositorio prioriza:
 
@@ -376,6 +451,6 @@ O estado atual do repositorio prioriza:
 
 Os principais gaps remanescentes sao:
 
-- e2e completo com banco real
-- endpoint de desativacao/delete para `ServicoOficina`
+- e2e automatizado completo com banco real
 - analiticos ainda calculados em memoria
+- DTOs de resposta para normalizar IDs como string plana

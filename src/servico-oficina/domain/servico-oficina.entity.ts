@@ -78,4 +78,10 @@ export class ServicoOficina extends EntidadeBase<ServicoOficinaId> {
     this.ativo = false;
     this.tocarAtualizadoEm();
   }
+
+  /** Reativa o serviço, tornando-o disponível novamente para seleção. */
+  ativar(): void {
+    this.ativo = true;
+    this.tocarAtualizadoEm();
+  }
 }

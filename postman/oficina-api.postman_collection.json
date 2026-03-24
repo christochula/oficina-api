@@ -1,0 +1,853 @@
+{
+  "info": {
+    "name": "Oficina API - Fluxo Completo",
+    "description": "Collection para testar o fluxo end-to-end da oficina API seguindo o guia-teste-end-to-end.md",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "5.1 Criar Usuarios e Login",
+      "item": [
+        {
+          "name": "1. Login Admin (seed)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  pm.environment.set('adminToken', res.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@oficina.com\",\n  \"senha\": \"Admin@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "2. Criar CONSULTOR_TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  const rawId = res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('consultorId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Carlos Consultor\",\n  \"email\": \"carlos.consultor@oficina.com\",\n  \"senha\": \"Senha@123\",\n  \"papel\": \"CONSULTOR_TECNICO\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/usuarios",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios"]
+            }
+          }
+        },
+        {
+          "name": "3. Criar MECANICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  const rawId = res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('mecanicoId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Pedro Mecanico\",\n  \"email\": \"pedro.mecanico@oficina.com\",\n  \"senha\": \"Senha@123\",\n  \"papel\": \"MECANICO\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/usuarios",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios"]
+            }
+          }
+        },
+        {
+          "name": "4. Criar CLIENTE (titular)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  const rawId = res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('clienteUsuarioId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Maria Silva\",\n  \"email\": \"maria@email.com\",\n  \"senha\": \"Senha@123\",\n  \"papel\": \"CLIENTE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/usuarios",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios"]
+            }
+          }
+        },
+        {
+          "name": "5. Criar CLIENTE (nao titular)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  const rawId = res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('clienteNaoTitularUsuarioId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Joao Outro\",\n  \"email\": \"joao.outro@email.com\",\n  \"senha\": \"Senha@123\",\n  \"papel\": \"CLIENTE\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/usuarios",
+              "host": ["{{baseUrl}}"],
+              "path": ["usuarios"]
+            }
+          }
+        },
+        {
+          "name": "6. Login CONSULTOR_TECNICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  pm.environment.set('consultorToken', res.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"carlos.consultor@oficina.com\",\n  \"senha\": \"Senha@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "7. Login MECANICO",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  pm.environment.set('mecanicoToken', res.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"pedro.mecanico@oficina.com\",\n  \"senha\": \"Senha@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "8. Login CLIENTE (titular)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  pm.environment.set('clienteToken', res.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"maria@email.com\",\n  \"senha\": \"Senha@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "9. Login CLIENTE (nao titular)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  pm.environment.set('clienteNaoTitularToken', res.data.accessToken);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"joao.outro@email.com\",\n  \"senha\": \"Senha@123\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.2 Criar Cliente (aggregate)",
+      "item": [
+        {
+          "name": "1. Criar Cliente vinculado ao usuario CLIENTE",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  const rawId = res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('clienteId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"tipoDoc\": \"CPF\",\n  \"numeroDoc\": \"529.982.247-25\",\n  \"nome\": \"Maria Silva\",\n  \"email\": \"maria@email.com\",\n  \"telefone\": \"11999999999\",\n  \"usuarioId\": \"{{clienteUsuarioId}}\",\n  \"endereco\": {\n    \"logradouro\": \"Rua das Flores\",\n    \"numero\": \"123\",\n    \"bairro\": \"Centro\",\n    \"cidade\": \"Sao Paulo\",\n    \"estado\": \"SP\",\n    \"cep\": \"01000-000\"\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/clientes",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes"]
+            }
+          }
+        },
+        {
+          "name": "2. Buscar Cliente por documento",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/clientes/documento/52998224725",
+              "host": ["{{baseUrl}}"],
+              "path": ["clientes", "documento", "52998224725"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.3 Criar Servicos de Catalogo",
+      "item": [
+        {
+          "name": "1. Criar servico - Troca de Oleo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  const rawId = res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('servicoId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"nome\": \"Troca de Oleo\",\n  \"descricao\": \"Troca de oleo do motor com filtro\",\n  \"categoria\": \"Manutencao Preventiva\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/servicos-oficina",
+              "host": ["{{baseUrl}}"],
+              "path": ["servicos-oficina"]
+            }
+          }
+        },
+        {
+          "name": "2. Listar servicos ativos",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/servicos-oficina",
+              "host": ["{{baseUrl}}"],
+              "path": ["servicos-oficina"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.4 Criar Pecas e Estoque",
+      "item": [
+        {
+          "name": "1. Cadastrar peca - Filtro de Oleo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  let rawId = res.data.peca ? res.data.peca.id : res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('pecaId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"codigo\": \"FLT-001\",\n  \"nome\": \"Filtro de Oleo\",\n  \"descricao\": \"Filtro de oleo universal\",\n  \"precoVenda\": 45.90,\n  \"quantidadeInicial\": 10,\n  \"quantidadeMinima\": 3\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/estoque/pecas",
+              "host": ["{{baseUrl}}"],
+              "path": ["estoque", "pecas"]
+            }
+          }
+        },
+        {
+          "name": "2. Entrada de estoque",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"quantidade\": 20\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/estoque/pecas/{{pecaId}}/entrada",
+              "host": ["{{baseUrl}}"],
+              "path": ["estoque", "pecas", "{{pecaId}}", "entrada"]
+            }
+          }
+        },
+        {
+          "name": "3. Listar estoque",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/estoque",
+              "host": ["{{baseUrl}}"],
+              "path": ["estoque"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.5 Criar Veiculo",
+      "item": [
+        {
+          "name": "1. Criar veiculo",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  const rawId = res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('veiculoId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"placa\": \"ABC-1D23\",\n  \"renavam\": \"12345678901\",\n  \"chassi\": \"9BWZZZ377VT004251\",\n  \"marca\": \"Volkswagen\",\n  \"modelo\": \"Gol\",\n  \"ano\": 2022,\n  \"cor\": \"Prata\",\n  \"quilometragem\": 62350\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/veiculos",
+              "host": ["{{baseUrl}}"],
+              "path": ["veiculos"]
+            }
+          }
+        },
+        {
+          "name": "2. Buscar veiculo por placa",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/veiculos/placa/ABC1D23",
+              "host": ["{{baseUrl}}"],
+              "path": ["veiculos", "placa", "ABC1D23"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.6 Abrir OS",
+      "item": [
+        {
+          "name": "1. Abrir Ordem de Servico",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "if (res.data) {",
+                  "  const rawId = res.data.id;",
+                  "  const id = typeof rawId === 'string' ? rawId : (rawId && rawId.valor ? rawId.valor : '');",
+                  "  if (id) pm.environment.set('ordemServicoId', id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{consultorToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": \"{{clienteId}}\",\n  \"veiculoId\": \"{{veiculoId}}\",\n  \"problemasRelatados\": [\n    { \"descricao\": \"Motor apresentando ruido metalico\" }\n  ],\n  \"servicosSolicitados\": [\n    {\n      \"servicoId\": \"{{servicoId}}\",\n      \"observacao\": \"Ultima troca ha 12000 km\"\n    }\n  ],\n  \"notasInternas\": \"Cliente relatou piora a frio\",\n  \"notasCliente\": \"Veiculo recebido com 62.350 km\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.7 Atribuir Mecanico",
+      "item": [
+        {
+          "name": "1. Atribuir mecanico a OS",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{consultorToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/{{ordemServicoId}}/atribuir/{{mecanicoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "{{ordemServicoId}}", "atribuir", "{{mecanicoId}}"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.8 Diagnostico",
+      "item": [
+        {
+          "name": "1. Registrar diagnostico (MECANICO)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanicoToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Correia dentada com desgaste acentuado, recomendado troca preventiva. Oleo do motor com nivel baixo e coloracao escura.\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/{{ordemServicoId}}/diagnostico",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "{{ordemServicoId}}", "diagnostico"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.9 Gerar Orcamento",
+      "item": [
+        {
+          "name": "1. Gerar orcamento (MECANICO)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanicoToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grupos\": [\n    {\n      \"titulo\": \"Troca de Oleo e Filtro\",\n      \"linhas\": [\n        {\n          \"tipo\": \"SERVICO\",\n          \"descricao\": \"Mao de obra - troca de oleo\",\n          \"quantidade\": 1,\n          \"valorUnitario\": 80.00\n        },\n        {\n          \"tipo\": \"MATERIAL\",\n          \"descricao\": \"Filtro de Oleo\",\n          \"quantidade\": 1,\n          \"valorUnitario\": 45.90,\n          \"pecaId\": \"{{pecaId}}\"\n        }\n      ]\n    }\n  ],\n  \"notasCliente\": \"Orcamento valido por 7 dias\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/{{ordemServicoId}}/orcamento",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "{{ordemServicoId}}", "orcamento"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.10 Ownership CLIENTE",
+      "item": [
+        {
+          "name": "1. Listar minhas OS (CLIENTE titular)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{clienteToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/minhas/lista",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "minhas", "lista"]
+            }
+          }
+        },
+        {
+          "name": "2. Buscar minha OS por ID (CLIENTE titular)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{clienteToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/minhas/{{ordemServicoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "minhas", "{{ordemServicoId}}"]
+            }
+          }
+        },
+        {
+          "name": "3. DEVE FALHAR 403 - Buscar OS (CLIENTE nao titular)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{clienteNaoTitularToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/minhas/{{ordemServicoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "minhas", "{{ordemServicoId}}"]
+            }
+          }
+        },
+        {
+          "name": "4. Aprovar orcamento (CLIENTE titular)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{clienteToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/{{ordemServicoId}}/aprovar",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "{{ordemServicoId}}", "aprovar"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.11 Iniciar Execucao",
+      "item": [
+        {
+          "name": "1. Iniciar execucao (MECANICO)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mecanicoToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/{{ordemServicoId}}/iniciar-execucao",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "{{ordemServicoId}}", "iniciar-execucao"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.12 Consumo de Peca",
+      "item": [
+        {
+          "name": "1. Registrar consumo de peca (MECANICO)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "Authorization", "value": "Bearer {{mecanicoToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pecaId\": \"{{pecaId}}\",\n  \"quantidade\": 1\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/{{ordemServicoId}}/consumo-peca",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "{{ordemServicoId}}", "consumo-peca"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.13 Finalizar e Entregar",
+      "item": [
+        {
+          "name": "1. Finalizar OS (MECANICO)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mecanicoToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/{{ordemServicoId}}/finalizar",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "{{ordemServicoId}}", "finalizar"]
+            }
+          }
+        },
+        {
+          "name": "2. Entregar veiculo (CONSULTOR)",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{consultorToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/{{ordemServicoId}}/entregar",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "{{ordemServicoId}}", "entregar"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "5.14 Relatorios",
+      "item": [
+        {
+          "name": "1. Lead-time",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/relatorio/lead-time",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "relatorio", "lead-time"]
+            }
+          }
+        },
+        {
+          "name": "2. KPIs",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/relatorio/kpis",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "relatorio", "kpis"]
+            }
+          }
+        },
+        {
+          "name": "3. Tempo de ciclo",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/relatorio/tempo-ciclo?eventoInicio=MECANICO_ATRIBUIDO&eventoFim=ORDEM_FINALIZADA",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "relatorio", "tempo-ciclo"],
+              "query": [
+                { "key": "eventoInicio", "value": "MECANICO_ATRIBUIDO" },
+                { "key": "eventoFim", "value": "ORDEM_FINALIZADA" }
+              ]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Extra - Mecanico",
+      "item": [
+        {
+          "name": "1. Minhas ordens (MECANICO)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mecanicoToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/mecanico/minhas-ordens",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "mecanico", "minhas-ordens"]
+            }
+          }
+        },
+        {
+          "name": "2. Detalhe da minha OS (MECANICO)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{mecanicoToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/mecanico/{{ordemServicoId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "mecanico", "{{ordemServicoId}}"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

@@ -47,6 +47,10 @@ Todo usuario possui:
 - `ativo`
 - `refreshTokenHash`
 
+### Admin seed
+
+Usuario `ADMINISTRADOR` criado pelo script `prisma/seed.ts` para resolver o bootstrap do sistema. Como `POST /api/v1/usuarios` exige papel `ADMINISTRADOR`, o primeiro admin precisa ser inserido diretamente no banco via `npm run seed`.
+
 ### Usuario interno
 
 Usuario que opera a oficina.

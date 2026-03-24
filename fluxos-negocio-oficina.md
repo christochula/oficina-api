@@ -99,6 +99,16 @@ Efeito:
 - senha e persistida apenas como hash
 - `papel` define o escopo de acesso
 
+### Bootstrap do primeiro administrador
+
+Como a criacao de usuario exige `ADMINISTRADOR`, o primeiro admin precisa ser inserido via seed:
+
+```bash
+npm run seed
+```
+
+O script `prisma/seed.ts` cria um admin com email `admin@oficina.com` e senha `Admin@123`. E idempotente.
+
 ### Uso relevante no ownership do cliente
 
 Para que um cliente externo use as rotas `minhas/*` e aprove/rejeite orcamento, e necessario existir um `Usuario` com papel `CLIENTE` vinculado a um aggregate `Cliente`.

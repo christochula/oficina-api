@@ -87,6 +87,16 @@ Migration unica consolidada:
 
 O `Dockerfile` executa `npx prisma migrate deploy` antes de subir a aplicacao.
 
+### Seed do primeiro administrador
+
+`POST /api/v1/usuarios` exige papel `ADMINISTRADOR`, criando um problema de bootstrap. O script `prisma/seed.ts` resolve isso inserindo o primeiro admin diretamente no banco:
+
+```bash
+npm run seed
+```
+
+Credenciais do admin seed: `admin@oficina.com` / `Admin@123` (ou o valor de `ADMIN_SEED_PASSWORD`). O script e idempotente.
+
 ---
 
 ## Modelo de dominio atual
@@ -175,7 +185,7 @@ Acesso restrito a:
 - `POST` e `PATCH`: apenas `ADMINISTRADOR`
 - `GET` lista e busca: `ADMINISTRADOR`, `CONSULTOR_TECNICO`, `MECANICO`
 - a listagem atual retorna apenas servicos ativos
-- apesar de existir `ativo` na entidade e no schema, a API atual nao expõe rota para ativar ou desativar servicos
+- `PATCH /:id/desativar` e `PATCH /:id/ativar`: apenas `ADMINISTRADOR`
 
 ### Estoque
 
@@ -251,6 +261,7 @@ Estado atual do repositorio:
 - `npm run build` compila a aplicacao
 - `npm test -- --runInBand` executa a suite principal sob `src/**/*.spec.ts`
 - `npm run test:e2e -- --runInBand` executa apenas um smoke test em `test/app.e2e-spec.ts`
+- `npm run seed` insere o admin inicial no banco (idempotente)
 
 O e2e atual:
 
@@ -261,6 +272,15 @@ O e2e atual:
 
 Nao existe hoje uma suite automatizada de e2e com fluxo completo contra PostgreSQL.
 
+### Collection Postman
+
+O repositorio inclui uma collection Postman versionada em `postman/`:
+
+- `postman/oficina-api.postman_collection.json` — fluxo completo na ordem do roteiro manual
+- `postman/oficina-api.postman_environment.json` — variaveis de ambiente para localhost
+
+As requests possuem scripts que capturam IDs e tokens automaticamente.
+
 ---
 
 ## Convencoes do repositorio
@@ -270,6 +290,7 @@ Nao existe hoje uma suite automatizada de e2e com fluxo completo contra PostgreS
 - respostas de erro: `{ erro, mensagem, statusCode, caminho, timestamp }`
 - Prisma nao deve vazar para a camada de dominio
 - repositores fazem mapeamento explicito entre persistencia e entidades
+- IDs de dominio sao value objects (`IdUnico`); nas respostas JSON serializam como `{ valor: "xx01..." }`, nao como string plana
 
 ---
 
@@ -278,8 +299,10 @@ Nao existe hoje uma suite automatizada de e2e com fluxo completo contra PostgreS
 - `src/app.module.ts`
 - `src/main.ts`
 - `prisma/schema.prisma`
+- `prisma/seed.ts`
 - `src/shared/database/database.module.ts`
 - `src/shared/database/prisma-transaction.manager.ts`
 - `src/ordem-servico/interfaces/http/v1/ordem-servico.controller.ts`
 - `src/ordem-servico/domain/ordem-servico.entity.ts`
 - `test/app.e2e-spec.ts`
+- `postman/oficina-api.postman_collection.json`
