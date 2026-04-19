@@ -86,6 +86,9 @@ export class AbrirOrdemServicoUseCase {
     });
 
     await this.osRepository.salvar(os);
-    return os;
+
+    // Recarrega a OS para retornar o número operacional persistido no banco.
+    const osPersistida = await this.osRepository.buscarPorId(os.id);
+    return osPersistida ?? os;
   }
 }

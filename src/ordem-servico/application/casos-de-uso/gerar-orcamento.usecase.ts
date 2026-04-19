@@ -1,5 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ClienteId } from '../../../cliente/domain/cliente-id.value-object';
+import { CLIENTE_REPOSITORY, type ClienteRepository } from '../../../cliente/domain/cliente.repository';
 import { RecursoNaoEncontrado } from '../../../shared/excecoes/dominio.exception';
+import {
+  NOTIFICACAO_ORCAMENTO_GATEWAY,
+  type NotificacaoOrcamentoGateway,
+} from '../../domain/notificacao-orcamento.gateway';
 import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { OrdemServicoId } from '../../domain/ordem-servico-id.value-object';
 import { ORDEM_SERVICO_REPOSITORY } from '../../domain/ordem-servico.repository';
@@ -33,6 +39,10 @@ export class GerarOrcamentoUseCase {
   constructor(
     @Inject(ORDEM_SERVICO_REPOSITORY)
     private readonly osRepository: OrdemServicoRepository,
+    @Inject(CLIENTE_REPOSITORY)
+    private readonly clienteRepository: ClienteRepository,
+    @Inject(NOTIFICACAO_ORCAMENTO_GATEWAY)
+    private readonly notificacaoGateway: NotificacaoOrcamentoGateway,
   ) {}
 
   async executar(input: GerarOrcamentoInput): Promise<OrdemServico> {
@@ -44,6 +54,18 @@ export class GerarOrcamentoUseCase {
       notasCliente: input.notasCliente,
     });
     await this.osRepository.salvar(os);
+
+    const cliente = await this.clienteRepository.buscarPorId(ClienteId.de(os.clienteId));
+    if (cliente?.email) {
+      await this.notificacaoGateway.enviarParaAprovacao({
+        osId: os.id.valor,
+        osNumero: os.numero,
+        clienteId: os.clienteId,
+        emailCliente: cliente.email,
+        valorTotal: os.orcamento?.total ?? 0,
+      });
+    }
+
     return os;
   }
 }

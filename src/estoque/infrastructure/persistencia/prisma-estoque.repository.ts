@@ -49,6 +49,7 @@ export class PrismaEstoqueRepository implements EstoqueRepository, EstoqueServic
           nome: estoque.peca.nome,
           descricao: estoque.peca.descricao,
           precoVenda: estoque.peca.precoVenda,
+          ativo: estoque.peca.ativo,
           atualizadoEm: estoque.peca.atualizadoEm,
         },
       });

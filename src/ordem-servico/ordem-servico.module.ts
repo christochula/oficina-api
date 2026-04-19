@@ -8,6 +8,7 @@ import { AbrirOrdemServicoUseCase } from './application/casos-de-uso/abrir-ordem
 import { AprovarOrcamentoUseCase } from './application/casos-de-uso/aprovar-orcamento.usecase';
 import { AtribuirOrdemServicoUseCase } from './application/casos-de-uso/atribuir-ordem-servico.usecase';
 import { BuscarMinhaOrdemServicoUseCase } from './application/casos-de-uso/buscar-minha-ordem-servico.usecase';
+import { BuscarStatusOrdemServicoPublicoUseCase } from './application/casos-de-uso/buscar-status-ordem-servico-publico.usecase';
 import { BuscarOrdemServicoPorIdUseCase } from './application/casos-de-uso/buscar-ordem-servico-por-id.usecase';
 import { EntregarVeiculoUseCase } from './application/casos-de-uso/entregar-veiculo.usecase';
 import { FinalizarOrdemServicoUseCase } from './application/casos-de-uso/finalizar-ordem-servico.usecase';
@@ -23,8 +24,11 @@ import { RejeitarOrcamentoUseCase } from './application/casos-de-uso/rejeitar-or
 import { KpisOrdemServicoUseCase } from './application/casos-de-uso/kpis-ordem-servico.usecase';
 import { RelatorioLeadTimeUseCase } from './application/casos-de-uso/relatorio-lead-time.usecase';
 import { TempoCicloPersonalizadoUseCase } from './application/casos-de-uso/tempo-ciclo-personalizado.usecase';
+import { NOTIFICACAO_ORCAMENTO_GATEWAY } from './domain/notificacao-orcamento.gateway';
 import { ORDEM_SERVICO_REPOSITORY } from './domain/ordem-servico.repository';
+import { ConsoleNotificacaoOrcamentoGateway } from './infrastructure/notificacao/console-notificacao-orcamento.gateway';
 import { PrismaOrdemServicoRepository } from './infrastructure/persistencia/prisma-ordem-servico.repository';
+import { OrdemServicoPublicoController } from './interfaces/http/v1/ordem-servico-publico.controller';
 import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.controller';
 
 /**
@@ -41,7 +45,7 @@ import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.contr
  */
 @Module({
   imports: [UsuarioModule, ClienteModule, VeiculoModule, EstoqueModule, ServicoOficinaModule],
-  controllers: [OrdemServicoController],
+  controllers: [OrdemServicoController, OrdemServicoPublicoController],
   providers: [
     AbrirOrdemServicoUseCase,
     AtribuirOrdemServicoUseCase,
@@ -54,6 +58,7 @@ import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.contr
     FinalizarOrdemServicoUseCase,
     EntregarVeiculoUseCase,
     BuscarOrdemServicoPorIdUseCase,
+    BuscarStatusOrdemServicoPublicoUseCase,
     ListarOrdensServicoUseCase,
     BuscarMinhaOrdemServicoUseCase,
     ListarMinhasOrdensServicoUseCase,
@@ -63,6 +68,7 @@ import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.contr
     KpisOrdemServicoUseCase,
     TempoCicloPersonalizadoUseCase,
     { provide: ORDEM_SERVICO_REPOSITORY, useClass: PrismaOrdemServicoRepository },
+    { provide: NOTIFICACAO_ORCAMENTO_GATEWAY, useClass: ConsoleNotificacaoOrcamentoGateway },
   ],
 })
 export class OrdemServicoModule {}

@@ -1,7 +1,9 @@
 import { Module } from '@nestjs/common';
+import { AtivarVeiculoUseCase } from './application/casos-de-uso/ativar-veiculo.usecase';
 import { AtualizarVeiculoUseCase } from './application/casos-de-uso/atualizar-veiculo.usecase';
 import { BuscarVeiculoPorPlacaUseCase } from './application/casos-de-uso/buscar-veiculo-por-placa.usecase';
 import { CriarVeiculoUseCase } from './application/casos-de-uso/criar-veiculo.usecase';
+import { DesativarVeiculoUseCase } from './application/casos-de-uso/desativar-veiculo.usecase';
 import { ListarVeiculosUseCase } from './application/casos-de-uso/listar-veiculos.usecase';
 import { VEICULO_REPOSITORY } from './domain/veiculo.repository';
 import { PrismaVeiculoRepository } from './infrastructure/persistencia/prisma-veiculo.repository';
@@ -19,6 +21,8 @@ import { VeiculoController } from './interfaces/http/v1/veiculo.controller';
     CriarVeiculoUseCase,
     BuscarVeiculoPorPlacaUseCase,
     AtualizarVeiculoUseCase,
+    DesativarVeiculoUseCase,
+    AtivarVeiculoUseCase,
     ListarVeiculosUseCase,
     { provide: VEICULO_REPOSITORY, useClass: PrismaVeiculoRepository },
   ],

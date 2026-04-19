@@ -7,8 +7,10 @@ import { PaginacaoDto } from '../../../../shared/http/dtos/paginacao.dto';
 import { RespostaPaginadaDto } from '../../../../shared/http/dtos/resposta-paginada.dto';
 import { PapelUsuario } from '../../../../usuario/domain/papel-usuario.enum';
 import { AtualizarPecaUseCase } from '../../../application/casos-de-uso/atualizar-peca.usecase';
+import { AtivarPecaUseCase } from '../../../application/casos-de-uso/ativar-peca.usecase';
 import { BuscarPecaPorIdUseCase } from '../../../application/casos-de-uso/buscar-peca-por-id.usecase';
 import { DarEntradaEstoqueUseCase } from '../../../application/casos-de-uso/dar-entrada-estoque.usecase';
+import { DesativarPecaUseCase } from '../../../application/casos-de-uso/desativar-peca.usecase';
 import { RegistrarPecaUseCase } from '../../../application/casos-de-uso/registrar-peca.usecase';
 import { Estoque } from '../../../domain/estoque.entity';
 import { ESTOQUE_REPOSITORY } from '../../../domain/estoque.repository';
@@ -37,6 +39,8 @@ export class EstoqueController {
     private readonly darEntrada: DarEntradaEstoqueUseCase,
     private readonly buscarPecaPorId: BuscarPecaPorIdUseCase,
     private readonly atualizarPeca: AtualizarPecaUseCase,
+    private readonly desativarPeca: DesativarPecaUseCase,
+    private readonly ativarPeca: AtivarPecaUseCase,
     @Inject(ESTOQUE_REPOSITORY)
     private readonly estoqueRepository: EstoqueRepository,
   ) {}
@@ -101,6 +105,22 @@ export class EstoqueController {
     @Body() body: { quantidade: number },
   ): Promise<Estoque> {
     return this.darEntrada.executar(pecaId, body.quantidade);
+  }
+
+  @Patch('pecas/:pecaId/desativar')
+  @Version('1')
+  @Papeis(PapelUsuario.ADMINISTRADOR)
+  @ApiOperation({ summary: 'Desativar peça do catálogo' })
+  async desativar(@Param('pecaId') pecaId: string): Promise<Estoque> {
+    return this.desativarPeca.executar(pecaId);
+  }
+
+  @Patch('pecas/:pecaId/ativar')
+  @Version('1')
+  @Papeis(PapelUsuario.ADMINISTRADOR)
+  @ApiOperation({ summary: 'Ativar peça do catálogo' })
+  async ativar(@Param('pecaId') pecaId: string): Promise<Estoque> {
+    return this.ativarPeca.executar(pecaId);
   }
 
   /**

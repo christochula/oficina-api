@@ -17,8 +17,10 @@ import { PapelUsuario } from '../../../../usuario/domain/papel-usuario.enum';
 import { PaginacaoDto } from '../../../../shared/http/dtos/paginacao.dto';
 import { RespostaPaginadaDto } from '../../../../shared/http/dtos/resposta-paginada.dto';
 import { AtualizarClienteUseCase } from '../../../application/casos-de-uso/atualizar-cliente.usecase';
+import { AtivarClienteUseCase } from '../../../application/casos-de-uso/ativar-cliente.usecase';
 import { BuscarClientePorNumeroDocUseCase } from '../../../application/casos-de-uso/buscar-cliente-por-cpf.usecase';
 import { CriarClienteUseCase } from '../../../application/casos-de-uso/criar-cliente.usecase';
+import { DesativarClienteUseCase } from '../../../application/casos-de-uso/desativar-cliente.usecase';
 import { ListarClientesUseCase } from '../../../application/casos-de-uso/listar-clientes.usecase';
 import { Cliente } from '../../../domain/cliente.entity';
 import { AtualizarClienteDto } from './dtos/atualizar-cliente.dto';
@@ -50,6 +52,8 @@ export class ClienteController {
     private readonly listarClientes: ListarClientesUseCase,
     private readonly buscarClientePorNumeroDoc: BuscarClientePorNumeroDocUseCase,
     private readonly atualizarCliente: AtualizarClienteUseCase,
+    private readonly desativarCliente: DesativarClienteUseCase,
+    private readonly ativarCliente: AtivarClienteUseCase,
   ) {}
 
   /**
@@ -106,5 +110,19 @@ export class ClienteController {
     @Body() dto: AtualizarClienteDto,
   ): Promise<Cliente> {
     return this.atualizarCliente.executar({ id, ...dto });
+  }
+
+  @Patch(':id/desativar')
+  @Version('1')
+  @ApiOperation({ summary: 'Desativar cliente' })
+  async desativar(@Param('id') id: string): Promise<Cliente> {
+    return this.desativarCliente.executar(id);
+  }
+
+  @Patch(':id/ativar')
+  @Version('1')
+  @ApiOperation({ summary: 'Ativar cliente' })
+  async ativar(@Param('id') id: string): Promise<Cliente> {
+    return this.ativarCliente.executar(id);
   }
 }

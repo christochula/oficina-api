@@ -7,9 +7,11 @@ import { TipoLinhaServico } from '../../domain/value-objects/linha-servico.vo';
 import { StatusOrdemServico } from '../../domain/status-ordem-servico.enum';
 
 const mockOsRepo = { buscarPorId: jest.fn(), salvar: jest.fn() };
+const mockClienteRepo = { buscarPorId: jest.fn() };
+const mockNotificacao = { enviarParaAprovacao: jest.fn() };
 
 function criarUseCase() {
-  return new GerarOrcamentoUseCase(mockOsRepo as any);
+  return new GerarOrcamentoUseCase(mockOsRepo as any, mockClienteRepo as any, mockNotificacao as any);
 }
 
 function osAtribuida() {
@@ -33,7 +35,10 @@ const gruposBase = [
 ];
 
 describe('GerarOrcamentoUseCase', () => {
-  beforeEach(() => jest.clearAllMocks());
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockClienteRepo.buscarPorId.mockResolvedValue({ email: 'cliente@oficina.com' });
+  });
 
   it('deve lançar RecursoNaoEncontrado se OS não existir', async () => {
     mockOsRepo.buscarPorId.mockResolvedValue(null);
@@ -64,5 +69,16 @@ describe('GerarOrcamentoUseCase', () => {
     const uc = criarUseCase();
     await uc.executar({ osId: 'os_01', mecanicoId: 'us_01', grupos: gruposBase });
     expect(mockOsRepo.salvar).toHaveBeenCalledWith(os);
+  });
+
+  it('deve enviar notificação para aprovação do orçamento', async () => {
+    const os = osAtribuida();
+    mockOsRepo.buscarPorId.mockResolvedValue(os);
+    mockOsRepo.salvar.mockResolvedValue(undefined);
+
+    const uc = criarUseCase();
+    await uc.executar({ osId: 'os_01', mecanicoId: 'us_01', grupos: gruposBase });
+
+    expect(mockNotificacao.enviarParaAprovacao).toHaveBeenCalledTimes(1);
   });
 });

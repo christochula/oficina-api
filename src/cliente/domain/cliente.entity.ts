@@ -138,4 +138,16 @@ export class Cliente extends EntidadeBase<ClienteId> {
     }
     this.tocarAtualizadoEm();
   }
+
+  /** Inativa o cliente (soft delete). */
+  desativar(): void {
+    this.ativo = false;
+    this.tocarAtualizadoEm();
+  }
+
+  /** Reativa o cliente. */
+  ativar(): void {
+    this.ativo = true;
+    this.tocarAtualizadoEm();
+  }
 }

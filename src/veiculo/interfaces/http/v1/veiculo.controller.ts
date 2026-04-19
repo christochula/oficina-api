@@ -1,5 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards, Version } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
+import { AtivarVeiculoUseCase } from '../../../application/casos-de-uso/ativar-veiculo.usecase';
 import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
 import { PapeisGuard } from '../../../../auth/guards/papeis.guard';
 import { Papeis } from '../../../../auth/decorators/papeis.decorator';
@@ -9,6 +10,7 @@ import { RespostaPaginadaDto } from '../../../../shared/http/dtos/resposta-pagin
 import { AtualizarVeiculoUseCase } from '../../../application/casos-de-uso/atualizar-veiculo.usecase';
 import { BuscarVeiculoPorPlacaUseCase } from '../../../application/casos-de-uso/buscar-veiculo-por-placa.usecase';
 import { CriarVeiculoUseCase } from '../../../application/casos-de-uso/criar-veiculo.usecase';
+import { DesativarVeiculoUseCase } from '../../../application/casos-de-uso/desativar-veiculo.usecase';
 import { ListarVeiculosUseCase } from '../../../application/casos-de-uso/listar-veiculos.usecase';
 import { Veiculo } from '../../../domain/veiculo.entity';
 import { AtualizarVeiculoDto } from './dtos/atualizar-veiculo.dto';
@@ -38,6 +40,8 @@ export class VeiculoController {
     private readonly criarVeiculo: CriarVeiculoUseCase,
     private readonly buscarVeiculoPorPlaca: BuscarVeiculoPorPlacaUseCase,
     private readonly atualizarVeiculo: AtualizarVeiculoUseCase,
+    private readonly desativarVeiculo: DesativarVeiculoUseCase,
+    private readonly ativarVeiculo: AtivarVeiculoUseCase,
     private readonly listarVeiculos: ListarVeiculosUseCase,
   ) {}
 
@@ -96,5 +100,19 @@ export class VeiculoController {
     @Body() dto: AtualizarVeiculoDto,
   ): Promise<Veiculo> {
     return this.atualizarVeiculo.executar({ id, ...dto });
+  }
+
+  @Patch(':id/desativar')
+  @Version('1')
+  @ApiOperation({ summary: 'Desativar veículo' })
+  async desativar(@Param('id') id: string): Promise<Veiculo> {
+    return this.desativarVeiculo.executar(id);
+  }
+
+  @Patch(':id/ativar')
+  @Version('1')
+  @ApiOperation({ summary: 'Ativar veículo' })
+  async ativar(@Param('id') id: string): Promise<Veiculo> {
+    return this.ativarVeiculo.executar(id);
   }
 }

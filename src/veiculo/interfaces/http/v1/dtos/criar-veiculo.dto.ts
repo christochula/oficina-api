@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsValidPlaca } from '../../../../../shared/http/validators/placa.validator';
 
 /**
  * DTO de entrada para a rota POST /veiculos.
@@ -10,7 +11,7 @@ import { IsInt, IsOptional, IsString, Min } from 'class-validator';
  */
 export class CriarVeiculoDto {
   /** Placa do veículo. Deve ser única no sistema — retorna 409 se já cadastrada. */
-  @ApiProperty() @IsString() placa: string;
+  @ApiProperty() @IsString() @IsValidPlaca() placa: string;
   /** Registro Nacional de Veículos Automotores (11 dígitos). */
   @ApiProperty() @IsString() renavam: string;
   /** Número do chassi gravado na estrutura do veículo (17 caracteres no padrão internacional). */

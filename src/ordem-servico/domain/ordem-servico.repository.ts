@@ -54,6 +54,13 @@ export interface OrdemServicoRepository {
   buscarPorId(id: OrdemServicoId): Promise<OrdemServico | null>;
 
   /**
+   * Busca uma OS pelo número operacional (autoincremental).
+   * @param numero - Número da OS visível ao cliente.
+   * @returns A OS encontrada ou null se não existir.
+   */
+  buscarPorNumero(numero: number): Promise<OrdemServico | null>;
+
+  /**
    * Lista OS de forma paginada aplicando filtros opcionais.
    * @param filtros - Critérios de filtragem e paginação.
    * @returns Lista de OS da página e total de registros correspondentes.

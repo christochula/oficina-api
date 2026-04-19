@@ -177,6 +177,15 @@ export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
     return this.mapear(registro);
   }
 
+  async buscarPorNumero(numero: number): Promise<OrdemServico | null> {
+    const registro = await this.db.ordemServico.findUnique({
+      where: { numero },
+      include: INCLUDE_COMPLETO,
+    });
+    if (!registro) return null;
+    return this.mapear(registro);
+  }
+
   async listar(filtros: FiltrosListagemOS): Promise<RepositorioListagem> {
     const where: Prisma.OrdemServicoWhereInput = {};
     if (filtros.statusIn?.length) where.status = { in: filtros.statusIn as $Enums.StatusOrdemServico[] };

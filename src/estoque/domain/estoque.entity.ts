@@ -126,6 +126,20 @@ export class Estoque extends EntidadeBase<PecaId> {
     this.tocarAtualizadoEm();
   }
 
+  /** Inativa a peça associada ao estoque. */
+  desativarPeca(): void {
+    this.peca.ativo = false;
+    this.peca.atualizadoEm = new Date();
+    this.tocarAtualizadoEm();
+  }
+
+  /** Reativa a peça associada ao estoque. */
+  ativarPeca(): void {
+    this.peca.ativo = true;
+    this.peca.atualizadoEm = new Date();
+    this.tocarAtualizadoEm();
+  }
+
   darSaida(quantidade: number): void {
     if (quantidade <= 0) throw new RegraDeNegocio('Quantidade de saída deve ser maior que zero');
     if (this.quantidadeDisponivel < quantidade) {

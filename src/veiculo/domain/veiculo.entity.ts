@@ -87,4 +87,16 @@ export class Veiculo extends EntidadeBase<VeiculoId> {
     if (dados.quilometragem !== undefined) this.quilometragem = dados.quilometragem;
     this.tocarAtualizadoEm();
   }
+
+  /** Inativa o veículo (soft delete). */
+  desativar(): void {
+    this.ativo = false;
+    this.tocarAtualizadoEm();
+  }
+
+  /** Reativa o veículo. */
+  ativar(): void {
+    this.ativo = true;
+    this.tocarAtualizadoEm();
+  }
 }
