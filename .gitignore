@@ -57,6 +57,12 @@ report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 # Claude Code — configurações locais específicas da máquina
 .claude/
+CLAUDE.md
 
 # Documentos proprietários não elaborados pelo autor
 tech-challenge.md
+
+# Roteiros locais de apresentacao
+ROTEIRO_VIDEO_DEMO.md
+ROTEIRO_VIDEO_FALAS.md
+ROTEIRO_VIDEO_COMANDOS.md

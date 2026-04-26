@@ -1,114 +1,215 @@
-﻿# Guia de Teste End-to-End - oficina_api
+# Guia de Teste End-to-End - oficina_api
 
 ## 1. Objetivo
 
-Este guia descreve:
+Este guia tem duas funcoes:
 
-- o estado atual dos testes automatizados
-- a preparacao de ambiente com PostgreSQL real
-- um roteiro manual para validar o fluxo principal
-- os cenarios de ownership do cliente apos a introducao de `Cliente.usuarioId`
+- orientar os professores a subir a aplicacao localmente com Docker e validar os principais requisitos da entrega
+- servir como roteiro base para gravar o video de demonstracao da aplicacao
 
----
+O ponto mais importante do ambiente e a `DATABASE_URL`:
 
-## 2. Estado atual dos testes automatizados
-
-### Suite principal
-
-```bash
-npm test -- --runInBand
-```
-
-Estado verificado mais recente:
-
-- `43` suites
-- `266` testes
-- foco em dominio, validators e casos de uso
-
-### Smoke e2e atual
-
-```bash
-npm run test:e2e -- --runInBand
-```
-
-Arquivo atual:
-
-- `test/app.e2e-spec.ts`
-
-O que esse e2e faz hoje:
-
-- sobe o `AppModule`
-- faz override do `PrismaService`
-- nao conecta em PostgreSQL real
-- valida que `GET /api/v1/ordens-servico` responde `401` sem JWT
-
-Isso cobre bootstrap, prefixo `/api`, versionamento `/v1` e guards basicos, mas nao o fluxo funcional completo.
+- use `db` quando a API roda dentro do Docker Compose
+- use `localhost` quando comandos Node/Prisma/API rodam direto no host
 
 ---
 
-## 3. Preparacao do ambiente com banco real
+## 2. Pre-requisitos
 
-### 3.1 Variaveis de ambiente
+Antes de executar o roteiro, confirme:
+
+- Docker Desktop instalado, aberto e com o daemon em execucao
+- Docker Compose disponivel via `docker compose`
+- Node.js e npm instalados, caso va rodar testes ou API fora do Docker
+- porta `3000` livre para a API
+- porta `5432` livre para o PostgreSQL
+- Postman instalado, caso va usar a collection versionada em `postman/`
+
+Versoes usadas na validacao local deste guia em 26/04/2026:
+
+- Node.js `v24.15.0`
+- npm `11.12.1`
+- Docker `29.4.0`
+- Docker Compose `v5.1.2`
+
+Execute todos os comandos a partir da raiz do repositorio.
+
+---
+
+## 3. Roteiro recomendado para a banca: API e banco no Docker
+
+Este e o caminho mais simples para os professores validarem a aplicacao sem depender do Node local para iniciar a API.
+
+### 3.1 Preparar `.env`
 
 ```bash
 cp .env.example .env
 ```
 
-Revise principalmente:
+Para o modo Docker completo, mantenha a `DATABASE_URL` apontando para o servico `db`:
 
-- `DATABASE_URL`
-- `POSTGRES_USER`
-- `POSTGRES_PASSWORD`
-- `POSTGRES_DB`
-- `JWT_SECRET`
-- `JWT_REFRESH_SECRET`
-
-### 3.2 Subir o banco
-
-```bash
-docker compose up -d db
+```env
+DATABASE_URL=postgresql://oficina:oficina_senha@db:5432/oficina_db
 ```
 
-### 3.3 Aplicar migrations
+Confira tambem:
 
-Historico atual:
-
-1. `20260322000000_init`
-
-Comandos:
-
-```bash
-npx prisma migrate deploy
-npx prisma generate
+```env
+POSTGRES_USER=oficina
+POSTGRES_PASSWORD=oficina_senha
+POSTGRES_DB=oficina_db
+POSTGRES_PORT=5432
+JWT_SECRET=troque_por_um_segredo_forte
+JWT_REFRESH_SECRET=troque_por_outro_segredo_forte
+ADMIN_SEED_PASSWORD=Admin@123
 ```
 
-### 3.4 Seed do primeiro administrador
-
-`POST /api/v1/usuarios` exige papel `ADMINISTRADOR`, portanto o primeiro usuario precisa ser inserido via seed:
+### 3.2 Subir banco e API
 
 ```bash
-npm run seed
+docker compose up -d --build
 ```
 
-O script `prisma/seed.ts` cria um usuario administrador com:
+O Dockerfile executa `npx prisma migrate deploy` automaticamente antes de iniciar a API.
+
+Valide se os containers estao ativos:
+
+```bash
+docker compose ps
+```
+
+Resultado esperado:
+
+- `oficina_db` com status `healthy`
+- `oficina_api` com status `Up`
+- porta `3000` publicada para a API
+- porta `5432` publicada para o banco
+
+### 3.3 Criar o administrador inicial
+
+No modo Docker, use o seed compilado:
+
+```bash
+docker compose exec -T api node dist/prisma/seed.js
+```
+
+Credenciais criadas pelo seed:
 
 - email: `admin@oficina.com`
 - senha: `Admin@123`
 
-O comando e idempotente; se o admin ja existir, nao duplica.
+Observacao: dentro do container, `docker compose exec -T api npm run seed` pode falhar com `ERR_UNKNOWN_FILE_EXTENSION` ao executar `prisma/seed.ts`. Por isso, use `node dist/prisma/seed.js`.
 
-### 3.5 Subir a API
-
-```bash
-npm run start:dev
-```
+### 3.4 Acessar a API
 
 URLs uteis:
 
 - API: `http://localhost:3000/api/v1`
 - Swagger: `http://localhost:3000/api/docs`
 
-### 3.6 Prisma Studio
+Teste rapido de login:
+
+```bash
+curl -X POST http://localhost:3000/api/v1/auth/login ^
+  -H "Content-Type: application/json" ^
+  -d "{\"email\":\"admin@oficina.com\",\"senha\":\"Admin@123\"}"
+```
+
+No PowerShell, se preferir:
+
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri http://localhost:3000/api/v1/auth/login `
+  -ContentType 'application/json' `
+  -Body '{"email":"admin@oficina.com","senha":"Admin@123"}'
+```
+
+Resposta esperada:
+
+- `accessToken`
+- `refreshToken`
+
+### 3.5 Parar o ambiente
+
+```bash
+docker compose down
+```
+
+Para apagar tambem o volume do banco e recomecar do zero:
+
+```bash
+docker compose down -v
+```
+
+Use `down -v` apenas quando quiser limpar todos os dados locais.
+
+---
+
+## 4. Roteiro para desenvolvimento, testes automatizados e video: banco no Docker, API no host
+
+Use este caminho se quiser rodar `npm run start:dev`, `npm test`, `npm run test:e2e`, Prisma Studio ou depurar a API localmente.
+
+### 4.1 Preparar dependencias Node
+
+```bash
+npm ci
+```
+
+### 4.2 Preparar `.env` para comandos no host
+
+Quando Prisma, seed, testes ou API rodam no host, a `DATABASE_URL` precisa apontar para `localhost`:
+
+```env
+DATABASE_URL=postgresql://oficina:oficina_senha@localhost:5432/oficina_db
+```
+
+Nao use `db` neste modo. O hostname `db` so existe dentro da rede do Docker Compose.
+
+### 4.3 Subir apenas o banco
+
+```bash
+docker compose up -d db
+```
+
+Valide:
+
+```bash
+docker compose ps
+```
+
+### 4.4 Aplicar migrations e gerar Prisma Client
+
+```bash
+npx prisma migrate deploy
+npx prisma generate
+```
+
+### 4.5 Criar o administrador inicial
+
+```bash
+npm run seed
+```
+
+Credenciais:
+
+- email: `admin@oficina.com`
+- senha: `Admin@123`
+
+### 4.6 Subir a API em modo desenvolvimento
+
+Antes de usar `start:dev`, confirme que o container `api` nao esta rodando na porta `3000`.
+
+```bash
+docker compose stop api
+npm run start:dev
+```
+
+URLs:
+
+- API: `http://localhost:3000/api/v1`
+- Swagger: `http://localhost:3000/api/docs`
+
+### 4.7 Prisma Studio
 
 Opcional:
 
@@ -118,9 +219,9 @@ npx prisma studio
 
 ---
 
-## 4. Checklist tecnico minimo
+## 5. Checklist tecnico minimo
 
-Antes do roteiro manual:
+Execute depois de preparar banco, migrations e seed.
 
 ```bash
 npm run build
@@ -128,27 +229,68 @@ npm test -- --runInBand
 npm run test:e2e -- --runInBand
 ```
 
+Estado validado localmente em 26/04/2026:
+
+- `npm run build`: passou
+- `npm test -- --runInBand`: `56` suites e `291` testes passaram
+- `npm run test:e2e -- --runInBand`: `2` suites e `2` testes passaram
+
+Observacoes:
+
+- `test/app.e2e-spec.ts` usa mock do `PrismaService` e valida o bootstrap/guard basico
+- `test/ordem-servico-fluxo.e2e-spec.ts` usa PostgreSQL real e executa o fluxo feliz da OS
+- `test/setup-e2e.ts` ajusta `DATABASE_URL` de `db` para `localhost` quando o e2e roda fora de container
+- esse ajuste existe nos testes, mas nao existe em `npx prisma migrate deploy`, `npm run seed` ou `npm run start`
+
 ---
 
-## 5. Roteiro manual de regressao
+## 6. Collection Postman
 
-## 5.1 Criar usuarios
+O repositorio inclui uma collection Postman em `postman/`:
 
-Pre-requisito:
+- `oficina-api.postman_collection.json`
+- `oficina-api.postman_environment.json`
 
-- o seed do passo 3.4 ja deve ter sido executado para criar o admin inicial
+Para usar:
 
-Rotas:
+1. suba a API por um dos roteiros acima
+2. importe os dois arquivos no Postman
+3. selecione o environment `Oficina API - Local`
+4. execute as requisicoes na ordem da collection
 
-- `POST /api/v1/auth/login` (publico)
-- `POST /api/v1/usuarios` (requer `ADMINISTRADOR`)
+A collection usa `http://localhost:3000/api/v1` e possui scripts que capturam tokens e IDs automaticamente.
 
-Fluxo:
+Observacao sobre IDs: algumas respostas serializam `id` como value object `{ "valor": "xx01..." }`. Os scripts da collection ja tratam string direta e objeto com `.valor`.
 
-1. fazer login com o admin seed (`admin@oficina.com` / `Admin@123`) para obter o `accessToken`
-2. usar esse token para criar os demais usuarios via `POST /api/v1/usuarios`
+---
 
-Sugestao de usuarios a criar:
+## 7. Roteiro manual de regressao e demonstracao
+
+Use esta ordem para validar os requisitos e tambem como base para o video.
+
+### 7.1 Login do administrador
+
+Rota:
+
+- `POST /api/v1/auth/login`
+
+Use:
+
+- email: `admin@oficina.com`
+- senha: `Admin@123`
+
+Verificacoes:
+
+- login retorna `accessToken` e `refreshToken`
+- as proximas rotas administrativas usam `Authorization: Bearer <accessToken>`
+
+### 7.2 Criar usuarios
+
+Rota:
+
+- `POST /api/v1/usuarios` requer `ADMINISTRADOR`
+
+Usuarios sugeridos:
 
 - `CONSULTOR_TECNICO`
 - `MECANICO`
@@ -158,25 +300,25 @@ Sugestao de usuarios a criar:
 
 Verificacoes:
 
-- criacao de usuario exige autenticacao e papel `ADMINISTRADOR`
-- login retorna `accessToken` e `refreshToken`
+- criacao de usuario exige autenticacao
+- criacao de usuario exige papel `ADMINISTRADOR`
 - usuarios inativos nao conseguem logar
 
-## 5.2 Criar cliente e formar o vinculo com usuario CLIENTE
+### 7.3 Criar cliente e vincular ao usuario CLIENTE
 
 Rotas:
 
 - `POST /api/v1/clientes`
 - `PATCH /api/v1/clientes/:id`
 
-O modelo atual exige que o `CLIENTE` autenticado esteja vinculado a um aggregate `Cliente`.
+O modelo atual exige que o usuario autenticado com papel `CLIENTE` esteja vinculado a um aggregate `Cliente`.
 
 Formas suportadas:
 
 - criar `Cliente` com o mesmo email do `Usuario CLIENTE`
 - informar `usuarioId` explicitamente no payload de criacao ou update
 
-Exemplo de criacao:
+Exemplo:
 
 ```json
 {
@@ -204,45 +346,52 @@ Verificacoes:
 - `clientes.usuarioId` fica preenchido
 - vinculo so aceita usuario com papel `CLIENTE`
 
-## 5.3 Criar servicos de catalogo
+### 7.4 Criar servicos de catalogo
 
 Rotas:
 
 - `POST /api/v1/servicos-oficina`
 - `GET /api/v1/servicos-oficina`
+- `PATCH /api/v1/servicos-oficina/:id/desativar`
+- `PATCH /api/v1/servicos-oficina/:id/ativar`
 
-Observacoes:
+Verificacoes:
 
 - apenas `ADMINISTRADOR` cria ou atualiza
-- a listagem retorna apenas servicos ativos
-- o repositorio ainda nao expoe endpoint de desativacao/delete
+- listagem retorna apenas servicos ativos
+- servico desativado pode ser reativado
 
-## 5.4 Criar pecas e estoque
+### 7.5 Criar pecas e estoque
 
 Rotas:
 
 - `POST /api/v1/estoque/pecas`
 - `PATCH /api/v1/estoque/pecas/:pecaId/entrada`
 - `GET /api/v1/estoque`
+- `PATCH /api/v1/estoque/pecas/:pecaId/desativar`
+- `PATCH /api/v1/estoque/pecas/:pecaId/ativar`
 
 Verificacoes:
 
 - cadastro inicializa saldo
 - entrada incrementa `quantidadeDisponivel`
+- peca desativada pode ser reativada
 
-## 5.5 Criar veiculo
+### 7.6 Criar veiculo
 
 Rotas:
 
 - `POST /api/v1/veiculos`
 - `GET /api/v1/veiculos/placa/:placa`
+- `PATCH /api/v1/veiculos/:id/desativar`
+- `PATCH /api/v1/veiculos/:id/ativar`
 
 Verificacoes:
 
 - placa e normalizada
 - update posterior aceita apenas `cor` e `quilometragem`
 
-## 5.6 Abrir a OS
+### 7.7 Abrir a OS
 
 Rota:
 
@@ -264,17 +413,17 @@ Exemplo:
     }
   ],
   "notasInternas": "Cliente relatou piora a frio",
-  "notasCliente": "Veiculo recebido com 62.350 km"
+  "notasCliente": "Veiculo recebido com 62350 km"
 }
 ```
 
 Verificacoes:
 
 - status inicial `RECEBIDA`
-- `historico_os` com `ORDEM_ABERTA`
-- `servicos_solicitados.nomeServico` preenchido como snapshot
+- `historico_os` registra `ORDEM_ABERTA`
+- `servicos_solicitados.nomeServico` e salvo como snapshot
 
-## 5.7 Atribuir mecanico
+### 7.8 Atribuir mecanico
 
 Rota:
 
@@ -282,10 +431,10 @@ Rota:
 
 Verificacoes:
 
-- status `ATRIBUIDA`
-- evento `MECANICO_ATRIBUIDO`
+- status muda para `ATRIBUIDA`
+- historico registra `MECANICO_ATRIBUIDO`
 
-## 5.8 Diagnostico opcional
+### 7.9 Registrar diagnostico
 
 Rota:
 
@@ -295,9 +444,9 @@ Verificacoes:
 
 - se a OS estava `ATRIBUIDA`, o caso de uso entra em `EM_DIAGNOSTICO`
 - `diagnosticos` recebe um registro
-- `historico_os` registra `DIAGNOSTICO_REGISTRADO`
+- historico registra `DIAGNOSTICO_REGISTRADO`
 
-## 5.9 Gerar orcamento
+### 7.10 Gerar orcamento
 
 Rota:
 
@@ -305,10 +454,10 @@ Rota:
 
 Verificacoes:
 
-- status `AGUARDANDO_APROVACAO`
-- `orcamentos`, `grupos_orcamento` e `linhas_servico` preenchidos
+- status muda para `AGUARDANDO_APROVACAO`
+- `orcamentos`, `grupos_orcamento` e `linhas_servico` sao preenchidos
 
-## 5.10 Validar ownership do CLIENTE
+### 7.11 Validar ownership do CLIENTE
 
 Rotas:
 
@@ -333,9 +482,10 @@ Verificacoes adicionais:
 
 - aprovacao leva a `APROVADA`
 - rejeicao leva a `CANCELADA`
-- `historico_os` registra `ORCAMENTO_APROVADO` ou `ORCAMENTO_REJEITADO`
+- historico registra `ORCAMENTO_APROVADO` ou `ORCAMENTO_REJEITADO`
+- apesar de o decorator HTTP tambem listar `ADMINISTRADOR` em aprovar/rejeitar, os casos de uso resolvem ownership por `Cliente.usuarioId`; valide aprovacao/rejeicao com o `CLIENTE` titular
 
-## 5.11 Iniciar execucao
+### 7.12 Iniciar execucao
 
 Rota:
 
@@ -343,9 +493,9 @@ Rota:
 
 Verificacao:
 
-- status `EM_EXECUCAO`
+- status muda para `EM_EXECUCAO`
 
-## 5.12 Registrar consumo de peca
+### 7.13 Registrar consumo de peca
 
 Rota:
 
@@ -353,12 +503,12 @@ Rota:
 
 Verificacoes:
 
-- novo registro em `consumos_peca`
-- baixa correspondente no estoque
-- evento `PECA_CONSUMIDA`
-- OS e estoque confirmam juntos, porque o caso de uso usa uma transacao compartilhada
+- cria registro em `consumos_peca`
+- baixa o estoque correspondente
+- historico registra `PECA_CONSUMIDA`
+- OS e estoque sao persistidos juntos por transacao compartilhada
 
-## 5.13 Finalizar e entregar
+### 7.14 Finalizar e entregar
 
 Rotas:
 
@@ -367,11 +517,23 @@ Rotas:
 
 Verificacoes:
 
-- `FINALIZADA`
-- `ENTREGUE`
-- eventos `ORDEM_FINALIZADA` e `VEICULO_ENTREGUE`
+- status muda para `FINALIZADA`
+- status muda para `ENTREGUE`
+- historico registra `ORDEM_FINALIZADA` e `VEICULO_ENTREGUE`
 
-## 5.14 Validar relatorios
+### 7.15 Consultar status publico
+
+Rota:
+
+- `GET /api/v1/ordens-servico/publico/status/:numero/:numeroDoc`
+
+Verificacoes:
+
+- nao exige JWT
+- retorna o status da OS a partir do numero da OS e documento do cliente
+- para o caminho feliz, status final esperado e `ENTREGUE`
+
+### 7.16 Validar relatorios
 
 Rotas:
 
@@ -386,7 +548,7 @@ Verificacoes:
 
 ---
 
-## 6. Consultas de apoio no Prisma Studio
+## 8. Consultas de apoio no Prisma Studio
 
 Tabelas mais uteis:
 
@@ -416,24 +578,78 @@ Checklist util:
 
 ---
 
-## 7. Collection Postman
+## 9. Solucao de problemas
 
-O repositorio inclui uma collection Postman versionada em `postman/`:
+### Docker Desktop fechado
 
-- `oficina-api.postman_collection.json` — requisicoes organizadas na ordem do roteiro (5.1 a 5.14)
-- `oficina-api.postman_environment.json` — variaveis de ambiente para `http://localhost:3000/api/v1`
+Erro comum:
 
-Cada request possui scripts de teste que capturam IDs e tokens automaticamente nas variaveis de ambiente, permitindo executar o fluxo completo em sequencia.
+```text
+failed to connect to the docker API
+```
 
-Para importar: abra o Postman, clique em Import e selecione ambos os arquivos. Selecione o environment "Oficina API - Local" antes de executar.
+Solucao:
 
-Observacao sobre IDs nas respostas: as entidades de dominio serializam `id` como value object `{ valor: "xx01..." }`. Os scripts da collection ja tratam ambos os formatos (string direta ou objeto com `.valor`).
+- abra o Docker Desktop
+- aguarde o engine iniciar
+- rode novamente `docker compose up -d db` ou `docker compose up -d --build`
+
+### Comando no host tentando acessar `db:5432`
+
+Erro comum:
+
+```text
+Can't reach database server at `db:5432`
+```
+
+Isso acontece quando `npm run seed`, `npm run start`, `npm run start:dev` ou `npx prisma migrate deploy` rodam no host com `DATABASE_URL` apontando para `db`.
+
+Solucao para modo host:
+
+```env
+DATABASE_URL=postgresql://oficina:oficina_senha@localhost:5432/oficina_db
+```
+
+### API no Docker e API no host ao mesmo tempo
+
+Erro comum:
+
+```text
+EADDRINUSE: address already in use :::3000
+```
+
+Solucao:
+
+```bash
+docker compose stop api
+```
+
+Depois rode:
+
+```bash
+npm run start:dev
+```
+
+### Seed dentro do container
+
+Se este comando falhar:
+
+```bash
+docker compose exec -T api npm run seed
+```
+
+Use:
+
+```bash
+docker compose exec -T api node dist/prisma/seed.js
+```
 
 ---
 
-## 8. Limitacoes atuais
+## 10. Limitacoes atuais
 
-- o repositorio ainda nao possui e2e automatizado completo com PostgreSQL real
-- a suite e2e versionada continua sendo um smoke test
+- existe um e2e automatizado de caminho feliz com PostgreSQL real
+- a cobertura automatizada ainda nao inclui todos os cenarios negativos de ownership
+- cliente inativo, cliente sem vinculo, rejeicao de orcamento e variacoes de permissao por papel continuam como validacoes manuais no roteiro
 
-O proximo passo natural, quando o produto estiver funcionalmente fechado, e automatizar o roteiro manual acima com fixtures controladas.
+O proximo passo natural e automatizar os cenarios manuais restantes com fixtures controladas.
