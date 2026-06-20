@@ -8,6 +8,7 @@ const mockOsRepo = { salvar: jest.fn(), buscarPorId: jest.fn(), listar: jest.fn(
 const mockClienteRepo = { buscarPorId: jest.fn(), salvar: jest.fn(), buscarPorNumeroDoc: jest.fn() };
 const mockVeiculoRepo = { buscarPorId: jest.fn(), salvar: jest.fn(), buscarPorPlaca: jest.fn() };
 const mockServicoRepo = { buscarPorId: jest.fn(), salvar: jest.fn(), listar: jest.fn() };
+const mockEstoqueRepo = { buscarPorId: jest.fn(), buscarPorPecaId: jest.fn(), listar: jest.fn(), salvar: jest.fn() };
 
 function criarUseCase() {
   return new AbrirOrdemServicoUseCase(
@@ -15,6 +16,7 @@ function criarUseCase() {
     mockClienteRepo as any,
     mockVeiculoRepo as any,
     mockServicoRepo as any,
+    mockEstoqueRepo as any,
   );
 }
 
@@ -101,5 +103,38 @@ describe('AbrirOrdemServicoUseCase', () => {
     });
 
     expect(mockOsRepo.salvar).toHaveBeenCalledTimes(1);
+  });
+
+  it('deve lançar RecursoNaoEncontrado se peça informada na abertura não existir', async () => {
+    mockClienteRepo.buscarPorId.mockResolvedValue(clienteFake());
+    mockVeiculoRepo.buscarPorId.mockResolvedValue(veiculoFake());
+    mockEstoqueRepo.buscarPorId.mockResolvedValue(null);
+
+    const uc = criarUseCase();
+    await expect(
+      uc.executar({
+        clienteId: 'cl_01',
+        veiculoId: 've_01',
+        pecasSolicitadas: [{ pecaId: 'pc_01', quantidade: 2 }],
+      }),
+    ).rejects.toThrow(RecursoNaoEncontrado);
+  });
+
+  it('deve incluir resumo das peças nas notas internas quando houver peças na abertura', async () => {
+    mockClienteRepo.buscarPorId.mockResolvedValue(clienteFake());
+    mockVeiculoRepo.buscarPorId.mockResolvedValue(veiculoFake());
+    mockEstoqueRepo.buscarPorId.mockResolvedValue({ id: { valor: 'pc_01' } });
+    mockOsRepo.salvar.mockResolvedValue(undefined);
+
+    const uc = criarUseCase();
+    const os = await uc.executar({
+      clienteId: 'cl_01',
+      veiculoId: 've_01',
+      notasInternas: 'Cliente pediu urgencia',
+      pecasSolicitadas: [{ pecaId: 'pc_01', quantidade: 2 }],
+    });
+
+    expect(os.notasInternas).toContain('Cliente pediu urgencia');
+    expect(os.notasInternas).toContain('Peças solicitadas na abertura: pc_01 x2');
   });
 });

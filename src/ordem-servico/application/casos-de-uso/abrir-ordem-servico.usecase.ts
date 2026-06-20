@@ -9,6 +9,8 @@ import type { VeiculoRepository } from '../../../veiculo/domain/veiculo.reposito
 import { SERVICO_OFICINA_REPOSITORY } from '../../../servico-oficina/domain/servico-oficina.repository';
 import type { ServicoOficinaRepository } from '../../../servico-oficina/domain/servico-oficina.repository';
 import { ServicoOficinaId } from '../../../servico-oficina/domain/servico-oficina-id.value-object';
+import { ESTOQUE_REPOSITORY } from '../../../estoque/domain/estoque.repository';
+import type { EstoqueRepository } from '../../../estoque/domain/estoque.repository';
 import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { ORDEM_SERVICO_REPOSITORY } from '../../domain/ordem-servico.repository';
 import type { OrdemServicoRepository } from '../../domain/ordem-servico.repository';
@@ -32,6 +34,8 @@ export interface AbrirOrdemServicoInput {
   problemasRelatados?: { descricao: string }[];
   /** Serviços do catálogo da oficina selecionados pelo cliente. */
   servicosSolicitados?: ServicoSolicitadoInput[];
+  /** Peças informadas no momento da abertura da OS. */
+  pecasSolicitadas?: { pecaId: string; quantidade: number }[];
   notasInternas?: string;
   notasCliente?: string;
   usuarioId?: string;
@@ -53,6 +57,8 @@ export class AbrirOrdemServicoUseCase {
     private readonly veiculoRepository: VeiculoRepository,
     @Inject(SERVICO_OFICINA_REPOSITORY)
     private readonly servicoRepository: ServicoOficinaRepository,
+    @Inject(ESTOQUE_REPOSITORY)
+    private readonly estoqueRepository: EstoqueRepository,
   ) {}
 
   async executar(input: AbrirOrdemServicoInput): Promise<OrdemServico> {
@@ -75,12 +81,37 @@ export class AbrirOrdemServicoUseCase {
       }),
     );
 
+    const pecasSolicitadas = await Promise.all(
+      (input.pecasSolicitadas ?? []).map(async (p) => {
+        const estoque = await this.estoqueRepository.buscarPorId(p.pecaId);
+        if (!estoque) throw new RecursoNaoEncontrado('Peça do estoque', p.pecaId);
+        return p;
+      }),
+    );
+
+    const resumoPecas = pecasSolicitadas.length
+      ? pecasSolicitadas.map((p) => `${p.pecaId} x${p.quantidade}`).join(', ')
+      : null;
+
+    const notasInternasComPecas = resumoPecas
+      ? [input.notasInternas, `Peças solicitadas na abertura: ${resumoPecas}`]
+          .filter((v): v is string => !!v && v.trim().length > 0)
+          .join('\n')
+      : input.notasInternas;
+
+    const problemasRelatados =
+      (input.problemasRelatados?.length ?? 0) > 0 || (servicosSolicitados.length ?? 0) > 0
+        ? input.problemasRelatados
+        : resumoPecas
+          ? [{ descricao: 'Solicitação de peças registrada na abertura (ver notas internas)' }]
+          : input.problemasRelatados;
+
     const os = OrdemServico.abrir({
       clienteId: input.clienteId,
       veiculoId: input.veiculoId,
-      problemasRelatados: input.problemasRelatados,
+      problemasRelatados,
       servicosSolicitados,
-      notasInternas: input.notasInternas,
+      notasInternas: notasInternasComPecas,
       notasCliente: input.notasCliente,
       usuarioId: input.usuarioId,
     });

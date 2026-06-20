@@ -3,6 +3,14 @@ import { RespostaPaginadaDto } from '../../../shared/http/dtos/resposta-paginada
 import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { ORDEM_SERVICO_REPOSITORY } from '../../domain/ordem-servico.repository';
 import type { OrdemServicoRepository } from '../../domain/ordem-servico.repository';
+import { StatusOrdemServico } from '../../domain/status-ordem-servico.enum';
+
+const STATUS_PRIORIZADOS_LISTAGEM: StatusOrdemServico[] = [
+  StatusOrdemServico.EM_EXECUCAO,
+  StatusOrdemServico.AGUARDANDO_APROVACAO,
+  StatusOrdemServico.EM_DIAGNOSTICO,
+  StatusOrdemServico.RECEBIDA,
+];
 
 /**
  * Dados de entrada para listagem paginada de ordens de serviço (usuários internos).
@@ -43,7 +51,38 @@ export class ListarOrdensServicoUseCase {
     const pagina = input.pagina ?? 1;
     const porPagina = input.porPagina ?? 20;
 
-    const { itens, total } = await this.osRepository.listar({ ...input, pagina, porPagina });
+    if (input.status) {
+      if (!STATUS_PRIORIZADOS_LISTAGEM.includes(input.status as StatusOrdemServico)) {
+        return new RespostaPaginadaDto([], 0, pagina, porPagina);
+      }
+
+      const { itens, total } = await this.osRepository.listar({
+        ...input,
+        pagina,
+        porPagina,
+        ordemCriacao: 'asc',
+      });
+
+      return new RespostaPaginadaDto(itens, total, pagina, porPagina);
+    }
+
+    const resultadosPorStatus = await Promise.all(
+      STATUS_PRIORIZADOS_LISTAGEM.map((status) =>
+        this.osRepository.listar({
+          clienteId: input.clienteId,
+          mecanicoResponsavelId: input.mecanicoResponsavelId,
+          status,
+          ordemCriacao: 'asc',
+        }),
+      ),
+    );
+
+    const total = resultadosPorStatus.reduce((acc, r) => acc + r.total, 0);
+    const itensOrdenados = resultadosPorStatus.flatMap((r) => r.itens);
+    const inicio = (pagina - 1) * porPagina;
+    const fim = inicio + porPagina;
+    const itens = itensOrdenados.slice(inicio, fim);
+
     return new RespostaPaginadaDto(itens, total, pagina, porPagina);
   }
 }

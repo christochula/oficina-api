@@ -193,18 +193,23 @@ export class PrismaOrdemServicoRepository implements OrdemServicoRepository {
     if (filtros.clienteId) where.clienteId = filtros.clienteId;
     if (filtros.mecanicoResponsavelId) where.mecanicoResponsavelId = filtros.mecanicoResponsavelId;
 
-    const pagina = filtros.pagina ?? 1;
-    const porPagina = filtros.porPagina ?? 20;
+    const pagina = filtros.pagina;
+    const porPagina = filtros.porPagina;
     const db = this.db;
 
+    const queryBase = {
+      where,
+      include: INCLUDE_COMPLETO,
+      orderBy: { criadoEm: filtros.ordemCriacao ?? 'desc' },
+    };
+
+    const findManyArgs =
+      typeof pagina === 'number' && typeof porPagina === 'number'
+        ? { ...queryBase, skip: (pagina - 1) * porPagina, take: porPagina }
+        : queryBase;
+
     const [registros, total] = await Promise.all([
-      db.ordemServico.findMany({
-        where,
-        include: INCLUDE_COMPLETO,
-        orderBy: { criadoEm: 'desc' },
-        skip: (pagina - 1) * porPagina,
-        take: porPagina,
-      }),
+      db.ordemServico.findMany(findManyArgs),
       db.ordemServico.count({ where }),
     ]);
 

@@ -24,12 +24,14 @@ import { RejeitarOrcamentoUseCase } from './application/casos-de-uso/rejeitar-or
 import { KpisOrdemServicoUseCase } from './application/casos-de-uso/kpis-ordem-servico.usecase';
 import { RelatorioLeadTimeUseCase } from './application/casos-de-uso/relatorio-lead-time.usecase';
 import { TempoCicloPersonalizadoUseCase } from './application/casos-de-uso/tempo-ciclo-personalizado.usecase';
+import { ProcessarAprovacaoExternaOrcamentoUseCase } from './application/casos-de-uso/processar-aprovacao-externa-orcamento.usecase';
 import { NOTIFICACAO_ORCAMENTO_GATEWAY } from './domain/notificacao-orcamento.gateway';
 import { ORDEM_SERVICO_REPOSITORY } from './domain/ordem-servico.repository';
 import { ConsoleNotificacaoOrcamentoGateway } from './infrastructure/notificacao/console-notificacao-orcamento.gateway';
 import { PrismaOrdemServicoRepository } from './infrastructure/persistencia/prisma-ordem-servico.repository';
 import { OrdemServicoPublicoController } from './interfaces/http/v1/ordem-servico-publico.controller';
 import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.controller';
+import { OrdemServicoWebhookController } from './interfaces/http/v1/ordem-servico-webhook.controller';
 
 /**
  * Módulo NestJS do aggregate OrdemServico.
@@ -45,7 +47,7 @@ import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.contr
  */
 @Module({
   imports: [UsuarioModule, ClienteModule, VeiculoModule, EstoqueModule, ServicoOficinaModule],
-  controllers: [OrdemServicoController, OrdemServicoPublicoController],
+  controllers: [OrdemServicoController, OrdemServicoPublicoController, OrdemServicoWebhookController],
   providers: [
     AbrirOrdemServicoUseCase,
     AtribuirOrdemServicoUseCase,
@@ -67,6 +69,7 @@ import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.contr
     RelatorioLeadTimeUseCase,
     KpisOrdemServicoUseCase,
     TempoCicloPersonalizadoUseCase,
+    ProcessarAprovacaoExternaOrcamentoUseCase,
     { provide: ORDEM_SERVICO_REPOSITORY, useClass: PrismaOrdemServicoRepository },
     { provide: NOTIFICACAO_ORCAMENTO_GATEWAY, useClass: ConsoleNotificacaoOrcamentoGateway },
   ],

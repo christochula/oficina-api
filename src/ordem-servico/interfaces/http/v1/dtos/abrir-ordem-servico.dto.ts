@@ -2,6 +2,8 @@ import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import {
   IsArray,
+  IsInt,
+  Min,
   IsOptional,
   IsString,
   ValidateNested,
@@ -29,6 +31,19 @@ class ServicoSolicitadoDto {
   @IsOptional()
   @IsString()
   observacao?: string;
+}
+
+/** DTO para uma peça informada na abertura da OS. */
+class PecaSolicitadaDto {
+  @ApiProperty({ description: 'ID da peça no estoque' })
+  @IsString()
+  pecaId: string;
+
+  @ApiProperty({ description: 'Quantidade solicitada da peça' })
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  quantidade: number;
 }
 
 /**
@@ -68,6 +83,16 @@ export class AbrirOrdemServicoDto {
   @IsOptional()
   @IsString()
   notasInternas?: string;
+
+  @ApiPropertyOptional({
+    type: [PecaSolicitadaDto],
+    description: 'Peças mencionadas já na abertura da OS',
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => PecaSolicitadaDto)
+  pecasSolicitadas?: PecaSolicitadaDto[];
 
   @ApiPropertyOptional({ description: 'Notas visíveis ao cliente' })
   @IsOptional()

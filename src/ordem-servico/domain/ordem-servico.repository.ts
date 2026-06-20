@@ -21,6 +21,8 @@ export interface FiltrosListagemOS {
   pagina?: number;
   /** Quantidade de registros por página (padrão: 20). */
   porPagina?: number;
+  /** Ordenação por data de criação. */
+  ordemCriacao?: 'asc' | 'desc';
 }
 
 /**
