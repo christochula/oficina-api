@@ -1,0 +1,16 @@
+aws_region           = "us-east-1"
+project_name         = "oficina-api"
+environment          = "dev"
+
+vpc_cidr             = "10.20.0.0/16"
+public_subnet_cidrs  = ["10.20.0.0/24", "10.20.1.0/24"]
+private_subnet_cidrs = ["10.20.10.0/24", "10.20.11.0/24"]
+
+db_name           = "oficina_db"
+db_username       = "oficina"
+db_password       = "troque-por-senha-forte"
+db_instance_class = "db.t4g.micro"
+
+desired_size = 2
+min_size     = 1
+max_size     = 3

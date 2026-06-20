@@ -22,11 +22,11 @@ Fechar o caminho critico da entrega sem depender da dupla:
 - [ ] Endpoint de aprovacao externa de orcamento implementado.
 - [ ] Abertura de OS aderente ao requisito da fase 2.
 - [ ] Testes dos novos fluxos passando.
-- [ ] Manifestos em pasta k8s criados e aplicaveis.
+- [x] Manifestos em pasta k8s criados e aplicaveis.
 - [ ] HPA configurado com evidencia de escalabilidade.
-- [ ] Estrutura Terraform em pasta infra criada e documentada.
-- [ ] Workflow de CI criado em .github/workflows.
-- [ ] README atualizado com arquitetura e instrucoes da fase 2.
+- [x] Estrutura Terraform em pasta infra criada e documentada.
+- [x] Workflow de CI criado em .github/workflows.
+- [x] README atualizado com arquitetura e instrucoes da fase 2.
 
 ---
 
@@ -138,11 +138,11 @@ Saida esperada:
 ### 1) Manifestos Kubernetes
 
 Checklist:
-- [ ] k8s/deployment.yaml
-- [ ] k8s/service.yaml
-- [ ] k8s/configmap.yaml
-- [ ] k8s/secret.yaml
-- [ ] k8s/hpa.yaml
+- [x] k8s/deployment.yaml
+- [x] k8s/service.yaml
+- [x] k8s/configmap.yaml
+- [x] k8s/secret.yaml
+- [x] k8s/hpa.yaml
 
 ### 2) Validacao de deploy + HPA
 
@@ -154,27 +154,27 @@ Checklist:
 ### 3) Estrutura Terraform
 
 Checklist:
-- [ ] infra/main.tf
-- [ ] infra/variables.tf
-- [ ] infra/outputs.tf
-- [ ] infra/providers.tf
-- [ ] README de infra com passo a passo de apply.
+- [x] infra/main.tf
+- [x] infra/variables.tf
+- [x] infra/outputs.tf
+- [x] infra/providers.tf
+- [x] README de infra com passo a passo de apply.
 
 ### 4) Pipeline (evolucao)
 
 Checklist:
-- [ ] Build de imagem Docker.
-- [ ] Etapa de deploy (quando ambiente permitir).
-- [ ] Estrutura pronta para apply de K8s.
+- [x] Build de imagem Docker.
+- [x] Etapa de deploy (quando ambiente permitir).
+- [x] Estrutura pronta para apply de K8s.
 
 ### 5) README fase 2
 
 Checklist:
-- [ ] Arquitetura proposta.
-- [ ] Fluxo CI/CD.
-- [ ] Execucao local.
-- [ ] Deploy em Kubernetes.
-- [ ] Provisionamento com Terraform.
+- [x] Arquitetura proposta.
+- [x] Fluxo CI/CD.
+- [x] Execucao local.
+- [x] Deploy em Kubernetes.
+- [x] Provisionamento com Terraform.
 
 ---
 

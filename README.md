@@ -259,6 +259,7 @@ A tabela abaixo resume as rotas mais importantes. O Swagger continua sendo a fon
 | OS | PATCH | `/api/v1/ordens-servico/:id/consumo-peca` | MECANICO |
 | OS | PATCH | `/api/v1/ordens-servico/:id/finalizar` | MECANICO |
 | OS | PATCH | `/api/v1/ordens-servico/:id/entregar` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | POST | `/api/v1/ordens-servico/webhook/orcamento` | Integracao externa via token |
 | OS | GET | `/api/v1/ordens-servico/mecanico/minhas-ordens` | MECANICO |
 | OS | GET | `/api/v1/ordens-servico/mecanico/:id` | MECANICO titular |
 | OS | GET | `/api/v1/ordens-servico/minhas/lista` | CLIENTE vinculado |
@@ -366,6 +367,72 @@ Observacoes para avaliacao:
 O roteiro manual complementar continua documentado em `guia-teste-end-to-end.md`.
 
 Fluxo de orçamento: ao gerar orçamento, o sistema registra envio para aprovação via gateway de notificação (implementação inicial em log estruturado, pronta para trocar por e-mail/outbox).
+
+---
+
+## Kubernetes
+
+Manifestos versionados em `k8s/`:
+
+- `namespace.yaml`
+- `configmap.yaml`
+- `secret.yaml`
+- `deployment.yaml`
+- `service.yaml`
+- `hpa.yaml`
+- `kustomization.yaml`
+
+Aplicar no cluster:
+
+```bash
+kubectl apply -k k8s
+```
+
+Antes do apply, ajuste os valores de segredo em `k8s/secret.yaml`, principalmente:
+
+- `DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `ORCAMENTO_WEBHOOK_TOKEN`
+
+---
+
+## Infraestrutura como Codigo (Terraform)
+
+Scripts em `infra/` para provisionar na AWS:
+
+- VPC com sub-redes publicas/privadas
+- EKS (cluster Kubernetes)
+- RDS PostgreSQL
+
+Passo a passo resumido:
+
+```bash
+cd infra
+cp terraform.tfvars.example terraform.tfvars
+terraform init
+terraform validate
+terraform plan
+terraform apply
+```
+
+Detalhes de variaveis e recursos: `infra/README.md`.
+
+---
+
+## CI/CD
+
+Workflows em `.github/workflows/`:
+
+- `ci.yml`: install, build e testes automatizados em push/PR.
+- `cd.yml`: build e push de imagem Docker, apply do Terraform (quando secrets AWS existem) e deploy no Kubernetes (quando kubeconfig foi configurado).
+
+Secrets esperados no repositório para CD:
+
+- `AWS_ROLE_ARN`
+- `AWS_REGION`
+- `DB_PASSWORD`
+- `KUBE_CONFIG_DATA` (kubeconfig em base64)
 
 ---
 
