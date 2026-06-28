@@ -8,14 +8,9 @@ import { StatusOrdemServico } from '../../domain/status-ordem-servico.enum';
 
 const mockOsRepo = { buscarPorId: jest.fn(), salvar: jest.fn() };
 const mockBuscarClientePorUsuario = { executar: jest.fn() };
-const mockNotificacaoStatus = { enviarAtualizacaoStatus: jest.fn() };
 
 function criarUseCase() {
-  return new AprovarOrcamentoUseCase(
-    mockOsRepo as any,
-    mockBuscarClientePorUsuario as any,
-    mockNotificacaoStatus as any,
-  );
+  return new AprovarOrcamentoUseCase(mockOsRepo as any, mockBuscarClientePorUsuario as any);
 }
 
 function osAguardandoAprovacao() {

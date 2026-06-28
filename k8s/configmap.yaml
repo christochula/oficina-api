@@ -7,5 +7,3 @@ data:
   NODE_ENV: "production"
   PORT: "3000"
   CORS_ORIGIN: "http://localhost:5173"
-  SMTP_HOST: "smtp.exemplo.com"
-  SMTP_PORT: "587"

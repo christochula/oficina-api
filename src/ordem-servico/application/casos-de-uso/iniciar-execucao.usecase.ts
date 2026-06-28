@@ -1,11 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ClienteId } from '../../../cliente/domain/cliente-id.value-object';
-import { CLIENTE_REPOSITORY, type ClienteRepository } from '../../../cliente/domain/cliente.repository';
 import { RecursoNaoEncontrado } from '../../../shared/excecoes/dominio.exception';
-import {
-  NOTIFICACAO_STATUS_OS_GATEWAY,
-  type NotificacaoStatusOsGateway,
-} from '../portas/notificacao-status-os.gateway';
 import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { OrdemServicoId } from '../../domain/ordem-servico-id.value-object';
 import { ORDEM_SERVICO_REPOSITORY } from '../../domain/ordem-servico.repository';
@@ -22,10 +16,6 @@ export class IniciarExecucaoUseCase {
   constructor(
     @Inject(ORDEM_SERVICO_REPOSITORY)
     private readonly osRepository: OrdemServicoRepository,
-    @Inject(CLIENTE_REPOSITORY)
-    private readonly clienteRepository: ClienteRepository,
-    @Inject(NOTIFICACAO_STATUS_OS_GATEWAY)
-    private readonly notificacaoStatusGateway: NotificacaoStatusOsGateway,
   ) {}
 
   /**
@@ -42,18 +32,6 @@ export class IniciarExecucaoUseCase {
 
     os.iniciarExecucao(mecanicoId);
     await this.osRepository.salvar(os);
-
-    const cliente = await this.clienteRepository.buscarPorId(ClienteId.de(os.clienteId));
-    if (cliente?.email) {
-      await this.notificacaoStatusGateway.enviarAtualizacaoStatus({
-        osId: os.id.valor,
-        osNumero: os.numero,
-        clienteId: os.clienteId,
-        emailCliente: cliente.email,
-        status: os.status,
-      });
-    }
-
     return os;
   }
 }
