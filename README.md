@@ -42,6 +42,8 @@ Estado atual do repositorio:
 
 ## Arquitetura
 
+Abordagem arquitetural adotada nesta fase: **Clean Architecture**.
+
 Estrutura principal:
 
 ```text

@@ -25,7 +25,7 @@ import { KpisOrdemServicoUseCase } from './application/casos-de-uso/kpis-ordem-s
 import { RelatorioLeadTimeUseCase } from './application/casos-de-uso/relatorio-lead-time.usecase';
 import { TempoCicloPersonalizadoUseCase } from './application/casos-de-uso/tempo-ciclo-personalizado.usecase';
 import { ProcessarAprovacaoExternaOrcamentoUseCase } from './application/casos-de-uso/processar-aprovacao-externa-orcamento.usecase';
-import { NOTIFICACAO_ORCAMENTO_GATEWAY } from './domain/notificacao-orcamento.gateway';
+import { NOTIFICACAO_ORCAMENTO_GATEWAY } from './application/portas/notificacao-orcamento.gateway';
 import { ORDEM_SERVICO_REPOSITORY } from './domain/ordem-servico.repository';
 import { ConsoleNotificacaoOrcamentoGateway } from './infrastructure/notificacao/console-notificacao-orcamento.gateway';
 import { PrismaOrdemServicoRepository } from './infrastructure/persistencia/prisma-ordem-servico.repository';

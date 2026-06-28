@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import {
   NotificacaoOrcamentoGateway,
   NotificacaoOrcamentoInput,
-} from '../../domain/notificacao-orcamento.gateway';
+} from '../../application/portas/notificacao-orcamento.gateway';
 
 /**
  * Implementação inicial de notificação: registra o envio em log estruturado.

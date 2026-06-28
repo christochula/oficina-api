@@ -9,7 +9,7 @@ export interface NotificacaoOrcamentoInput {
 }
 
 /**
- * Porta de saída para notificações de orçamento.
+ * Porta de saída da camada application para notificações de orçamento.
  */
 export interface NotificacaoOrcamentoGateway {
   enviarParaAprovacao(input: NotificacaoOrcamentoInput): Promise<void>;

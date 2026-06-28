@@ -5,7 +5,7 @@ import { RecursoNaoEncontrado } from '../../../shared/excecoes/dominio.exception
 import {
   NOTIFICACAO_ORCAMENTO_GATEWAY,
   type NotificacaoOrcamentoGateway,
-} from '../../domain/notificacao-orcamento.gateway';
+} from '../portas/notificacao-orcamento.gateway';
 import { OrdemServico } from '../../domain/ordem-servico.entity';
 import { OrdemServicoId } from '../../domain/ordem-servico-id.value-object';
 import { ORDEM_SERVICO_REPOSITORY } from '../../domain/ordem-servico.repository';
