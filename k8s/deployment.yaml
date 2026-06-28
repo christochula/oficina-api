@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: oficina-api
-          image: ghcr.io/christochula/oficina-api:latest
+          image: 120700269033.dkr.ecr.us-east-1.amazonaws.com/oficina-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000
