@@ -291,4 +291,162 @@ describe('Fluxo completo da Ordem de Serviço (e2e com Testcontainers)', () => {
     const statusPublico = unwrap<{ status: string }>(statusPublicoResp.body);
     expect(statusPublico.status).toBe('ENTREGUE');
   });
+
+  it('deve processar aprovacao externa via webhook com idempotencia e validar token', async () => {
+    const sufixo = Date.now() + 1;
+    const adminEmail = 'admin@oficina.com';
+    const adminSenha = process.env.ADMIN_SEED_PASSWORD ?? 'Admin@123';
+
+    const loginAdminResp = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: adminEmail, senha: adminSenha })
+      .expect(200);
+
+    const tokenAdmin = unwrap<{ accessToken: string }>(loginAdminResp.body).accessToken;
+
+    const criarMecanicoResp = await request(app.getHttpServer())
+      .post('/api/v1/usuarios')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        nome: `Mecanico webhook ${sufixo}`,
+        email: `mecanico.webhook.${sufixo}@oficina.com`,
+        senha: 'Senha@123',
+        papel: 'MECANICO',
+      })
+      .expect(201);
+
+    const mecanico = unwrap<{ id: string }>(criarMecanicoResp.body);
+
+    const criarUsuarioClienteResp = await request(app.getHttpServer())
+      .post('/api/v1/usuarios')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        nome: `Cliente webhook user ${sufixo}`,
+        email: `cliente.webhook.${sufixo}@oficina.com`,
+        senha: 'Senha@123',
+        papel: 'CLIENTE',
+      })
+      .expect(201);
+
+    const usuarioCliente = unwrap<{ id: string }>(criarUsuarioClienteResp.body);
+    const numeroDoc = gerarCpfValido(sufixo);
+
+    const criarClienteResp = await request(app.getHttpServer())
+      .post('/api/v1/clientes')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        tipoDoc: 'CPF',
+        numeroDoc,
+        nome: `Cliente webhook ${sufixo}`,
+        email: `cliente.webhook.${sufixo}@oficina.com`,
+        telefone: '11999999999',
+        usuarioId: usuarioCliente.id,
+      })
+      .expect(201);
+
+    const cliente = unwrap<any>(criarClienteResp.body);
+    const clienteId = extrairId(cliente);
+
+    const placa = `WKB${String(sufixo).slice(-4)}`;
+    const criarVeiculoResp = await request(app.getHttpServer())
+      .post('/api/v1/veiculos')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        placa,
+        renavam: String(10000000000 + (sufixo % 89999999999)),
+        chassi: `9BWZZZ377VT${String(sufixo).slice(-6).padStart(6, '0')}`,
+        marca: 'Honda',
+        modelo: 'Civic',
+        ano: 2021,
+        cor: 'Cinza',
+      })
+      .expect(201);
+
+    const veiculo = unwrap<any>(criarVeiculoResp.body);
+    const veiculoId = extrairId(veiculo);
+
+    const criarServicoResp = await request(app.getHttpServer())
+      .post('/api/v1/servicos-oficina')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        nome: `Alinhamento ${sufixo}`,
+        descricao: 'Alinhamento completo',
+        categoria: 'Preventiva',
+      })
+      .expect(201);
+
+    const servico = unwrap<any>(criarServicoResp.body);
+    const servicoId = extrairId(servico);
+
+    const abrirOSResp = await request(app.getHttpServer())
+      .post('/api/v1/ordens-servico')
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .send({
+        clienteId,
+        veiculoId,
+        servicosSolicitados: [{ servicoId }],
+        problemasRelatados: [{ descricao: 'Vibracao ao frear' }],
+      })
+      .expect(201);
+
+    const osId = extrairId(unwrap<any>(abrirOSResp.body));
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/ordens-servico/${osId}/atribuir/${mecanico.id}`)
+      .set('Authorization', `Bearer ${tokenAdmin}`)
+      .expect(200);
+
+    const loginMecanicoResp = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: `mecanico.webhook.${sufixo}@oficina.com`, senha: 'Senha@123' })
+      .expect(200);
+
+    const tokenMecanico = unwrap<{ accessToken: string }>(loginMecanicoResp.body).accessToken;
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/ordens-servico/${osId}/diagnostico`)
+      .set('Authorization', `Bearer ${tokenMecanico}`)
+      .send({ descricao: 'Disco empenado e desalinhamento' })
+      .expect(200);
+
+    await request(app.getHttpServer())
+      .patch(`/api/v1/ordens-servico/${osId}/orcamento`)
+      .set('Authorization', `Bearer ${tokenMecanico}`)
+      .send({
+        grupos: [
+          {
+            titulo: 'Correcao',
+            linhas: [{ tipo: 'SERVICO', descricao: 'Alinhamento', quantidade: 1, valorUnitario: 180 }],
+          },
+        ],
+      })
+      .expect(200);
+
+    const tokenWebhook = `token-webhook-${sufixo}`;
+    process.env.ORCAMENTO_WEBHOOK_TOKEN = tokenWebhook;
+
+    const webhookAprovacaoResp = await request(app.getHttpServer())
+      .post('/api/v1/ordens-servico/webhook/orcamento')
+      .set('x-webhook-token', tokenWebhook)
+      .send({ osId, decisao: 'APROVADO', origem: 'gateway-fase2' })
+      .expect(201);
+
+    const webhookAprovacao = unwrap<{ status: string }>(webhookAprovacaoResp.body);
+    expect(webhookAprovacao.status).toBe('APROVADA');
+
+    const webhookIdempotenteResp = await request(app.getHttpServer())
+      .post('/api/v1/ordens-servico/webhook/orcamento')
+      .set('x-webhook-token', tokenWebhook)
+      .send({ osId, decisao: 'APROVADO', origem: 'gateway-fase2' })
+      .expect(201);
+
+    const webhookIdempotente = unwrap<{ status: string }>(webhookIdempotenteResp.body);
+    expect(webhookIdempotente.status).toBe('APROVADA');
+
+    await request(app.getHttpServer())
+      .post('/api/v1/ordens-servico/webhook/orcamento')
+      .set('x-webhook-token', 'token-invalido')
+      .send({ osId, decisao: 'APROVADO', origem: 'gateway-fase2' })
+      .expect(401);
+  });
 });

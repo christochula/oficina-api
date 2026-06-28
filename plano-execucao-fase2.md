@@ -18,10 +18,10 @@ Fechar o caminho critico da entrega sem depender da dupla:
 
 ## Definicao de pronto (ate o fim do Dia 2)
 
-- [ ] Regras de listagem da OS aderentes ao enunciado.
-- [ ] Endpoint de aprovacao externa de orcamento implementado.
-- [ ] Abertura de OS aderente ao requisito da fase 2.
-- [ ] Testes dos novos fluxos passando.
+- [x] Regras de listagem da OS aderentes ao enunciado.
+- [x] Endpoint de aprovacao externa de orcamento implementado.
+- [x] Abertura de OS aderente ao requisito da fase 2.
+- [x] Testes dos novos fluxos passando.
 - [x] Manifestos em pasta k8s criados e aplicaveis.
 - [ ] HPA configurado com evidencia de escalabilidade.
 - [x] Estrutura Terraform em pasta infra criada e documentada.
@@ -214,3 +214,7 @@ Status atual:
 - [x] Dia 1 - Item 5 concluido
 - [x] Dia 1 - Item 6 iniciado
 - [x] Dia 1 - Item 6 concluido
+
+Evidencias recentes:
+- 27/06/2026: npm run test:e2e -- --runInBand test/ordem-servico-fluxo.e2e-spec.ts -> 1 suite, 2 testes, todos passando.
+- 27/06/2026: npm run test:e2e -- --runInBand -> 2 suites, 6 testes, todos passando.
