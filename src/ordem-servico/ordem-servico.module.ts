@@ -26,8 +26,10 @@ import { RelatorioLeadTimeUseCase } from './application/casos-de-uso/relatorio-l
 import { TempoCicloPersonalizadoUseCase } from './application/casos-de-uso/tempo-ciclo-personalizado.usecase';
 import { ProcessarAprovacaoExternaOrcamentoUseCase } from './application/casos-de-uso/processar-aprovacao-externa-orcamento.usecase';
 import { NOTIFICACAO_ORCAMENTO_GATEWAY } from './application/portas/notificacao-orcamento.gateway';
+import { NOTIFICACAO_STATUS_OS_GATEWAY } from './application/portas/notificacao-status-os.gateway';
 import { ORDEM_SERVICO_REPOSITORY } from './domain/ordem-servico.repository';
 import { ConsoleNotificacaoOrcamentoGateway } from './infrastructure/notificacao/console-notificacao-orcamento.gateway';
+import { SmtpNotificacaoStatusOsGateway } from './infrastructure/notificacao/smtp-notificacao-status-os.gateway';
 import { PrismaOrdemServicoRepository } from './infrastructure/persistencia/prisma-ordem-servico.repository';
 import { OrdemServicoPublicoController } from './interfaces/http/v1/ordem-servico-publico.controller';
 import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.controller';
@@ -72,6 +74,7 @@ import { OrdemServicoWebhookController } from './interfaces/http/v1/ordem-servic
     ProcessarAprovacaoExternaOrcamentoUseCase,
     { provide: ORDEM_SERVICO_REPOSITORY, useClass: PrismaOrdemServicoRepository },
     { provide: NOTIFICACAO_ORCAMENTO_GATEWAY, useClass: ConsoleNotificacaoOrcamentoGateway },
+    { provide: NOTIFICACAO_STATUS_OS_GATEWAY, useClass: SmtpNotificacaoStatusOsGateway },
   ],
 })
 export class OrdemServicoModule {}

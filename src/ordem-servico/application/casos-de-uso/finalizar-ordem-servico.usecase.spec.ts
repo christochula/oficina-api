@@ -7,9 +7,11 @@ import { TipoLinhaServico } from '../../domain/value-objects/linha-servico.vo';
 import { StatusOrdemServico } from '../../domain/status-ordem-servico.enum';
 
 const mockOsRepo = { buscarPorId: jest.fn(), salvar: jest.fn() };
+const mockClienteRepo = { buscarPorId: jest.fn() };
+const mockNotificacaoStatus = { enviarAtualizacaoStatus: jest.fn() };
 
 function criarUseCase() {
-  return new FinalizarOrdemServicoUseCase(mockOsRepo as any);
+  return new FinalizarOrdemServicoUseCase(mockOsRepo as any, mockClienteRepo as any, mockNotificacaoStatus as any);
 }
 
 function osEmExecucao() {
