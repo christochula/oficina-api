@@ -50,17 +50,31 @@ jobs:
 
       - name: Validate required AWS secrets
         run: |
-          test -n "${{ secrets.AWS_ROLE_ARN }}" || { echo "::error::Missing secret AWS_ROLE_ARN"; exit 1; }
           test -n "${{ secrets.AWS_REGION }}" || { echo "::error::Missing secret AWS_REGION"; exit 1; }
+          if [ -z "${{ secrets.AWS_ROLE_ARN }}" ]; then
+            test -n "${{ secrets.AWS_ACCESS_KEY_ID }}" || { echo "::error::Missing secret AWS_ACCESS_KEY_ID when AWS_ROLE_ARN is empty"; exit 1; }
+            test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || { echo "::error::Missing secret AWS_SECRET_ACCESS_KEY when AWS_ROLE_ARN is empty"; exit 1; }
+            test -n "${{ secrets.AWS_SESSION_TOKEN }}" || { echo "::error::Missing secret AWS_SESSION_TOKEN when AWS_ROLE_ARN is empty"; exit 1; }
+          fi
 
       - name: Define image tag
         id: meta
         run: echo "image_tag=sha-${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Configure AWS credentials (Access Key fallback)
+        if: ${{ secrets.AWS_ROLE_ARN == '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Ensure ECR repository exists
@@ -87,8 +101,12 @@ jobs:
 
       - name: Validate required Terraform secrets
         run: |
-          test -n "${{ secrets.AWS_ROLE_ARN }}" || { echo "::error::Missing secret AWS_ROLE_ARN"; exit 1; }
           test -n "${{ secrets.AWS_REGION }}" || { echo "::error::Missing secret AWS_REGION"; exit 1; }
+          if [ -z "${{ secrets.AWS_ROLE_ARN }}" ]; then
+            test -n "${{ secrets.AWS_ACCESS_KEY_ID }}" || { echo "::error::Missing secret AWS_ACCESS_KEY_ID when AWS_ROLE_ARN is empty"; exit 1; }
+            test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || { echo "::error::Missing secret AWS_SECRET_ACCESS_KEY when AWS_ROLE_ARN is empty"; exit 1; }
+            test -n "${{ secrets.AWS_SESSION_TOKEN }}" || { echo "::error::Missing secret AWS_SESSION_TOKEN when AWS_ROLE_ARN is empty"; exit 1; }
+          fi
           test -n "${{ secrets.DB_PASSWORD_SECRET_NAME }}" || { echo "::error::Missing secret DB_PASSWORD_SECRET_NAME"; exit 1; }
           test -n "${{ secrets.APP_K8S_SECRET_NAME }}" || { echo "::error::Missing secret APP_K8S_SECRET_NAME"; exit 1; }
           test -n "${{ secrets.POSTGRES_K8S_SECRET_NAME }}" || { echo "::error::Missing secret POSTGRES_K8S_SECRET_NAME"; exit 1; }
@@ -96,10 +114,20 @@ jobs:
           test -n "${{ secrets.NODE_IAM_ROLE_NAME }}" || { echo "::error::Missing secret NODE_IAM_ROLE_NAME"; exit 1; }
           test -n "${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}" || { echo "::error::Missing secret CLUSTER_ADMIN_ROLE_NAME"; exit 1; }
 
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials (OIDC)
+        if: ${{ secrets.AWS_ROLE_ARN != '' }}
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Configure AWS credentials (Access Key fallback)
+        if: ${{ secrets.AWS_ROLE_ARN == '' }}
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Setup Terraform
