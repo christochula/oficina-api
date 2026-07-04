@@ -87,8 +87,8 @@ module "eks" {
       }
     }
   }
-  create_iam_role                = !local.use_existing_iam_roles
-  iam_role_arn                   = local.use_existing_iam_roles ? data.aws_iam_role.cluster[0].arn : null
+  create_iam_role = !local.use_existing_iam_roles
+  iam_role_arn    = local.use_existing_iam_roles ? data.aws_iam_role.cluster[0].arn : null
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
