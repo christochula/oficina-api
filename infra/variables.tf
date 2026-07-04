@@ -50,6 +50,19 @@ variable "db_password" {
   description = "Senha do banco"
   type        = string
   sensitive   = true
+  default     = ""
+}
+
+variable "db_password_secret_name" {
+  description = "Nome do secret no AWS Secrets Manager para senha do RDS. Usado quando db_password estiver vazio."
+  type        = string
+  default     = ""
+}
+
+variable "db_password_secret_key" {
+  description = "Chave dentro do JSON do secret da senha do RDS. Se o secret for string plana, este campo e ignorado."
+  type        = string
+  default     = "db_password"
 }
 
 variable "db_instance_class" {
@@ -74,4 +87,46 @@ variable "max_size" {
   description = "Quantidade maxima de nodes EKS"
   type        = number
   default     = 3
+}
+
+variable "cluster_iam_role_name" {
+  description = "Nome da role IAM preexistente para o cluster EKS (Talent Lab). Se vazio, Terraform cria role."
+  type        = string
+  default     = ""
+}
+
+variable "node_iam_role_name" {
+  description = "Nome da role IAM preexistente para nodes EKS (Talent Lab). Se vazio, Terraform cria role."
+  type        = string
+  default     = ""
+}
+
+variable "cluster_admin_role_name" {
+  description = "Nome da role IAM que recebera permissao de administrador no cluster EKS (ex.: voclabs)."
+  type        = string
+  default     = "voclabs"
+}
+
+variable "apply_k8s_manifests" {
+  description = "Quando true, aplica os manifestos Kubernetes declarativos via Terraform."
+  type        = bool
+  default     = false
+}
+
+variable "use_secrets_manager_for_k8s_secrets" {
+  description = "Quando true, cria os Secrets do Kubernetes a partir do AWS Secrets Manager em vez de YAML versionado."
+  type        = bool
+  default     = true
+}
+
+variable "app_k8s_secret_name" {
+  description = "Nome do secret no AWS Secrets Manager com as chaves do Secret oficina-api-secret."
+  type        = string
+  default     = ""
+}
+
+variable "postgres_k8s_secret_name" {
+  description = "Nome do secret no AWS Secrets Manager com a chave POSTGRES_PASSWORD para o Secret postgres-secret."
+  type        = string
+  default     = ""
 }

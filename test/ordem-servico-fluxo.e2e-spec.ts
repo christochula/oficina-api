@@ -448,5 +448,17 @@ describe('Fluxo completo da Ordem de Serviço (e2e com Testcontainers)', () => {
       .set('x-webhook-token', 'token-invalido')
       .send({ osId, decisao: 'APROVADO', origem: 'gateway-fase2' })
       .expect(401);
+
+    const emailAprovacaoResp = await request(app.getHttpServer())
+      .post(`/api/v1/ordens-servico/${osId}/status/email`)
+      .send({
+        novoStatus: 'APROVADA',
+        origemMensagem: 'caixa-entrada-oficina',
+        idMensagemExterna: `msg-${sufixo}`,
+      })
+      .expect(201);
+
+    const emailAprovacao = unwrap<{ status: string }>(emailAprovacaoResp.body);
+    expect(emailAprovacao.status).toBe('APROVADA');
   });
 });

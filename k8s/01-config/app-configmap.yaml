@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: oficina-api-config
+  namespace: oficina-api
+data:
+  NODE_ENV: "production"
+  PORT: "3000"
+  CORS_ORIGIN: "http://localhost:5173"

@@ -262,6 +262,7 @@ A tabela abaixo resume as rotas mais importantes. O Swagger continua sendo a fon
 | OS | PATCH | `/api/v1/ordens-servico/:id/finalizar` | MECANICO |
 | OS | PATCH | `/api/v1/ordens-servico/:id/entregar` | ADMINISTRADOR, CONSULTOR_TECNICO |
 | OS | POST | `/api/v1/ordens-servico/webhook/orcamento` | Integracao externa via token |
+| OS | POST | `/api/v1/ordens-servico/:id/status/email` | Integracao externa simulada (email) |
 | OS | GET | `/api/v1/ordens-servico/mecanico/minhas-ordens` | MECANICO |
 | OS | GET | `/api/v1/ordens-servico/mecanico/:id` | MECANICO titular |
 | OS | GET | `/api/v1/ordens-servico/minhas/lista` | CLIENTE vinculado |
@@ -374,28 +375,15 @@ Fluxo de orçamento: ao gerar orçamento, o sistema registra envio para aprovaç
 
 ## Kubernetes
 
-Manifestos versionados em `k8s/`:
+Manifestos versionados em `k8s/` por camadas:
 
-- `namespace.yaml`
-- `configmap.yaml`
-- `secret.yaml`
-- `deployment.yaml`
-- `service.yaml`
-- `hpa.yaml`
-- `kustomization.yaml`
+- `k8s/00-namespaces`
+- `k8s/01-config`
+- `k8s/02-database`
+- `k8s/04-app`
+- `k8s/05-autoscaling`
 
-Aplicar no cluster:
-
-```bash
-kubectl apply -k k8s
-```
-
-Antes do apply, ajuste os valores de segredo em `k8s/secret.yaml`, principalmente:
-
-- `DATABASE_URL`
-- `JWT_SECRET`
-- `JWT_REFRESH_SECRET`
-- `ORCAMENTO_WEBHOOK_TOKEN`
+Observacao: para o contexto academico, o banco pode rodar no Kubernetes. Em producao, o caminho recomendado costuma ser servicos gerenciados.
 
 ---
 
@@ -412,11 +400,25 @@ Passo a passo resumido:
 ```bash
 cd infra
 cp terraform.tfvars.example terraform.tfvars
+terraform fmt -check -recursive
 terraform init
+./scripts/patch-eks-talent-lab.sh
 terraform validate
 terraform plan
 terraform apply
 ```
+
+Para reduzir risco no primeiro bootstrap do cluster:
+
+1. `terraform apply -var="apply_k8s_manifests=false"`
+2. `terraform apply -var="apply_k8s_manifests=true"`
+
+No AWS Talent Lab, se houver restricao para criar IAM roles, configure em `terraform.tfvars`:
+
+- `cluster_iam_role_name`
+- `node_iam_role_name`
+
+O Terraform usa essas roles preexistentes via `data "aws_iam_role"`.
 
 Detalhes de variaveis e recursos: `infra/README.md`.
 
@@ -427,14 +429,24 @@ Detalhes de variaveis e recursos: `infra/README.md`.
 Workflows em `.github/workflows/`:
 
 - `ci.yml`: install, build e testes automatizados em push/PR.
-- `cd.yml`: build e push de imagem Docker, apply do Terraform (quando secrets AWS existem) e deploy no Kubernetes (quando kubeconfig foi configurado).
+- `cd.yml`: build e push de imagem Docker, terraform fmt/validate/plan/apply (incluindo orquestracao declarativa dos manifests Kubernetes).
 
 Secrets esperados no repositório para CD:
 
 - `AWS_ROLE_ARN`
 - `AWS_REGION`
 - `DB_PASSWORD`
-- `KUBE_CONFIG_DATA` (kubeconfig em base64)
+
+## Video da Entrega (ate 15 minutos)
+
+Checklist sugerido para gravacao:
+
+1. Mostrar pipeline CI/CD executando build e testes.
+2. Mostrar provisionamento com Terraform (plan e apply no ambiente permitido).
+3. Mostrar deploy Kubernetes da aplicacao e banco via Terraform.
+4. Demonstrar consumo das APIs principais (abertura, listagem, status, aprovacao).
+5. Demonstrar endpoint de integracao simulada por email: `POST /api/v1/ordens-servico/:id/status/email`.
+6. Demonstrar HPA e evidenciar escalabilidade automatica com carga controlada.
 
 ---
 
@@ -446,3 +458,4 @@ Secrets esperados no repositório para CD:
 | `dicionario-ubiquo.md` | linguagem ubiqua do dominio |
 | `fluxos-negocio-oficina.md` | fluxos implementados hoje |
 | `decisoes-arquiteturais-oficina.md` | decisoes e trade-offs refletidos no codigo |
+| `entrega-final-fase2.md` | template consolidado para o PDF final da entrega |

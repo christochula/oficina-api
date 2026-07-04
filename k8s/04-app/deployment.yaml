@@ -32,8 +32,15 @@ spec:
               cpu: "200m"
               memory: "256Mi"
             limits:
-              cpu: "1000m"
+              cpu: "1"
               memory: "512Mi"
+          startupProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 12
           livenessProbe:
             tcpSocket:
               port: http

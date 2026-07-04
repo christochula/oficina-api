@@ -31,7 +31,6 @@ lerna-debug.log*
 # IDE - VSCode
 .vscode/*
 !.vscode/settings.json
-!.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
 
@@ -66,3 +65,12 @@ tech-challenge.md
 ROTEIRO_VIDEO_DEMO.md
 ROTEIRO_VIDEO_FALAS.md
 ROTEIRO_VIDEO_COMANDOS.md
+
+# Terraform local vars (podem conter segredos)
+infra/terraform.tfvars
+
+# Terraform state/plan locais (nunca versionar)
+*.tfstate
+*.tfstate.*
+*.tfplan
+infra/.terraform/

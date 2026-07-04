@@ -8,9 +8,24 @@ private_subnet_cidrs = ["10.20.10.0/24", "10.20.11.0/24"]
 
 db_name           = "oficina_db"
 db_username       = "oficina"
-db_password       = "troque-por-senha-forte"
+db_password       = ""
+db_password_secret_name = "oficina-api/dev/rds"
+db_password_secret_key  = "db_password"
 db_instance_class = "db.t4g.micro"
 
 desired_size = 2
 min_size     = 1
 max_size     = 3
+
+# AWS Talent Lab: preencha quando precisar reutilizar roles existentes
+cluster_iam_role_name = ""
+node_iam_role_name    = ""
+cluster_admin_role_name = "voclabs"
+
+# Segredos Kubernetes vindos do AWS Secrets Manager (recomendado)
+use_secrets_manager_for_k8s_secrets = true
+app_k8s_secret_name      = "oficina-api/dev/k8s/app"
+postgres_k8s_secret_name = "oficina-api/dev/k8s/postgres"
+
+# Mantem Terraform responsavel pelos manifests Kubernetes
+apply_k8s_manifests = false

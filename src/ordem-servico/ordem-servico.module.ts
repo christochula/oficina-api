@@ -29,6 +29,7 @@ import { NOTIFICACAO_ORCAMENTO_GATEWAY } from './application/portas/notificacao-
 import { ORDEM_SERVICO_REPOSITORY } from './domain/ordem-servico.repository';
 import { ConsoleNotificacaoOrcamentoGateway } from './infrastructure/notificacao/console-notificacao-orcamento.gateway';
 import { PrismaOrdemServicoRepository } from './infrastructure/persistencia/prisma-ordem-servico.repository';
+import { OrdemServicoEmailController } from './interfaces/http/v1/ordem-servico-email.controller';
 import { OrdemServicoPublicoController } from './interfaces/http/v1/ordem-servico-publico.controller';
 import { OrdemServicoController } from './interfaces/http/v1/ordem-servico.controller';
 import { OrdemServicoWebhookController } from './interfaces/http/v1/ordem-servico-webhook.controller';
@@ -47,7 +48,12 @@ import { OrdemServicoWebhookController } from './interfaces/http/v1/ordem-servic
  */
 @Module({
   imports: [UsuarioModule, ClienteModule, VeiculoModule, EstoqueModule, ServicoOficinaModule],
-  controllers: [OrdemServicoController, OrdemServicoPublicoController, OrdemServicoWebhookController],
+  controllers: [
+    OrdemServicoController,
+    OrdemServicoPublicoController,
+    OrdemServicoWebhookController,
+    OrdemServicoEmailController,
+  ],
   providers: [
     AbrirOrdemServicoUseCase,
     AtribuirOrdemServicoUseCase,
