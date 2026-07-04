@@ -163,6 +163,10 @@ jobs:
         working-directory: infra
         run: terraform init
 
+      - name: Patch EKS module for AWS Academy
+        working-directory: infra
+        run: ./scripts/patch-eks-talent-lab.sh
+
       - name: Terraform validate
         working-directory: infra
         run: terraform validate
