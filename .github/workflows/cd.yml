@@ -183,7 +183,7 @@ jobs:
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
-          TF_VAR_environment: prod-${{ github.run_id }}-${{ github.run_attempt }}
+          TF_VAR_environment: prod
           TF_VAR_apply_k8s_manifests: false
         run: terraform plan -out=tfplan-infra
 
@@ -199,7 +199,7 @@ jobs:
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
-          TF_VAR_environment: prod-${{ github.run_id }}-${{ github.run_attempt }}
+          TF_VAR_environment: prod
           TF_VAR_apply_k8s_manifests: false
         run: terraform apply -auto-approve tfplan-infra
 
@@ -215,7 +215,7 @@ jobs:
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
-          TF_VAR_environment: prod-${{ github.run_id }}-${{ github.run_attempt }}
+          TF_VAR_environment: prod
           TF_VAR_apply_k8s_manifests: true
         run: terraform plan -out=tfplan-manifests
 
@@ -231,6 +231,6 @@ jobs:
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
-          TF_VAR_environment: prod-${{ github.run_id }}-${{ github.run_attempt }}
+          TF_VAR_environment: prod
           TF_VAR_apply_k8s_manifests: true
         run: terraform apply -auto-approve tfplan-manifests
