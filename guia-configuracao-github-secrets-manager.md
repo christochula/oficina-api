@@ -20,8 +20,10 @@ No repositório do GitHub, acesse:
 
 Crie estes secrets:
 
-- `AWS_ROLE_ARN`
 - `AWS_REGION`
+- `AWS_ACCESS_KEY_ID`
+- `AWS_SECRET_ACCESS_KEY`
+- `AWS_SESSION_TOKEN`
 - `DB_PASSWORD_SECRET_NAME`
 - `APP_K8S_SECRET_NAME`
 - `POSTGRES_K8S_SECRET_NAME`
@@ -29,16 +31,23 @@ Crie estes secrets:
 - `NODE_IAM_ROLE_NAME`
 - `CLUSTER_ADMIN_ROLE_NAME`
 
+Opcional:
+
+- `AWS_ROLE_ARN` (somente se sua conta permitir OIDC com GitHub Actions)
+
 ### O que cada secret faz
 
-- `AWS_ROLE_ARN`: role que o GitHub Actions assume na AWS.
 - `AWS_REGION`: regiao da AWS, normalmente `us-east-1`.
+- `AWS_ACCESS_KEY_ID`: access key temporaria da sessao AWS Academy.
+- `AWS_SECRET_ACCESS_KEY`: secret key temporaria da sessao AWS Academy.
+- `AWS_SESSION_TOKEN`: session token temporario da sessao AWS Academy.
 - `DB_PASSWORD_SECRET_NAME`: nome do secret do RDS no AWS Secrets Manager.
 - `APP_K8S_SECRET_NAME`: nome do secret da aplicacao no AWS Secrets Manager.
 - `POSTGRES_K8S_SECRET_NAME`: nome do secret do Postgres no AWS Secrets Manager.
 - `CLUSTER_IAM_ROLE_NAME`: nome da role IAM preexistente do cluster EKS, se usar o Talent Lab.
 - `NODE_IAM_ROLE_NAME`: nome da role IAM preexistente dos nodes EKS, se usar o Talent Lab.
 - `CLUSTER_ADMIN_ROLE_NAME`: role que recebera permissao de admin no cluster EKS. No Talent Lab, normalmente `voclabs`.
+- `AWS_ROLE_ARN` (opcional): role para OIDC. Se nao existir permissao de OIDC no lab, deixe vazio/removido para usar fallback por access key.
 
 ## O que criar no AWS Secrets Manager
 
@@ -54,19 +63,25 @@ Crie estes 3 secrets na AWS:
 
 Use um JSON com a chave:
 
+Observacao: valor abaixo e somente exemplo ficticio.
+
 ```json
 {
-  "db_password": "SenhaSegura123!"
+  "db_password": "EXEMPLO_SENHA_FORTE_123"
 }
 ```
+
+Regra importante do RDS: a senha nao pode conter `/`, `@`, `"` ou espaco.
 
 #### 2. `oficina-api/dev/k8s/app`
 
 Use um JSON com as chaves abaixo:
 
+Observacao: valores abaixo sao somente exemplos ficticios.
+
 ```json
 {
-  "DATABASE_URL": "postgresql://oficina:SenhaSegura123!@postgres-service:5432/oficina_db",
+  "DATABASE_URL": "postgresql://oficina:EXEMPLO_SENHA_FORTE_123@postgres-service:5432/oficina_db",
   "JWT_SECRET": "troque-por-um-segredo-forte",
   "JWT_EXPIRATION": "15m",
   "JWT_REFRESH_SECRET": "troque-por-outro-segredo-forte",
@@ -80,9 +95,11 @@ Use um JSON com as chaves abaixo:
 
 Use um JSON com a chave:
 
+Observacao: valor abaixo e somente exemplo ficticio.
+
 ```json
 {
-  "POSTGRES_PASSWORD": "SenhaSegura123!"
+  "POSTGRES_PASSWORD": "EXEMPLO_SENHA_FORTE_123"
 }
 ```
 
@@ -117,6 +134,12 @@ Crie os 3 secrets no AWS Secrets Manager com os nomes e JSONs acima.
 ### 3. Configurar o GitHub
 
 Adicione os secrets do GitHub listados acima no repositório.
+
+No AWS Academy, use o modo fallback por credenciais temporarias:
+
+- manter `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`
+- manter os secrets de nomes (`DB_PASSWORD_SECRET_NAME`, `APP_K8S_SECRET_NAME`, `POSTGRES_K8S_SECRET_NAME`, `CLUSTER_IAM_ROLE_NAME`, `NODE_IAM_ROLE_NAME`, `CLUSTER_ADMIN_ROLE_NAME`)
+- deixar `AWS_ROLE_ARN` vazio/removido quando OIDC nao estiver habilitado
 
 ### 4. Preparar o Terraform
 
@@ -179,6 +202,12 @@ kubectl -n oficina-api get deploy,svc,hpa,pods,pvc
 11. O EKS sobe os pods da aplicacao e do Postgres.
 12. A aplicacao usa a imagem do ECR e os segredos montados no cluster.
 
+Observacao do fluxo atual:
+
+- o workflow tenta OIDC quando `AWS_ROLE_ARN` existe
+- quando `AWS_ROLE_ARN` esta vazio, ele usa fallback com `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` e `AWS_SESSION_TOKEN`
+- o Terraform provisiona add-ons do EKS (`aws-ebs-csi-driver` e `metrics-server`) para suportar PVC do Postgres e metricas do HPA
+
 ## O que cada ferramenta faz
 
 ### AWS Secrets Manager
@@ -204,6 +233,8 @@ kubectl -n oficina-api get deploy,svc,hpa,pods,pvc
 
 - [ ] A sessao AWS esta valida.
 - [ ] Os 3 secrets existem no AWS Secrets Manager.
+- [ ] `db_password`, `DATABASE_URL` e `POSTGRES_PASSWORD` estao consistentes entre si.
+- [ ] A senha do RDS nao contem `/`, `@`, `"` ou espaco.
 - [ ] Os secrets do GitHub estao configurados.
 - [ ] O ECR existe.
 - [ ] O Terraform foi inicializado.
@@ -212,6 +243,7 @@ kubectl -n oficina-api get deploy,svc,hpa,pods,pvc
 - [ ] A imagem foi publicada no ECR.
 - [ ] Os manifests foram aplicados com `apply_k8s_manifests=true`.
 - [ ] O namespace `oficina-api` tem os recursos esperados.
+- [ ] Add-ons `aws-ebs-csi-driver` e `metrics-server` estao ativos no cluster.
 
 ## Observacao importante
 
