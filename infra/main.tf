@@ -90,17 +90,16 @@ module "eks" {
   create_iam_role = !local.use_existing_iam_roles
   iam_role_arn    = local.use_existing_iam_roles ? data.aws_iam_role.cluster[0].arn : null
 
-  # Add-ons essenciais para o laboratorio:
-  # - aws-ebs-csi-driver: provisionamento de volume para PVC do Postgres
-  # - metrics-server: metricas de CPU/memoria para HPA
-  cluster_addons = {
-    aws-ebs-csi-driver = {
-      most_recent = true
-    }
-    metrics-server = {
-      most_recent = true
-    }
-  }
+  # Add-ons removidos temporariamente devido a timeout em AWS Academy
+  # Podem ser instalados manualmente via Helm após cluster estar ready
+  # cluster_addons = {
+  #   aws-ebs-csi-driver = {
+  #     most_recent = true
+  #   }
+  #   metrics-server = {
+  #     most_recent = true
+  #   }
+  # }
 
   vpc_id     = module.vpc.vpc_id
   subnet_ids = module.vpc.private_subnets
