@@ -171,6 +171,40 @@ jobs:
         working-directory: infra
         run: terraform validate
 
+      - name: Terraform adopt pre-existing prod globals
+        working-directory: infra
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -euo pipefail
+
+          DB_SUBNET_GROUP_NAME="oficina-api-prod-db-subnets"
+          KMS_ALIAS_NAME="alias/eks/oficina-api-prod"
+          EKS_LOG_GROUP_NAME="/aws/eks/oficina-api-prod/cluster"
+
+          if aws rds describe-db-subnet-groups \
+            --db-subnet-group-name "$DB_SUBNET_GROUP_NAME" \
+            --region "$AWS_REGION" >/dev/null 2>&1; then
+            terraform state show aws_db_subnet_group.this >/dev/null 2>&1 || \
+              terraform import aws_db_subnet_group.this "$DB_SUBNET_GROUP_NAME"
+          fi
+
+          if aws kms describe-key \
+            --key-id "$KMS_ALIAS_NAME" \
+            --region "$AWS_REGION" >/dev/null 2>&1; then
+            terraform state show 'module.eks.module.kms.aws_kms_alias.this["cluster"]' >/dev/null 2>&1 || \
+              terraform import 'module.eks.module.kms.aws_kms_alias.this["cluster"]' "$KMS_ALIAS_NAME"
+          fi
+
+          if aws logs describe-log-groups \
+            --log-group-name-prefix "$EKS_LOG_GROUP_NAME" \
+            --region "$AWS_REGION" \
+            --query "logGroups[?logGroupName=='$EKS_LOG_GROUP_NAME'].logGroupName" \
+            --output text | grep -q "$EKS_LOG_GROUP_NAME"; then
+            terraform state show 'module.eks.aws_cloudwatch_log_group.this[0]' >/dev/null 2>&1 || \
+              terraform import 'module.eks.aws_cloudwatch_log_group.this[0]' "$EKS_LOG_GROUP_NAME"
+          fi
+
       - name: Terraform plan
         working-directory: infra
         env:
