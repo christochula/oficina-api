@@ -203,6 +203,49 @@ jobs:
           TF_VAR_apply_k8s_manifests: false
         run: terraform apply -auto-approve tfplan-infra
 
+      - name: Sync DATABASE_URL in app secret from fresh RDS endpoint
+        working-directory: infra
+        env:
+          APP_K8S_SECRET_NAME: ${{ secrets.APP_K8S_SECRET_NAME }}
+          DB_PASSWORD_SECRET_NAME: ${{ secrets.DB_PASSWORD_SECRET_NAME }}
+        run: |
+          set -euo pipefail
+
+          RDS_ENDPOINT="$(terraform output -raw rds_endpoint)"
+          RDS_PORT="$(terraform output -raw rds_port)"
+
+          APP_SECRET_RAW="$(aws secretsmanager get-secret-value \
+            --secret-id "$APP_K8S_SECRET_NAME" \
+            --query SecretString \
+            --output text)"
+
+          DB_PASSWORD_RAW="$(aws secretsmanager get-secret-value \
+            --secret-id "$DB_PASSWORD_SECRET_NAME" \
+            --query SecretString \
+            --output text)"
+
+          if echo "$DB_PASSWORD_RAW" | jq -e . >/dev/null 2>&1; then
+            DB_PASSWORD="$(echo "$DB_PASSWORD_RAW" | jq -r '.db_password // empty')"
+          else
+            DB_PASSWORD="$DB_PASSWORD_RAW"
+          fi
+
+          if [ -z "$DB_PASSWORD" ]; then
+            echo "::error::Nao foi possivel obter db_password no secret $DB_PASSWORD_SECRET_NAME"
+            exit 1
+          fi
+
+          DB_PASSWORD_URI="$(jq -nr --arg v "$DB_PASSWORD" '$v|@uri')"
+          DATABASE_URL="postgresql://oficina:${DB_PASSWORD_URI}@${RDS_ENDPOINT}:${RDS_PORT}/oficina_db"
+
+          APP_SECRET_UPDATED="$(echo "$APP_SECRET_RAW" | jq --arg database_url "$DATABASE_URL" '.DATABASE_URL = $database_url')"
+
+          aws secretsmanager put-secret-value \
+            --secret-id "$APP_K8S_SECRET_NAME" \
+            --secret-string "$APP_SECRET_UPDATED" >/dev/null
+
+          echo "DATABASE_URL sincronizada no Secrets Manager com endpoint RDS atual"
+
       - name: Terraform plan manifests
         working-directory: infra
         env:
