@@ -4,7 +4,7 @@ Este guia resume, em ordem pratica, o que configurar para subir e depois recriar
 
 ## Objetivo
 
-- Guardar senhas e tokens no AWS Secrets Manager. 
+- Guardar senhas e tokens no AWS Secrets Manager;
 - Deixar o GitHub Actions apenas com nomes de secrets e permissao de acesso na AWS.
 - Usar Terraform para criar a infraestrutura e aplicar os manifestos Kubernetes.
 - Publicar a imagem da aplicacao no ECR antes do deploy dos manifests.
