@@ -380,8 +380,11 @@ Manifestos versionados em `k8s/` por camadas:
 - `k8s/00-namespaces`
 - `k8s/01-config`
 - `k8s/02-database`
+- `k8s/03-messaging` (metrics-server para API de metricas do cluster)
 - `k8s/04-app`
 - `k8s/05-autoscaling`
+
+Observacao: o HPA depende da API de metricas (`metrics.k8s.io`). O Terraform aplica o `metrics-server` antes dos manifestos de autoscaling.
 
 Observacao: para o contexto academico, o banco pode rodar no Kubernetes. Em producao, o caminho recomendado costuma ser servicos gerenciados.
 

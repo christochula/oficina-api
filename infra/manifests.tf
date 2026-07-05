@@ -6,6 +6,7 @@ locals {
     for file in fileset("${local.k8s_base_path}/01-config", "*.yaml") : file
     if file != "app-secret.yaml"
   ] : fileset("${local.k8s_base_path}/01-config", "*.yaml")
+  metrics_files = fileset("${local.k8s_base_path}/03-messaging", "*.yaml")
   database_files = var.use_secrets_manager_for_k8s_secrets ? [
     for file in fileset("${local.k8s_base_path}/02-database", "*.yaml") : file
     if file != "postgres-secret.yaml"
@@ -28,6 +29,13 @@ resource "kubernetes_manifest" "config" {
   depends_on = [kubernetes_manifest.namespaces]
 }
 
+resource "kubernetes_manifest" "metrics" {
+  for_each = var.apply_k8s_manifests ? toset(local.metrics_files) : toset([])
+  manifest = yamldecode(file("${local.k8s_base_path}/03-messaging/${each.value}"))
+
+  depends_on = [kubernetes_manifest.namespaces]
+}
+
 resource "kubernetes_manifest" "database" {
   for_each = var.apply_k8s_manifests ? toset(local.database_files) : toset([])
   manifest = yamldecode(file("${local.k8s_base_path}/02-database/${each.value}"))
@@ -46,5 +54,5 @@ resource "kubernetes_manifest" "autoscaling" {
   for_each = var.apply_k8s_manifests ? toset(local.autoscale_files) : toset([])
   manifest = yamldecode(file("${local.k8s_base_path}/05-autoscaling/${each.value}"))
 
-  depends_on = [kubernetes_manifest.app]
+  depends_on = [kubernetes_manifest.app, kubernetes_manifest.metrics]
 }
