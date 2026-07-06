@@ -367,7 +367,7 @@ Observacoes para avaliacao:
 - o fluxo completo usa PostgreSQL real e exige o servico db ativo no Docker Compose
 - credenciais do admin seed: admin@oficina.com / Admin@123 (ou ADMIN_SEED_PASSWORD)
 
-O roteiro manual complementar continua documentado em `guia-teste-end-to-end.md`.
+O roteiro manual complementar continua documentado em `docs/guia-teste-end-to-end.md`.
 
 Fluxo de orçamento: ao gerar orçamento, o sistema registra envio para aprovação via gateway de notificação (implementação inicial em log estruturado, pronta para trocar por e-mail/outbox).
 
@@ -457,8 +457,7 @@ Checklist sugerido para gravacao:
 
 | Documento | Conteudo |
 |---|---|
-| `guia-teste-end-to-end.md` | estado atual dos testes e roteiro manual |
-| `dicionario-ubiquo.md` | linguagem ubiqua do dominio |
-| `fluxos-negocio-oficina.md` | fluxos implementados hoje |
-| `decisoes-arquiteturais-oficina.md` | decisoes e trade-offs refletidos no codigo |
-| `entrega-final-fase2.md` | template consolidado para o PDF final da entrega |
+| `docs/guia-teste-end-to-end.md` | estado atual dos testes e roteiro manual |
+| `docs/dicionario-ubiquo.md` | linguagem ubiqua do dominio |
+| `docs/fluxos-negocio-oficina.md` | fluxos implementados hoje |
+| `docs/decisoes-arquiteturais-oficina.md` | decisoes e trade-offs refletidos no codigo |

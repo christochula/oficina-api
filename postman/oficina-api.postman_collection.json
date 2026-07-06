@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "Oficina API - Fluxo Completo",
-    "description": "Collection para testar o fluxo end-to-end da oficina API seguindo o guia-teste-end-to-end.md",
+    "description": "Collection para testar o fluxo end-to-end da oficina API seguindo o docs/guia-teste-end-to-end.md",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [

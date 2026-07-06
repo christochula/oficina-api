@@ -4,10 +4,10 @@
 
 | Documento | Foco |
 |---|---|
-| `dicionario-ubiquo.md` | Linguagem ubiqua, aggregates, papeis e termos do dominio |
-| `fluxos-negocio-oficina.md` | Fluxos operacionais e regras de negocio do sistema |
-| `decisoes-arquiteturais-oficina.md` | Decisoes de modelagem, transacoes, migracoes e trade-offs |
-| `guia-teste-end-to-end.md` | Estado atual dos testes automatizados e roteiro manual |
+| `docs/dicionario-ubiquo.md` | Linguagem ubiqua, aggregates, papeis e termos do dominio |
+| `docs/fluxos-negocio-oficina.md` | Fluxos operacionais e regras de negocio do sistema |
+| `docs/decisoes-arquiteturais-oficina.md` | Decisoes de modelagem, transacoes, migracoes e trade-offs |
+| `docs/guia-teste-end-to-end.md` | Estado atual dos testes automatizados e roteiro manual |
 
 ---
 
