@@ -25,6 +25,7 @@ import { KpisOrdemServicoUseCase } from './application/casos-de-uso/kpis-ordem-s
 import { RelatorioLeadTimeUseCase } from './application/casos-de-uso/relatorio-lead-time.usecase';
 import { TempoCicloPersonalizadoUseCase } from './application/casos-de-uso/tempo-ciclo-personalizado.usecase';
 import { ProcessarAprovacaoExternaOrcamentoUseCase } from './application/casos-de-uso/processar-aprovacao-externa-orcamento.usecase';
+import { ProcessarAtualizacaoStatusExternaUseCase } from './application/casos-de-uso/processar-atualizacao-status-externa.usecase';
 import { NOTIFICACAO_ORCAMENTO_GATEWAY } from './application/portas/notificacao-orcamento.gateway';
 import { ORDEM_SERVICO_REPOSITORY } from './domain/ordem-servico.repository';
 import { ConsoleNotificacaoOrcamentoGateway } from './infrastructure/notificacao/console-notificacao-orcamento.gateway';
@@ -76,6 +77,7 @@ import { OrdemServicoWebhookController } from './interfaces/http/v1/ordem-servic
     KpisOrdemServicoUseCase,
     TempoCicloPersonalizadoUseCase,
     ProcessarAprovacaoExternaOrcamentoUseCase,
+    ProcessarAtualizacaoStatusExternaUseCase,
     { provide: ORDEM_SERVICO_REPOSITORY, useClass: PrismaOrdemServicoRepository },
     { provide: NOTIFICACAO_ORCAMENTO_GATEWAY, useClass: ConsoleNotificacaoOrcamentoGateway },
   ],

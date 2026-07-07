@@ -8,9 +8,22 @@ import { ORDEM_SERVICO_REPOSITORY, type OrdemServicoRepository } from '../../dom
 export interface BuscarStatusOrdemServicoPublicoOutput {
   numero: number;
   status: StatusOrdemServico;
+  statusDescricao: string;
   atualizadoEm: Date;
   ultimaMovimentacaoEm: Date;
 }
+
+const STATUS_DESCRICAO: Record<StatusOrdemServico, string> = {
+  [StatusOrdemServico.RECEBIDA]: 'Recebida',
+  [StatusOrdemServico.ATRIBUIDA]: 'Recebida',
+  [StatusOrdemServico.EM_DIAGNOSTICO]: 'Diagnóstico',
+  [StatusOrdemServico.AGUARDANDO_APROVACAO]: 'Aguardando Aprovação',
+  [StatusOrdemServico.APROVADA]: 'Aguardando Aprovação',
+  [StatusOrdemServico.EM_EXECUCAO]: 'Execução',
+  [StatusOrdemServico.FINALIZADA]: 'Finalizada',
+  [StatusOrdemServico.ENTREGUE]: 'Entregue',
+  [StatusOrdemServico.CANCELADA]: 'Cancelada',
+};
 
 /**
  * Consulta pública de status da OS usando número operacional e documento do cliente.
@@ -50,6 +63,7 @@ export class BuscarStatusOrdemServicoPublicoUseCase {
     return {
       numero: os.numero,
       status: os.status,
+      statusDescricao: STATUS_DESCRICAO[os.status],
       atualizadoEm: os.atualizadoEm,
       ultimaMovimentacaoEm: ultimaMovimentacao,
     };

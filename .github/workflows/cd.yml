@@ -10,8 +10,11 @@ permissions:
   contents: read
   id-token: write
 
+concurrency:
+  group: oficina-api-prod-deploy
+  cancel-in-progress: false
+
 env:
-  IMAGE_NAME: 634752293949.dkr.ecr.us-east-1.amazonaws.com/oficina-api
   ECR_REPOSITORY_NAME: oficina-api
 
 jobs:
@@ -43,6 +46,7 @@ jobs:
 
     outputs:
       image_tag: ${{ steps.meta.outputs.image_tag }}
+      image_uri: ${{ steps.ecr_meta.outputs.image_name }}:${{ steps.meta.outputs.image_tag }}
 
     steps:
       - name: Checkout
@@ -96,11 +100,18 @@ jobs:
       - name: Login to Amazon ECR
         uses: aws-actions/amazon-ecr-login@v2
 
+      - name: Resolve ECR image name
+        id: ecr_meta
+        run: |
+          AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          echo "image_name=${AWS_ACCOUNT_ID}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${ECR_REPOSITORY_NAME}" >> "$GITHUB_OUTPUT"
+
       - name: Build and push image
         run: |
-          docker build -t $IMAGE_NAME:${{ steps.meta.outputs.image_tag }} -t $IMAGE_NAME:latest .
-          docker push $IMAGE_NAME:${{ steps.meta.outputs.image_tag }}
-          docker push $IMAGE_NAME:latest
+          IMAGE_NAME="${{ steps.ecr_meta.outputs.image_name }}"
+          docker build -t "$IMAGE_NAME:${{ steps.meta.outputs.image_tag }}" -t "$IMAGE_NAME:latest" .
+          docker push "$IMAGE_NAME:${{ steps.meta.outputs.image_tag }}"
+          docker push "$IMAGE_NAME:latest"
 
   terraform-apply:
     runs-on: ubuntu-latest
@@ -120,7 +131,6 @@ jobs:
           fi
           test -n "${{ secrets.DB_PASSWORD_SECRET_NAME }}" || { echo "::error::Missing secret DB_PASSWORD_SECRET_NAME"; exit 1; }
           test -n "${{ secrets.APP_K8S_SECRET_NAME }}" || { echo "::error::Missing secret APP_K8S_SECRET_NAME"; exit 1; }
-          test -n "${{ secrets.POSTGRES_K8S_SECRET_NAME }}" || { echo "::error::Missing secret POSTGRES_K8S_SECRET_NAME"; exit 1; }
           test -n "${{ secrets.CLUSTER_IAM_ROLE_NAME }}" || { echo "::error::Missing secret CLUSTER_IAM_ROLE_NAME"; exit 1; }
           test -n "${{ secrets.NODE_IAM_ROLE_NAME }}" || { echo "::error::Missing secret NODE_IAM_ROLE_NAME"; exit 1; }
           test -n "${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}" || { echo "::error::Missing secret CLUSTER_ADMIN_ROLE_NAME"; exit 1; }
@@ -154,14 +164,59 @@ jobs:
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
 
       - name: Terraform fmt
         working-directory: infra
         run: terraform fmt -check -recursive
 
+      - name: Ensure Terraform state bucket
+        id: tf_backend
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -euo pipefail
+
+          AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
+          BUCKET="oficina-api-tfstate-${AWS_ACCOUNT_ID}-${AWS_REGION}"
+
+          if ! aws s3api head-bucket --bucket "$BUCKET" >/dev/null 2>&1; then
+            if [ "$AWS_REGION" = "us-east-1" ]; then
+              aws s3api create-bucket --bucket "$BUCKET" --region "$AWS_REGION" >/dev/null
+            else
+              aws s3api create-bucket \
+                --bucket "$BUCKET" \
+                --region "$AWS_REGION" \
+                --create-bucket-configuration LocationConstraint="$AWS_REGION" >/dev/null
+            fi
+          fi
+
+          aws s3api put-bucket-versioning \
+            --bucket "$BUCKET" \
+            --versioning-configuration Status=Enabled >/dev/null || \
+            echo "::warning::Nao foi possivel habilitar versionamento no bucket de state"
+
+          aws s3api put-bucket-encryption \
+            --bucket "$BUCKET" \
+            --server-side-encryption-configuration '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}' >/dev/null || \
+            echo "::warning::Nao foi possivel configurar criptografia explicita no bucket de state"
+
+          aws s3api put-public-access-block \
+            --bucket "$BUCKET" \
+            --public-access-block-configuration BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true >/dev/null || \
+            echo "::warning::Nao foi possivel configurar bloqueio de acesso publico no bucket de state"
+
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+
       - name: Terraform init
         working-directory: infra
-        run: terraform init
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ steps.tf_backend.outputs.bucket }}" \
+            -backend-config="key=oficina-api/prod/terraform.tfstate" \
+            -backend-config="region=${{ secrets.AWS_REGION }}" \
+            -backend-config="encrypt=true"
 
       - name: Patch EKS module for AWS Academy
         working-directory: infra
@@ -214,6 +269,8 @@ jobs:
           TF_VAR_use_secrets_manager_for_k8s_secrets: true
           TF_VAR_app_k8s_secret_name: ${{ secrets.APP_K8S_SECRET_NAME }}
           TF_VAR_postgres_k8s_secret_name: ${{ secrets.POSTGRES_K8S_SECRET_NAME }}
+          TF_VAR_deploy_k8s_postgres: "false"
+          TF_VAR_app_image: ${{ needs.build-push-image.outputs.image_uri }}
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
@@ -230,6 +287,8 @@ jobs:
           TF_VAR_use_secrets_manager_for_k8s_secrets: true
           TF_VAR_app_k8s_secret_name: ${{ secrets.APP_K8S_SECRET_NAME }}
           TF_VAR_postgres_k8s_secret_name: ${{ secrets.POSTGRES_K8S_SECRET_NAME }}
+          TF_VAR_deploy_k8s_postgres: "false"
+          TF_VAR_app_image: ${{ needs.build-push-image.outputs.image_uri }}
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
@@ -289,6 +348,8 @@ jobs:
           TF_VAR_use_secrets_manager_for_k8s_secrets: true
           TF_VAR_app_k8s_secret_name: ${{ secrets.APP_K8S_SECRET_NAME }}
           TF_VAR_postgres_k8s_secret_name: ${{ secrets.POSTGRES_K8S_SECRET_NAME }}
+          TF_VAR_deploy_k8s_postgres: "false"
+          TF_VAR_app_image: ${{ needs.build-push-image.outputs.image_uri }}
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
@@ -305,6 +366,8 @@ jobs:
           TF_VAR_use_secrets_manager_for_k8s_secrets: true
           TF_VAR_app_k8s_secret_name: ${{ secrets.APP_K8S_SECRET_NAME }}
           TF_VAR_postgres_k8s_secret_name: ${{ secrets.POSTGRES_K8S_SECRET_NAME }}
+          TF_VAR_deploy_k8s_postgres: "false"
+          TF_VAR_app_image: ${{ needs.build-push-image.outputs.image_uri }}
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}

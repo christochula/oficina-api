@@ -354,12 +354,94 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
     this.tocarAtualizadoEm();
   }
 
+  /**
+   * Sincroniza o status da OS a partir de uma ferramenta externa.
+   *
+   * Este caminho atende integrações como e-mail/parser externo, onde o sistema
+   * recebe uma mudança operacional já decidida fora da API. Ainda assim,
+   * bloqueia retrocessos e estados terminais inválidos.
+   */
+  atualizarStatusPorIntegracaoExterna(
+    novoStatus: StatusOrdemServico,
+    origem: string,
+    idMensagemExterna?: string,
+  ): void {
+    const statusAtualFluxo = this.statusEquivalenteNoFluxoExterno(this.status);
+
+    if (this.status === novoStatus || statusAtualFluxo === novoStatus) {
+      return;
+    }
+
+    if (this.status === StatusOrdemServico.CANCELADA || this.status === StatusOrdemServico.ENTREGUE) {
+      throw new RegraDeNegocio(`OS em status terminal '${this.status}' não aceita atualização externa`);
+    }
+
+    const indiceAtual = this.indiceStatusExterno(statusAtualFluxo);
+    const indiceNovo = this.indiceStatusExterno(novoStatus);
+
+    if (indiceNovo < 0) {
+      throw new RegraDeNegocio(`Status externo '${novoStatus}' não é aceito para sincronização`);
+    }
+
+    if (indiceAtual >= 0 && indiceNovo < indiceAtual) {
+      throw new RegraDeNegocio(
+        `Atualização externa não pode retroceder status de '${this.status}' para '${novoStatus}'`,
+      );
+    }
+
+    const anterior = this.status;
+    this.status = novoStatus;
+
+    const rastreio = idMensagemExterna ? ` | mensagem=${idMensagemExterna}` : '';
+    this.registrarHistorico(
+      this.eventoHistoricoParaStatusExterno(novoStatus),
+      `${anterior} → ${novoStatus} | origem=${origem}${rastreio}`,
+      `externo:${origem}`,
+      anterior,
+      novoStatus,
+    );
+    this.tocarAtualizadoEm();
+  }
+
   private garantirStatus(permitidos: StatusOrdemServico[]): void {
     if (!permitidos.includes(this.status)) {
       throw new RegraDeNegocio(
         `Operação inválida para OS no status '${this.status}'. Status permitidos: ${permitidos.join(', ')}`,
       );
     }
+  }
+
+  private statusEquivalenteNoFluxoExterno(status: StatusOrdemServico): StatusOrdemServico {
+    if (status === StatusOrdemServico.ATRIBUIDA) return StatusOrdemServico.RECEBIDA;
+    if (status === StatusOrdemServico.APROVADA) return StatusOrdemServico.AGUARDANDO_APROVACAO;
+    return status;
+  }
+
+  private indiceStatusExterno(status: StatusOrdemServico): number {
+    return [
+      StatusOrdemServico.RECEBIDA,
+      StatusOrdemServico.EM_DIAGNOSTICO,
+      StatusOrdemServico.AGUARDANDO_APROVACAO,
+      StatusOrdemServico.EM_EXECUCAO,
+      StatusOrdemServico.FINALIZADA,
+      StatusOrdemServico.ENTREGUE,
+    ].indexOf(status);
+  }
+
+  private eventoHistoricoParaStatusExterno(status: StatusOrdemServico): string {
+    const eventos: Record<StatusOrdemServico, string> = {
+      [StatusOrdemServico.RECEBIDA]: 'ORDEM_ABERTA',
+      [StatusOrdemServico.ATRIBUIDA]: 'MECANICO_ATRIBUIDO',
+      [StatusOrdemServico.EM_DIAGNOSTICO]: 'DIAGNOSTICO_REGISTRADO',
+      [StatusOrdemServico.AGUARDANDO_APROVACAO]: 'ORCAMENTO_GERADO',
+      [StatusOrdemServico.APROVADA]: 'ORCAMENTO_APROVADO',
+      [StatusOrdemServico.EM_EXECUCAO]: 'EXECUCAO_INICIADA',
+      [StatusOrdemServico.FINALIZADA]: 'ORDEM_FINALIZADA',
+      [StatusOrdemServico.ENTREGUE]: 'VEICULO_ENTREGUE',
+      [StatusOrdemServico.CANCELADA]: 'ORDEM_CANCELADA',
+    };
+
+    return eventos[status];
   }
 
   private registrarHistorico(

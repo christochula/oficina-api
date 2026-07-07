@@ -1,10 +1,24 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-namespace: oficina-api
 resources:
-  - namespace.yaml
-  - configmap.yaml
-  - secret.yaml
-  - deployment.yaml
-  - service.yaml
-  - hpa.yaml
+  - 00-namespaces/namespace.yaml
+  - 01-config/app-configmap.yaml
+  - 01-config/app-secret.yaml
+  - 02-database/postgres-configmap.yaml
+  - 02-database/postgres-secret.yaml
+  - 02-database/postgres-pvc.yaml
+  - 02-database/postgres-deployment.yaml
+  - 02-database/postgres-service.yaml
+  - 03-messaging/metrics-server-serviceaccount.yaml
+  - 03-messaging/metrics-server-clusterrole.yaml
+  - 03-messaging/metrics-server-clusterrole-aggregated-reader.yaml
+  - 03-messaging/metrics-server-rolebinding-auth-reader.yaml
+  - 03-messaging/metrics-server-clusterrolebinding.yaml
+  - 03-messaging/metrics-server-clusterrolebinding-auth-delegator.yaml
+  - 03-messaging/metrics-server-service.yaml
+  - 03-messaging/metrics-server-deployment.yaml
+  - 03-messaging/metrics-server-apiservice.yaml
+  - 03-migrations/migrate-job.yaml
+  - 04-app/deployment.yaml
+  - 04-app/service.yaml
+  - 05-autoscaling/hpa.yaml

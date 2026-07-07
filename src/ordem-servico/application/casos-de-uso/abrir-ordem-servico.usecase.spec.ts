@@ -137,4 +137,41 @@ describe('AbrirOrdemServicoUseCase', () => {
     expect(os.notasInternas).toContain('Cliente pediu urgencia');
     expect(os.notasInternas).toContain('Peças solicitadas na abertura: pc_01 x2');
   });
+
+  it('deve abrir OS recebendo dados completos de cliente e veiculo', async () => {
+    mockClienteRepo.buscarPorNumeroDoc.mockResolvedValue(null);
+    mockVeiculoRepo.buscarPorPlaca.mockResolvedValue(null);
+    mockServicoRepo.buscarPorId.mockResolvedValue({ nome: 'Troca de oleo' });
+    mockOsRepo.salvar.mockResolvedValue(undefined);
+
+    const uc = criarUseCase();
+    const os = await uc.executar({
+      cliente: {
+        tipoDoc: TipoDocumento.CPF,
+        numeroDoc: '111.444.777-35',
+        nome: 'Maria Cliente',
+        email: 'maria.cliente@oficina.com',
+        telefone: '11999999999',
+      },
+      veiculo: {
+        placa: 'abc-1234',
+        renavam: '12345678901',
+        chassi: '9BWZZZ377VT004251',
+        marca: 'Toyota',
+        modelo: 'Corolla',
+        ano: 2020,
+        cor: 'Prata',
+      },
+      servicosSolicitados: [{ servicoId: 'sv_01' }],
+    });
+
+    const clienteSalvo = mockClienteRepo.salvar.mock.calls[0][0];
+    const veiculoSalvo = mockVeiculoRepo.salvar.mock.calls[0][0];
+
+    expect(mockClienteRepo.buscarPorNumeroDoc).toHaveBeenCalledWith('11144477735');
+    expect(mockVeiculoRepo.buscarPorPlaca).toHaveBeenCalledWith('ABC1234');
+    expect(os.clienteId).toBe(clienteSalvo.id.valor);
+    expect(os.veiculoId).toBe(veiculoSalvo.id.valor);
+    expect(os.status).toBe(StatusOrdemServico.RECEBIDA);
+  });
 });

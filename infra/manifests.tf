@@ -6,13 +6,21 @@ locals {
     for file in fileset("${local.k8s_base_path}/01-config", "*.yaml") : file
     if file != "app-secret.yaml"
   ] : fileset("${local.k8s_base_path}/01-config", "*.yaml")
-  metrics_files = fileset("${local.k8s_base_path}/03-messaging", "*.yaml")
-  database_files = var.use_secrets_manager_for_k8s_secrets ? [
+  metrics_files   = fileset("${local.k8s_base_path}/03-messaging", "*.yaml")
+  migration_files = fileset("${local.k8s_base_path}/03-migrations", "*.yaml")
+  database_files = var.deploy_k8s_postgres ? (var.use_secrets_manager_for_k8s_secrets ? [
     for file in fileset("${local.k8s_base_path}/02-database", "*.yaml") : file
     if file != "postgres-secret.yaml"
-  ] : fileset("${local.k8s_base_path}/02-database", "*.yaml")
+  ] : fileset("${local.k8s_base_path}/02-database", "*.yaml")) : []
   app_files       = fileset("${local.k8s_base_path}/04-app", "*.yaml")
   autoscale_files = fileset("${local.k8s_base_path}/05-autoscaling", "*.yaml")
+
+  migration_manifests = {
+    for file in local.migration_files : file => yamldecode(file("${local.k8s_base_path}/03-migrations/${file}"))
+  }
+  app_manifests = {
+    for file in local.app_files : file => yamldecode(file("${local.k8s_base_path}/04-app/${file}"))
+  }
 }
 
 resource "kubernetes_manifest" "namespaces" {
@@ -43,11 +51,40 @@ resource "kubernetes_manifest" "database" {
   depends_on = [kubernetes_manifest.config, kubernetes_secret_v1.postgres]
 }
 
+resource "kubernetes_manifest" "migrations" {
+  for_each = var.apply_k8s_manifests ? toset(local.migration_files) : toset([])
+  manifest = var.app_image != "" ? merge(local.migration_manifests[each.value], {
+    spec = merge(local.migration_manifests[each.value].spec, {
+      template = merge(local.migration_manifests[each.value].spec.template, {
+        spec = merge(local.migration_manifests[each.value].spec.template.spec, {
+          containers = [
+            for container in local.migration_manifests[each.value].spec.template.spec.containers :
+            container.name == "migrate" ? merge(container, { image = var.app_image }) : container
+          ]
+        })
+      })
+    })
+  }) : local.migration_manifests[each.value]
+
+  depends_on = [kubernetes_manifest.config, kubernetes_manifest.database, kubernetes_secret_v1.app]
+}
+
 resource "kubernetes_manifest" "app" {
   for_each = var.apply_k8s_manifests ? toset(local.app_files) : toset([])
-  manifest = yamldecode(file("${local.k8s_base_path}/04-app/${each.value}"))
+  manifest = each.value == "deployment.yaml" && var.app_image != "" ? merge(local.app_manifests[each.value], {
+    spec = merge(local.app_manifests[each.value].spec, {
+      template = merge(local.app_manifests[each.value].spec.template, {
+        spec = merge(local.app_manifests[each.value].spec.template.spec, {
+          containers = [
+            for container in local.app_manifests[each.value].spec.template.spec.containers :
+            container.name == "oficina-api" ? merge(container, { image = var.app_image }) : container
+          ]
+        })
+      })
+    })
+  }) : local.app_manifests[each.value]
 
-  depends_on = [kubernetes_manifest.database, kubernetes_secret_v1.app]
+  depends_on = [kubernetes_manifest.migrations]
 }
 
 resource "kubernetes_manifest" "autoscaling" {

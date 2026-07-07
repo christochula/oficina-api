@@ -5,7 +5,7 @@ data "aws_secretsmanager_secret_version" "app_k8s" {
 }
 
 data "aws_secretsmanager_secret_version" "postgres_k8s" {
-  count = var.apply_k8s_manifests && var.use_secrets_manager_for_k8s_secrets ? 1 : 0
+  count = var.apply_k8s_manifests && var.deploy_k8s_postgres && var.use_secrets_manager_for_k8s_secrets ? 1 : 0
 
   secret_id = var.postgres_k8s_secret_name
 }
@@ -54,7 +54,7 @@ resource "kubernetes_secret_v1" "app" {
 }
 
 resource "kubernetes_secret_v1" "postgres" {
-  count = var.apply_k8s_manifests && var.use_secrets_manager_for_k8s_secrets ? 1 : 0
+  count = var.apply_k8s_manifests && var.deploy_k8s_postgres && var.use_secrets_manager_for_k8s_secrets ? 1 : 0
 
   metadata {
     name      = "postgres-secret"

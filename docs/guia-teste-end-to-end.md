@@ -70,7 +70,7 @@ ADMIN_SEED_PASSWORD=Admin@123
 docker compose up -d --build
 ```
 
-O Dockerfile executa `npx prisma migrate deploy` automaticamente antes de iniciar a API.
+O Docker Compose executa `npx prisma migrate deploy` no servico `migrate` antes de iniciar a API.
 
 Valide se os containers estao ativos:
 
@@ -81,6 +81,7 @@ docker compose ps
 Resultado esperado:
 
 - `oficina_db` com status `healthy`
+- `migrate` concluido com sucesso
 - `oficina_api` com status `Up`
 - porta `3000` publicada para a API
 - porta `5432` publicada para o banco

@@ -113,6 +113,18 @@ variable "apply_k8s_manifests" {
   default     = false
 }
 
+variable "deploy_k8s_postgres" {
+  description = "Quando true, tambem aplica o PostgreSQL dentro do Kubernetes. Para AWS Academy, prefira false e use o RDS provisionado pelo Terraform."
+  type        = bool
+  default     = false
+}
+
+variable "app_image" {
+  description = "Imagem Docker completa para Deployment e Job de migration. Se vazio, usa a imagem definida nos manifests YAML."
+  type        = string
+  default     = ""
+}
+
 variable "use_secrets_manager_for_k8s_secrets" {
   description = "Quando true, cria os Secrets do Kubernetes a partir do AWS Secrets Manager em vez de YAML versionado."
   type        = bool

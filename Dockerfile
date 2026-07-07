@@ -38,5 +38,5 @@ USER appuser
 
 EXPOSE 3000
 
-# Executa migrações e inicia a aplicação
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/src/main"]
+# Inicia a API. Migrations rodam via docker-compose ou Job Kubernetes.
+CMD ["node", "dist/src/main"]

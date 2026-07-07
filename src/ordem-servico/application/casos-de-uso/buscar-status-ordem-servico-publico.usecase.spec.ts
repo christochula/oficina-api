@@ -44,6 +44,7 @@ describe('BuscarStatusOrdemServicoPublicoUseCase', () => {
 
     expect(resultado.numero).toBe(123);
     expect(resultado.status).toBe(StatusOrdemServico.EM_EXECUCAO);
+    expect(resultado.statusDescricao).toBe('Execução');
     expect(mockClienteRepo.buscarPorNumeroDoc).toHaveBeenCalledWith('11144477735');
   });
 

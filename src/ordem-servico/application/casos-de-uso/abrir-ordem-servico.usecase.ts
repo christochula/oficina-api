@@ -1,9 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { RecursoNaoEncontrado } from '../../../shared/excecoes/dominio.exception';
+import { RecursoNaoEncontrado, RegraDeNegocio } from '../../../shared/excecoes/dominio.exception';
+import { cleanCNPJ, cleanCPF } from '../../../shared/utils/documento-validator';
 import { ClienteId } from '../../../cliente/domain/cliente-id.value-object';
+import { Cliente, TipoDocumento } from '../../../cliente/domain/cliente.entity';
 import { CLIENTE_REPOSITORY } from '../../../cliente/domain/cliente.repository';
 import type { ClienteRepository } from '../../../cliente/domain/cliente.repository';
 import { VeiculoId } from '../../../veiculo/domain/veiculo-id.value-object';
+import { Veiculo } from '../../../veiculo/domain/veiculo.entity';
 import { VEICULO_REPOSITORY } from '../../../veiculo/domain/veiculo.repository';
 import type { VeiculoRepository } from '../../../veiculo/domain/veiculo.repository';
 import { SERVICO_OFICINA_REPOSITORY } from '../../../servico-oficina/domain/servico-oficina.repository';
@@ -29,8 +32,34 @@ export interface ServicoSolicitadoInput {
  * Dados de entrada para abertura de uma nova Ordem de Serviço.
  */
 export interface AbrirOrdemServicoInput {
-  clienteId: string;
-  veiculoId: string;
+  clienteId?: string;
+  veiculoId?: string;
+  cliente?: {
+    tipoDoc: TipoDocumento;
+    numeroDoc: string;
+    nome: string;
+    email: string;
+    telefone: string;
+    endereco?: {
+      logradouro?: string;
+      numero?: string;
+      complemento?: string;
+      bairro?: string;
+      cidade?: string;
+      estado?: string;
+      cep?: string;
+    };
+  };
+  veiculo?: {
+    placa: string;
+    renavam: string;
+    chassi: string;
+    marca: string;
+    modelo: string;
+    ano: number;
+    cor: string;
+    quilometragem?: number;
+  };
   problemasRelatados?: { descricao: string }[];
   /** Serviços do catálogo da oficina selecionados pelo cliente. */
   servicosSolicitados?: ServicoSolicitadoInput[];
@@ -62,11 +91,8 @@ export class AbrirOrdemServicoUseCase {
   ) {}
 
   async executar(input: AbrirOrdemServicoInput): Promise<OrdemServico> {
-    const cliente = await this.clienteRepository.buscarPorId(ClienteId.de(input.clienteId));
-    if (!cliente) throw new RecursoNaoEncontrado('Cliente', input.clienteId);
-
-    const veiculo = await this.veiculoRepository.buscarPorId(VeiculoId.de(input.veiculoId));
-    if (!veiculo) throw new RecursoNaoEncontrado('Veículo', input.veiculoId);
+    const cliente = await this.resolverCliente(input);
+    const veiculo = await this.resolverVeiculo(input);
 
     // Valida e enriquece os serviços solicitados com snapshot do nome do catálogo
     const servicosSolicitados = await Promise.all(
@@ -107,8 +133,8 @@ export class AbrirOrdemServicoUseCase {
           : input.problemasRelatados;
 
     const os = OrdemServico.abrir({
-      clienteId: input.clienteId,
-      veiculoId: input.veiculoId,
+      clienteId: input.clienteId ?? cliente.id.valor,
+      veiculoId: input.veiculoId ?? veiculo.id.valor,
       problemasRelatados,
       servicosSolicitados,
       notasInternas: notasInternasComPecas,
@@ -121,5 +147,57 @@ export class AbrirOrdemServicoUseCase {
     // Recarrega a OS para retornar o número operacional persistido no banco.
     const osPersistida = await this.osRepository.buscarPorId(os.id);
     return osPersistida ?? os;
+  }
+
+  private async resolverCliente(input: AbrirOrdemServicoInput): Promise<Cliente> {
+    if (input.clienteId) {
+      const cliente = await this.clienteRepository.buscarPorId(ClienteId.de(input.clienteId));
+      if (!cliente) throw new RecursoNaoEncontrado('Cliente', input.clienteId);
+      return cliente;
+    }
+
+    if (!input.cliente) {
+      throw new RegraDeNegocio('Informe clienteId ou dados do cliente para abertura da OS');
+    }
+
+    const numeroDoc =
+      input.cliente.tipoDoc === TipoDocumento.CPF
+        ? cleanCPF(input.cliente.numeroDoc)
+        : cleanCNPJ(input.cliente.numeroDoc);
+
+    const clienteExistente = await this.clienteRepository.buscarPorNumeroDoc(numeroDoc);
+    if (clienteExistente) return clienteExistente;
+
+    const cliente = Cliente.criar({
+      ...input.cliente,
+      numeroDoc,
+    });
+
+    await this.clienteRepository.salvar(cliente);
+    return cliente;
+  }
+
+  private async resolverVeiculo(input: AbrirOrdemServicoInput): Promise<Veiculo> {
+    if (input.veiculoId) {
+      const veiculo = await this.veiculoRepository.buscarPorId(VeiculoId.de(input.veiculoId));
+      if (!veiculo) throw new RecursoNaoEncontrado('Veículo', input.veiculoId);
+      return veiculo;
+    }
+
+    if (!input.veiculo) {
+      throw new RegraDeNegocio('Informe veiculoId ou dados do veículo para abertura da OS');
+    }
+
+    const placa = input.veiculo.placa.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const veiculoExistente = await this.veiculoRepository.buscarPorPlaca(placa);
+    if (veiculoExistente) return veiculoExistente;
+
+    const veiculo = Veiculo.criar({
+      ...input.veiculo,
+      placa,
+    });
+
+    await this.veiculoRepository.salvar(veiculo);
+    return veiculo;
   }
 }

@@ -1,0 +1,34 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: oficina-api-migrate
+  namespace: oficina-api
+  labels:
+    app: oficina-api
+    job: migrate
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: oficina-api
+        job: migrate
+    spec:
+      restartPolicy: Never
+      containers:
+        - name: migrate
+          image: 634752293949.dkr.ecr.us-east-1.amazonaws.com/oficina-api:latest
+          imagePullPolicy: Always
+          command: ["npx", "prisma", "migrate", "deploy"]
+          envFrom:
+            - configMapRef:
+                name: oficina-api-config
+            - secretRef:
+                name: oficina-api-secret
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "256Mi"

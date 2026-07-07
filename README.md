@@ -166,8 +166,8 @@ docker compose down
 O fluxo de container:
 
 1. sobe PostgreSQL
-2. aplica `prisma migrate deploy`
-3. inicia a API
+2. aplica `prisma migrate deploy` no servico `migrate`
+3. inicia a API somente depois da migration concluir
 
 URLs uteis:
 
@@ -271,6 +271,10 @@ A tabela abaixo resume as rotas mais importantes. O Swagger continua sendo a fon
 | OS | GET | `/api/v1/ordens-servico/relatorio/lead-time` | ADMINISTRADOR, CONSULTOR_TECNICO |
 | OS | GET | `/api/v1/ordens-servico/relatorio/kpis` | ADMINISTRADOR, CONSULTOR_TECNICO |
 | OS | GET | `/api/v1/ordens-servico/relatorio/tempo-ciclo` | ADMINISTRADOR, CONSULTOR_TECNICO |
+
+Na abertura de OS, `POST /api/v1/ordens-servico` aceita o modelo existente por referencia (`clienteId` e `veiculoId`) e tambem abertura direta com objetos `cliente` e `veiculo`, alem de `servicosSolicitados` e `pecasSolicitadas`, para aderir ao enunciado da Fase 2.
+
+O endpoint de integracao por e-mail aceita atualizacoes operacionais para `RECEBIDA`, `DIAGNOSTICO`, `AGUARDANDO_APROVACAO`, `EXECUCAO`, `FINALIZADA` e `ENTREGUE`, alem dos estados internos `APROVADA` e `CANCELADA` para compatibilidade com o fluxo de aprovacao/recusa de orcamento.
 
 ---
 
@@ -381,6 +385,7 @@ Manifestos versionados em `k8s/` por camadas:
 - `k8s/01-config`
 - `k8s/02-database`
 - `k8s/03-messaging` (metrics-server para API de metricas do cluster)
+- `k8s/03-migrations` (Job de `prisma migrate deploy`)
 - `k8s/04-app`
 - `k8s/05-autoscaling`
 
@@ -404,7 +409,11 @@ Passo a passo resumido:
 cd infra
 cp terraform.tfvars.example terraform.tfvars
 terraform fmt -check -recursive
-terraform init
+terraform init \
+  -backend-config="bucket=oficina-api-tfstate-<aws-account-id>-<aws-region>" \
+  -backend-config="key=oficina-api/prod/terraform.tfstate" \
+  -backend-config="region=<aws-region>" \
+  -backend-config="encrypt=true"
 ./scripts/patch-eks-talent-lab.sh
 terraform validate
 terraform plan
@@ -436,9 +445,13 @@ Workflows em `.github/workflows/`:
 
 Secrets esperados no repositório para CD:
 
-- `AWS_ROLE_ARN`
 - `AWS_REGION`
-- `DB_PASSWORD`
+- `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN` quando usar AWS Academy sem OIDC
+- `AWS_ROLE_ARN` somente quando OIDC estiver disponivel
+- `DB_PASSWORD_SECRET_NAME`, `APP_K8S_SECRET_NAME`
+- `CLUSTER_IAM_ROLE_NAME`, `NODE_IAM_ROLE_NAME`, `CLUSTER_ADMIN_ROLE_NAME`
+
+Detalhes do fluxo com AWS Secrets Manager: `docs/guia-configuracao-github-secrets-manager.md`.
 
 ## Video da Entrega (ate 15 minutos)
 

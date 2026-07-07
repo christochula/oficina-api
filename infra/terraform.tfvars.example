@@ -29,3 +29,10 @@ postgres_k8s_secret_name = "oficina-api/dev/k8s/postgres"
 
 # Mantem Terraform responsavel pelos manifests Kubernetes
 apply_k8s_manifests = false
+
+# AWS Academy recomendado: banco ativo no RDS, sem PVC/EBS dentro do cluster
+deploy_k8s_postgres = false
+
+# Preenchido automaticamente pelo GitHub Actions no CD.
+# Para apply manual, informe a imagem ECR completa ou deixe vazio para usar o YAML.
+app_image = ""

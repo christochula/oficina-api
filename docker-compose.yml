@@ -21,6 +21,7 @@ services:
 
   # ── API ────────────────────────────────────────────────────────────────────
   api:
+    image: oficina-api:local
     build:
       context: .
       dockerfile: Dockerfile
@@ -29,6 +30,17 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-3000}:3000"
+    env_file:
+      - .env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  # Aplica migrations uma vez antes da API subir no ambiente local
+  migrate:
+    image: oficina-api:local
+    restart: "no"
+    command: ["npx", "prisma", "migrate", "deploy"]
     env_file:
       - .env
     depends_on:

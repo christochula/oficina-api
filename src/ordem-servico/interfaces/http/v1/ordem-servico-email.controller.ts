@@ -6,14 +6,14 @@ import {
   Version,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
-import { ProcessarAprovacaoExternaOrcamentoUseCase } from '../../../application/casos-de-uso/processar-aprovacao-externa-orcamento.usecase';
+import { ProcessarAtualizacaoStatusExternaUseCase } from '../../../application/casos-de-uso/processar-atualizacao-status-externa.usecase';
 import { ProcessarStatusEmailDto } from './dtos/processar-status-email.dto';
 
 @ApiTags('Ordens de Serviço - Integracao Externa')
 @Controller('ordens-servico')
 export class OrdemServicoEmailController {
   constructor(
-    private readonly processarAprovacaoExterna: ProcessarAprovacaoExternaOrcamentoUseCase,
+    private readonly processarAtualizacaoStatusExterna: ProcessarAtualizacaoStatusExternaUseCase,
   ) {}
 
   @Post(':id/status/email')
@@ -23,11 +23,11 @@ export class OrdemServicoEmailController {
     @Param('id') id: string,
     @Body() dto: ProcessarStatusEmailDto,
   ) {
-    const decisao = dto.novoStatus === 'APROVADA' ? 'APROVADO' : 'RECUSADO';
-    const os = await this.processarAprovacaoExterna.executar({
+    const os = await this.processarAtualizacaoStatusExterna.executar({
       osId: id,
-      decisao,
+      novoStatus: dto.novoStatus,
       origem: dto.origemMensagem ?? 'email',
+      idMensagemExterna: dto.idMensagemExterna,
     });
 
     return {
