@@ -302,16 +302,45 @@ jobs:
         run: |
           set -euo pipefail
 
+          EKS_EXISTS=false
+          RDS_EXISTS=false
+
           if aws eks describe-cluster \
             --name oficina-api-prod \
-            --region "$AWS_REGION" >/dev/null 2>&1 && \
-            aws rds describe-db-instances \
-              --db-instance-identifier oficina-api-prod-postgres \
-              --region "$AWS_REGION" >/dev/null 2>&1; then
+            --region "$AWS_REGION" >/dev/null 2>&1; then
+            EKS_EXISTS=true
+          fi
+
+          if aws rds describe-db-instances \
+            --db-instance-identifier oficina-api-prod-postgres \
+            --region "$AWS_REGION" >/dev/null 2>&1; then
+            RDS_EXISTS=true
+          fi
+
+          echo "eks_exists=$EKS_EXISTS" >> "$GITHUB_OUTPUT"
+          echo "rds_exists=$RDS_EXISTS" >> "$GITHUB_OUTPUT"
+
+          if [ "$EKS_EXISTS" = "true" ] && [ "$RDS_EXISTS" = "true" ]; then
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
+
+      - name: Remove stale Kubernetes state when EKS is absent
+        if: steps.aws_base_stack.outputs.eks_exists == 'false'
+        working-directory: infra
+        run: |
+          set -euo pipefail
+
+          mapfile -t K8S_STATE_ADDRESSES < <(terraform state list | grep -E '^(kubernetes_manifest\.|kubernetes_secret_v1\.)' || true)
+
+          if [ "${#K8S_STATE_ADDRESSES[@]}" -eq 0 ]; then
+            echo "No Kubernetes resources found in Terraform state."
+            exit 0
+          fi
+
+          printf 'Removing stale Kubernetes state address: %s\n' "${K8S_STATE_ADDRESSES[@]}"
+          terraform state rm "${K8S_STATE_ADDRESSES[@]}"
 
       - name: Terraform plan
         if: steps.aws_base_stack.outputs.exists == 'false'
