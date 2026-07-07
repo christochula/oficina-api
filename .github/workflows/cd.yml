@@ -430,6 +430,26 @@ jobs:
           AWS_REGION: ${{ secrets.AWS_REGION }}
         run: aws eks update-kubeconfig --name oficina-api-prod --region "$AWS_REGION"
 
+      - name: Wait for EKS worker nodes
+        run: |
+          set -euo pipefail
+
+          for attempt in {1..60}; do
+            NODE_COUNT="$(kubectl get nodes --no-headers 2>/dev/null | wc -l | tr -d ' ')"
+            if [ "$NODE_COUNT" -gt 0 ]; then
+              kubectl wait --for=condition=Ready nodes --all --timeout=20m
+              kubectl get nodes -o wide
+              exit 0
+            fi
+
+            echo "Waiting for EKS worker nodes to register... attempt $attempt/60"
+            sleep 10
+          done
+
+          echo "::error::No EKS worker nodes registered within 10 minutes."
+          kubectl get nodes -o wide || true
+          exit 1
+
       - name: Remove previous migration Job
         run: |
           set -euo pipefail
@@ -475,3 +495,29 @@ jobs:
           TF_VAR_environment: prod
           TF_VAR_apply_k8s_manifests: true
         run: terraform apply -auto-approve tfplan-manifests
+
+      - name: Diagnose Kubernetes manifest failure
+        if: failure()
+        run: |
+          set -euo pipefail
+
+          if ! kubectl cluster-info >/dev/null 2>&1; then
+            echo "kubectl is not configured for a reachable cluster."
+            exit 0
+          fi
+
+          kubectl get nodes -o wide || true
+
+          if ! kubectl get namespace oficina-api >/dev/null 2>&1; then
+            echo "Namespace oficina-api was not created."
+            exit 0
+          fi
+
+          kubectl -n oficina-api get jobs,pods,svc,events --sort-by=.metadata.creationTimestamp || true
+          kubectl -n oficina-api describe job oficina-api-migrate || true
+
+          for pod in $(kubectl -n oficina-api get pods -l job-name=oficina-api-migrate -o name 2>/dev/null); do
+            echo "Diagnostics for $pod"
+            kubectl -n oficina-api describe "$pod" || true
+            kubectl -n oficina-api logs "$pod" --all-containers=true --tail=200 || true
+          done

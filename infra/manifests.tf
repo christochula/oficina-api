@@ -84,6 +84,12 @@ resource "kubernetes_manifest" "migrations" {
     }
   }
 
+  timeouts {
+    create = "20m"
+    update = "20m"
+    delete = "5m"
+  }
+
   lifecycle {
     replace_triggered_by = [terraform_data.migration_rollout]
   }
