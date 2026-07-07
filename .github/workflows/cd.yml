@@ -53,12 +53,27 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate required AWS secrets
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
         run: |
-          test -n "${{ secrets.AWS_REGION }}" || { echo "::error::Missing secret AWS_REGION"; exit 1; }
-          if [ -z "${{ secrets.AWS_ROLE_ARN }}" ]; then
-            test -n "${{ secrets.AWS_ACCESS_KEY_ID }}" || { echo "::error::Missing secret AWS_ACCESS_KEY_ID when AWS_ROLE_ARN is empty"; exit 1; }
-            test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || { echo "::error::Missing secret AWS_SECRET_ACCESS_KEY when AWS_ROLE_ARN is empty"; exit 1; }
-            test -n "${{ secrets.AWS_SESSION_TOKEN }}" || { echo "::error::Missing secret AWS_SESSION_TOKEN when AWS_ROLE_ARN is empty"; exit 1; }
+          require_secret() {
+            local name="$1"
+            local value="${2:-}"
+            if [ -z "${value//[[:space:]]/}" ]; then
+              echo "::error::Missing or blank secret $name"
+              exit 1
+            fi
+          }
+
+          require_secret AWS_REGION "$AWS_REGION"
+          if [ -z "${AWS_ROLE_ARN//[[:space:]]/}" ]; then
+            require_secret AWS_ACCESS_KEY_ID "$AWS_ACCESS_KEY_ID"
+            require_secret AWS_SECRET_ACCESS_KEY "$AWS_SECRET_ACCESS_KEY"
+            require_secret AWS_SESSION_TOKEN "$AWS_SESSION_TOKEN"
           fi
 
       - name: Define image tag
@@ -122,18 +137,38 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Validate required Terraform secrets
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          AWS_SESSION_TOKEN: ${{ secrets.AWS_SESSION_TOKEN }}
+          DB_PASSWORD_SECRET_NAME: ${{ secrets.DB_PASSWORD_SECRET_NAME }}
+          APP_K8S_SECRET_NAME: ${{ secrets.APP_K8S_SECRET_NAME }}
+          CLUSTER_IAM_ROLE_NAME: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
+          NODE_IAM_ROLE_NAME: ${{ secrets.NODE_IAM_ROLE_NAME }}
+          CLUSTER_ADMIN_ROLE_NAME: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
         run: |
-          test -n "${{ secrets.AWS_REGION }}" || { echo "::error::Missing secret AWS_REGION"; exit 1; }
-          if [ -z "${{ secrets.AWS_ROLE_ARN }}" ]; then
-            test -n "${{ secrets.AWS_ACCESS_KEY_ID }}" || { echo "::error::Missing secret AWS_ACCESS_KEY_ID when AWS_ROLE_ARN is empty"; exit 1; }
-            test -n "${{ secrets.AWS_SECRET_ACCESS_KEY }}" || { echo "::error::Missing secret AWS_SECRET_ACCESS_KEY when AWS_ROLE_ARN is empty"; exit 1; }
-            test -n "${{ secrets.AWS_SESSION_TOKEN }}" || { echo "::error::Missing secret AWS_SESSION_TOKEN when AWS_ROLE_ARN is empty"; exit 1; }
+          require_secret() {
+            local name="$1"
+            local value="${2:-}"
+            if [ -z "${value//[[:space:]]/}" ]; then
+              echo "::error::Missing or blank secret $name"
+              exit 1
+            fi
+          }
+
+          require_secret AWS_REGION "$AWS_REGION"
+          if [ -z "${AWS_ROLE_ARN//[[:space:]]/}" ]; then
+            require_secret AWS_ACCESS_KEY_ID "$AWS_ACCESS_KEY_ID"
+            require_secret AWS_SECRET_ACCESS_KEY "$AWS_SECRET_ACCESS_KEY"
+            require_secret AWS_SESSION_TOKEN "$AWS_SESSION_TOKEN"
           fi
-          test -n "${{ secrets.DB_PASSWORD_SECRET_NAME }}" || { echo "::error::Missing secret DB_PASSWORD_SECRET_NAME"; exit 1; }
-          test -n "${{ secrets.APP_K8S_SECRET_NAME }}" || { echo "::error::Missing secret APP_K8S_SECRET_NAME"; exit 1; }
-          test -n "${{ secrets.CLUSTER_IAM_ROLE_NAME }}" || { echo "::error::Missing secret CLUSTER_IAM_ROLE_NAME"; exit 1; }
-          test -n "${{ secrets.NODE_IAM_ROLE_NAME }}" || { echo "::error::Missing secret NODE_IAM_ROLE_NAME"; exit 1; }
-          test -n "${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}" || { echo "::error::Missing secret CLUSTER_ADMIN_ROLE_NAME"; exit 1; }
+          require_secret DB_PASSWORD_SECRET_NAME "$DB_PASSWORD_SECRET_NAME"
+          require_secret APP_K8S_SECRET_NAME "$APP_K8S_SECRET_NAME"
+          require_secret CLUSTER_IAM_ROLE_NAME "$CLUSTER_IAM_ROLE_NAME"
+          require_secret NODE_IAM_ROLE_NAME "$NODE_IAM_ROLE_NAME"
+          require_secret CLUSTER_ADMIN_ROLE_NAME "$CLUSTER_ADMIN_ROLE_NAME"
 
       - name: Decide AWS auth mode
         id: aws_auth_mode
@@ -271,6 +306,7 @@ jobs:
           TF_VAR_postgres_k8s_secret_name: ${{ secrets.POSTGRES_K8S_SECRET_NAME }}
           TF_VAR_deploy_k8s_postgres: "false"
           TF_VAR_app_image: ${{ needs.build-push-image.outputs.image_uri }}
+          TF_VAR_require_existing_iam_roles: "true"
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
@@ -289,6 +325,7 @@ jobs:
           TF_VAR_postgres_k8s_secret_name: ${{ secrets.POSTGRES_K8S_SECRET_NAME }}
           TF_VAR_deploy_k8s_postgres: "false"
           TF_VAR_app_image: ${{ needs.build-push-image.outputs.image_uri }}
+          TF_VAR_require_existing_iam_roles: "true"
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
@@ -350,6 +387,7 @@ jobs:
           TF_VAR_postgres_k8s_secret_name: ${{ secrets.POSTGRES_K8S_SECRET_NAME }}
           TF_VAR_deploy_k8s_postgres: "false"
           TF_VAR_app_image: ${{ needs.build-push-image.outputs.image_uri }}
+          TF_VAR_require_existing_iam_roles: "true"
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}
@@ -368,6 +406,7 @@ jobs:
           TF_VAR_postgres_k8s_secret_name: ${{ secrets.POSTGRES_K8S_SECRET_NAME }}
           TF_VAR_deploy_k8s_postgres: "false"
           TF_VAR_app_image: ${{ needs.build-push-image.outputs.image_uri }}
+          TF_VAR_require_existing_iam_roles: "true"
           TF_VAR_cluster_iam_role_name: ${{ secrets.CLUSTER_IAM_ROLE_NAME }}
           TF_VAR_node_iam_role_name: ${{ secrets.NODE_IAM_ROLE_NAME }}
           TF_VAR_cluster_admin_role_name: ${{ secrets.CLUSTER_ADMIN_ROLE_NAME }}

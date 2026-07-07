@@ -85,6 +85,8 @@ Nao e preciso criar variavel ou secret no GitHub para esse bucket. Ele fica na p
 - `CLUSTER_ADMIN_ROLE_NAME`: role que recebera permissao de admin no cluster EKS. No Talent Lab, normalmente `voclabs`.
 - `AWS_ROLE_ARN` (opcional): role para OIDC. Se nao existir permissao de OIDC no lab, deixe vazio/removido para usar fallback por access key.
 
+Importante: `CLUSTER_IAM_ROLE_NAME`, `NODE_IAM_ROLE_NAME` e `CLUSTER_ADMIN_ROLE_NAME` devem ser nomes de IAM Role, nao ARN. Nao deixe esses secrets vazios nem com espacos. Em muitos labs AWS Academy a role se chama `LabRole`, mas confirme no IAM do seu lab antes de configurar.
+
 ## O que criar no AWS Secrets Manager
 
 Crie estes 2 secrets obrigatorios na AWS:
@@ -156,6 +158,7 @@ No arquivo `infra/terraform.tfvars` local, configure:
 - `deploy_k8s_postgres = false`
 - `app_image = ""` localmente, ou deixe o `cd.yml` preencher automaticamente com a imagem ECR publicada
 - `postgres_k8s_secret_name = "oficina-api/dev/k8s/postgres"` somente se `deploy_k8s_postgres=true`
+- `require_existing_iam_roles = true`
 - `cluster_iam_role_name = "<nome-da-role-do-cluster-no-talent-lab>"` se usar role preexistente
 - `node_iam_role_name = "<nome-da-role-dos-nodes-no-talent-lab>"` se usar role preexistente
 - `cluster_admin_role_name = "voclabs"` no Talent Lab, ou outra role que tenha acesso ao cluster

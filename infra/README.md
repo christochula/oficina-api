@@ -36,6 +36,7 @@ Esta pasta provisiona:
    - cluster_iam_role_name (quando usar role preexistente no Talent Lab)
    - node_iam_role_name (quando usar role preexistente no Talent Lab)
    - cluster_admin_role_name (ex.: voclabs no Talent Lab)
+   - require_existing_iam_roles (true recomendado no AWS Academy)
    - app_k8s_secret_name
    - deploy_k8s_postgres (false recomendado no AWS Academy)
    - app_image (preenchido automaticamente pelo GitHub Actions no CD)
@@ -89,6 +90,7 @@ Para nao manter segredos em codigo/YAML:
     - `app_k8s_secret_name = "oficina-api/dev/k8s/app"`
     - `deploy_k8s_postgres = false`
     - `app_image = ""` para uso local, ou preenchido pelo GitHub Actions no CD
+    - `require_existing_iam_roles = true`
     - `postgres_k8s_secret_name = "oficina-api/dev/k8s/postgres"` somente se tambem for aplicar Postgres dentro do Kubernetes
 
 2. Crie os secrets no Secrets Manager com payload JSON:
@@ -217,8 +219,9 @@ Se sua conta do laboratorio nao permitir criacao de IAM roles, informe roles exi
 
 - cluster_iam_role_name
 - node_iam_role_name
+- require_existing_iam_roles = true
 
-O projeto busca essas roles com data aws_iam_role e injeta os ARNs no EKS.
+O projeto busca essas roles com data aws_iam_role e injeta os ARNs no EKS. Use o nome da role, nao o ARN, e nao deixe os valores vazios. Em muitos labs AWS Academy a role se chama `LabRole`, mas confirme no IAM do seu lab.
 
 ## Observacao academica
 

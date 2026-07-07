@@ -107,6 +107,12 @@ variable "cluster_admin_role_name" {
   default     = "voclabs"
 }
 
+variable "require_existing_iam_roles" {
+  description = "Quando true, exige cluster_iam_role_name e node_iam_role_name preexistentes. Recomendado para AWS Academy, onde criacao de IAM costuma ser bloqueada."
+  type        = bool
+  default     = true
+}
+
 variable "apply_k8s_manifests" {
   description = "Quando true, aplica os manifestos Kubernetes declarativos via Terraform."
   type        = bool

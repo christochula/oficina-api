@@ -1,6 +1,9 @@
 locals {
-  name                   = "${var.project_name}-${var.environment}"
-  use_existing_iam_roles = var.cluster_iam_role_name != "" && var.node_iam_role_name != ""
+  name                    = "${var.project_name}-${var.environment}"
+  cluster_iam_role_name   = trimspace(var.cluster_iam_role_name)
+  node_iam_role_name      = trimspace(var.node_iam_role_name)
+  cluster_admin_role_name = trimspace(var.cluster_admin_role_name)
+  use_existing_iam_roles  = local.cluster_iam_role_name != "" && local.node_iam_role_name != ""
 
   common_tags = {
     Project     = var.project_name
@@ -9,14 +12,30 @@ locals {
   }
 }
 
+resource "terraform_data" "validate_iam_roles" {
+  input = local.name
+
+  lifecycle {
+    precondition {
+      condition     = !var.require_existing_iam_roles || local.use_existing_iam_roles
+      error_message = "Informe cluster_iam_role_name e node_iam_role_name com nomes validos de roles IAM preexistentes. No AWS Academy, configure os secrets CLUSTER_IAM_ROLE_NAME e NODE_IAM_ROLE_NAME no GitHub Actions. Use o nome da role, nao o ARN."
+    }
+
+    precondition {
+      condition     = local.cluster_admin_role_name != ""
+      error_message = "Informe cluster_admin_role_name com o nome da role que tera acesso administrativo ao EKS. No AWS Academy, normalmente e voclabs ou a role indicada pelo lab."
+    }
+  }
+}
+
 data "aws_iam_role" "cluster" {
   count = local.use_existing_iam_roles ? 1 : 0
-  name  = var.cluster_iam_role_name
+  name  = local.cluster_iam_role_name
 }
 
 data "aws_iam_role" "node" {
   count = local.use_existing_iam_roles ? 1 : 0
-  name  = var.node_iam_role_name
+  name  = local.node_iam_role_name
 }
 
 data "aws_caller_identity" "current" {}
@@ -68,6 +87,8 @@ module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "20.17.2"
 
+  depends_on = [terraform_data.validate_iam_roles]
+
   cluster_name    = local.name
   cluster_version = "1.30"
 
@@ -75,7 +96,7 @@ module "eks" {
   enable_irsa                    = false
   access_entries = {
     admin_role = {
-      principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.cluster_admin_role_name}"
+      principal_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.cluster_admin_role_name}"
 
       policy_associations = {
         admin = {
