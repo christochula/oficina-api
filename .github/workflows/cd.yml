@@ -295,7 +295,26 @@ jobs:
               terraform import 'module.eks.aws_cloudwatch_log_group.this[0]' "$EKS_LOG_GROUP_NAME"
           fi
 
+      - name: Detect existing AWS base stack
+        id: aws_base_stack
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: |
+          set -euo pipefail
+
+          if aws eks describe-cluster \
+            --name oficina-api-prod \
+            --region "$AWS_REGION" >/dev/null 2>&1 && \
+            aws rds describe-db-instances \
+              --db-instance-identifier oficina-api-prod-postgres \
+              --region "$AWS_REGION" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Terraform plan
+        if: steps.aws_base_stack.outputs.exists == 'false'
         working-directory: infra
         env:
           TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
@@ -315,6 +334,7 @@ jobs:
         run: terraform plan -out=tfplan-infra
 
       - name: Terraform apply infra
+        if: steps.aws_base_stack.outputs.exists == 'false'
         working-directory: infra
         env:
           TF_VAR_aws_region: ${{ secrets.AWS_REGION }}
@@ -375,6 +395,19 @@ jobs:
             --secret-string "$APP_SECRET_UPDATED" >/dev/null
 
           echo "DATABASE_URL sincronizada no Secrets Manager com endpoint RDS atual"
+
+      - name: Configure kubectl for EKS
+        env:
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+        run: aws eks update-kubeconfig --name oficina-api-prod --region "$AWS_REGION"
+
+      - name: Remove previous migration Job
+        run: |
+          set -euo pipefail
+
+          if kubectl get namespace oficina-api >/dev/null 2>&1; then
+            kubectl -n oficina-api delete job oficina-api-migrate --ignore-not-found=true
+          fi
 
       - name: Terraform plan manifests
         working-directory: infra

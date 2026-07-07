@@ -180,7 +180,7 @@ O workflow agora:
 2. Resolve o account ID atual e publica a imagem no ECR dessa conta.
 3. Passa a imagem publicada ao Terraform por `app_image`.
 4. Garante um bucket S3 para o state do Terraform.
-5. Faz o apply da infraestrutura base.
+5. Faz o apply bootstrap da infraestrutura base somente quando EKS e RDS ainda nao existem.
 6. Faz o apply dos manifests Kubernetes.
 7. Consome apenas nomes de secrets do Secrets Manager, nunca senhas em texto puro.
 8. Usa os nomes das roles do Talent Lab para criar o acesso EKS correto para o role do deploy.
@@ -192,6 +192,11 @@ terraform destroy
 ## Integracao com Kubernetes
 
 O Terraform aplica os manifests Kubernetes declarativamente com resource kubernetes_manifest.
+Para o Job de migrations, o Terraform ignora os labels que o Kubernetes adiciona automaticamente
+ao template do Pod (`job-name`, `controller-uid`) e aguarda `status.succeeded = 1` antes de
+seguir para o Deployment da API. No GitHub Actions, um Job `oficina-api-migrate` anterior e
+removido antes do apply dos manifests para evitar conflito com Job imutavel ou criado por uma
+execucao anterior que falhou apos o recurso ser aceito pelo cluster.
 
 Organizacao esperada dos manifestos:
 

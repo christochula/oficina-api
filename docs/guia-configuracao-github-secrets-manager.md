@@ -304,12 +304,15 @@ Pontos de atencao do AWS Academy:
 - Aplica os manifests Kubernetes.
 - Le os segredos do Secrets Manager.
 - No caminho AWS Academy, usa o RDS como banco ativo e aplica o Job de migrations antes da API.
+- Para o Job de migrations, ignora os labels adicionados automaticamente pelo Kubernetes e aguarda conclusao antes do Deployment.
 
 ### GitHub Actions
 
 - Orquestra o pipeline.
 - Faz build, testes, publish da imagem e chamada do Terraform.
 - Automatiza o deploy.
+- Executa o apply bootstrap com `apply_k8s_manifests=false` somente quando EKS e RDS ainda nao existem.
+- Antes do apply dos manifests, remove um Job `oficina-api-migrate` anterior para permitir reexecucao automatica.
 
 ## Checklist rapido para nao errar
 

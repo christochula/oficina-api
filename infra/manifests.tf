@@ -23,6 +23,13 @@ locals {
   }
 }
 
+resource "terraform_data" "migration_rollout" {
+  triggers_replace = concat(
+    [var.app_image],
+    [for file in sort(tolist(local.migration_files)) : filesha256("${local.k8s_base_path}/03-migrations/${file}")]
+  )
+}
+
 resource "kubernetes_manifest" "namespaces" {
   for_each = var.apply_k8s_manifests ? toset(local.namespace_files) : toset([])
   manifest = yamldecode(file("${local.k8s_base_path}/00-namespaces/${each.value}"))
@@ -65,6 +72,21 @@ resource "kubernetes_manifest" "migrations" {
       })
     })
   }) : local.migration_manifests[each.value]
+
+  computed_fields = [
+    "spec.selector",
+    "spec.template.metadata.labels",
+  ]
+
+  wait {
+    fields = {
+      "status.succeeded" = "1"
+    }
+  }
+
+  lifecycle {
+    replace_triggered_by = [terraform_data.migration_rollout]
+  }
 
   depends_on = [kubernetes_manifest.config, kubernetes_manifest.database, kubernetes_secret_v1.app]
 }
