@@ -17,7 +17,8 @@ spec:
     spec:
       containers:
         - name: oficina-api
-          image: 634752293949.dkr.ecr.us-east-1.amazonaws.com/oficina-api:latest
+          # Replace with the ECR image URI for the target AWS account before manual kubectl apply.
+          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/oficina-api:latest
           imagePullPolicy: Always
           ports:
             - containerPort: 3000

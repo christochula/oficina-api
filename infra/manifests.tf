@@ -30,11 +30,22 @@ resource "terraform_data" "migration_rollout" {
   )
 }
 
+resource "terraform_data" "validate_k8s_app_image" {
+  input = var.app_image
+
+  lifecycle {
+    precondition {
+      condition     = !var.apply_k8s_manifests || trimspace(var.app_image) != ""
+      error_message = "Defina app_image com a imagem ECR publicada antes de aplicar manifests Kubernetes. O CD preenche automaticamente; em deploy manual, use -var=\"app_image=<account>.dkr.ecr.<region>.amazonaws.com/oficina-api:<tag>\"."
+    }
+  }
+}
+
 resource "kubernetes_manifest" "namespaces" {
   for_each = var.apply_k8s_manifests ? toset(local.namespace_files) : toset([])
   manifest = yamldecode(file("${local.k8s_base_path}/00-namespaces/${each.value}"))
 
-  depends_on = [module.eks]
+  depends_on = [module.eks, terraform_data.validate_k8s_app_image]
 }
 
 resource "kubernetes_manifest" "config" {

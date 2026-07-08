@@ -17,7 +17,8 @@ spec:
       restartPolicy: Never
       containers:
         - name: migrate
-          image: 634752293949.dkr.ecr.us-east-1.amazonaws.com/oficina-api:latest
+          # CD/Terraform overrides this via TF_VAR_app_image. Replace for manual kubectl apply.
+          image: 123456789012.dkr.ecr.us-east-1.amazonaws.com/oficina-api:latest
           imagePullPolicy: Always
           command: ["npx", "prisma", "migrate", "deploy"]
           envFrom:
