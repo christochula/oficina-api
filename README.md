@@ -251,6 +251,7 @@ A tabela abaixo resume as rotas mais importantes. O Swagger continua sendo a fon
 | Estoque | PATCH | `/api/v1/estoque/pecas/:pecaId/ativar` | ADMINISTRADOR |
 | OS | POST | `/api/v1/ordens-servico` | ADMINISTRADOR, CONSULTOR_TECNICO |
 | OS | GET | `/api/v1/ordens-servico` | ADMINISTRADOR, CONSULTOR_TECNICO |
+| OS | GET | `/api/v1/ordens-servico/fila` | ADMINISTRADOR, CONSULTOR_TECNICO |
 | OS | GET | `/api/v1/ordens-servico/:id` | ADMINISTRADOR, CONSULTOR_TECNICO |
 | OS | PATCH | `/api/v1/ordens-servico/:id/atribuir/:mecanicoId` | ADMINISTRADOR, CONSULTOR_TECNICO |
 | OS | PATCH | `/api/v1/ordens-servico/:id/diagnostico` | MECANICO |
@@ -273,6 +274,8 @@ A tabela abaixo resume as rotas mais importantes. O Swagger continua sendo a fon
 | OS | GET | `/api/v1/ordens-servico/relatorio/tempo-ciclo` | ADMINISTRADOR, CONSULTOR_TECNICO |
 
 Na abertura de OS, `POST /api/v1/ordens-servico` aceita o modelo existente por referencia (`clienteId` e `veiculoId`) e tambem abertura direta com objetos `cliente` e `veiculo`, alem de `servicosSolicitados` e `pecasSolicitadas`, para aderir ao enunciado da Fase 2.
+
+A listagem operacional exigida pela Fase 2 esta em `GET /api/v1/ordens-servico/fila`. Ela e restrita a ADMINISTRADOR e CONSULTOR_TECNICO, ordena por status em `EM_EXECUCAO > AGUARDANDO_APROVACAO > EM_DIAGNOSTICO > RECEBIDA`, usa OS mais antigas primeiro dentro de cada status e nao retorna OS `FINALIZADA` nem `ENTREGUE`.
 
 O endpoint de integracao por e-mail aceita atualizacoes operacionais para `RECEBIDA`, `DIAGNOSTICO`, `AGUARDANDO_APROVACAO`, `EXECUCAO`, `FINALIZADA` e `ENTREGUE`, alem dos estados internos `APROVADA` e `CANCELADA` para compatibilidade com o fluxo de aprovacao/recusa de orcamento.
 

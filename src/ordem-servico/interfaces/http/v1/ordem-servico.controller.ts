@@ -241,6 +241,22 @@ export class OrdemServicoController {
   }
 
   /**
+   * Lista a fila operacional exigida pela Fase 2.
+   * Ordenacao por status:
+   * EM_EXECUCAO > AGUARDANDO_APROVACAO > EM_DIAGNOSTICO > RECEBIDA.
+   * Dentro de cada status, retorna as OS mais antigas primeiro.
+   * OS FINALIZADAS e ENTREGUES ficam fora da fila.
+   * Papeis permitidos: ADMINISTRADOR, CONSULTOR_TECNICO.
+   */
+  @Get('fila')
+  @Version('1')
+  @Papeis(PapelUsuario.ADMINISTRADOR, PapelUsuario.CONSULTOR_TECNICO)
+  @ApiOperation({ summary: 'Listar fila priorizada de OS (Fase 2)' })
+  async listarFila(@Query() paginacao: PaginacaoDto, @Query('status') status?: string) {
+    return this.listarOS.executar({ status, ...paginacao });
+  }
+
+  /**
    * Retorna o relatório de lead-time de todas as OS entregues.
    * Inclui média, mínimo, máximo e detalhamento por OS.
    * Papéis permitidos: ADMINISTRADOR, CONSULTOR_TECNICO.

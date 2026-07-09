@@ -817,6 +817,26 @@
       ]
     },
     {
+      "name": "5.15 Listagem priorizada Fase 2",
+      "item": [
+        {
+          "name": "1. Fila de OS (ADMIN/CONSULTOR)",
+          "request": {
+            "method": "GET",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{adminToken}}" }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/fila",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "fila"]
+            },
+            "description": "Lista a fila operacional da Fase 2 com prioridade EM_EXECUCAO > AGUARDANDO_APROVACAO > EM_DIAGNOSTICO > RECEBIDA, OS mais antigas primeiro em cada status, excluindo FINALIZADA e ENTREGUE."
+          }
+        }
+      ]
+    },
+    {
       "name": "Extra - Mecanico",
       "item": [
         {
