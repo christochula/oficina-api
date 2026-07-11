@@ -709,6 +709,31 @@
       ]
     },
     {
+      "name": "5.10B Alternativa - Webhook externo de orcamento",
+      "item": [
+        {
+          "name": "1. Receber aprovacao ou recusa externa",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-webhook-token", "value": "{{orcamentoWebhookToken}}" }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"osId\": \"{{ordemServicoId}}\",\n  \"decisao\": \"APROVADO\",\n  \"origem\": \"postman-demo\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/ordens-servico/webhook/orcamento",
+              "host": ["{{baseUrl}}"],
+              "path": ["ordens-servico", "webhook", "orcamento"]
+            },
+            "description": "Recebe uma notificacao externa de aprovacao ou recusa do orcamento. Use decisao APROVADO para avancar a OS para APROVADA ou RECUSADO para cancelar a OS. Requer x-webhook-token igual ao ORCAMENTO_WEBHOOK_TOKEN configurado no ambiente."
+          }
+        }
+      ]
+    },
+    {
       "name": "5.12 Consumo de Peca",
       "item": [
         {

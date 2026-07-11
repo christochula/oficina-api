@@ -74,3 +74,6 @@ infra/terraform.tfvars
 *.tfstate.*
 *.tfplan
 infra/.terraform/
+
+# Kubernetes local configs (podem conter segredos)
+kubeconfig-*
