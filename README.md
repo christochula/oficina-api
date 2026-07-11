@@ -17,6 +17,16 @@ API RESTful para gestao de:
 - ordens de servico, diagnostico, orcamento, execucao e entrega
 - relatorios operacionais baseados no historico da OS
 
+### Objetivos da Fase 2
+
+Evoluir a aplicacao desenvolvida na Fase 1 para garantir qualidade, resiliencia e escalabilidade, incorporando praticas modernas de infraestrutura e automacao:
+
+- consolidar o dominio da oficina com `OrdemServico` como aggregate central e fluxo completo de atendimento (abertura, diagnostico, orcamento, aprovacao, execucao e entrega)
+- orquestrar a aplicacao com Kubernetes (Deployment, Service, ConfigMap, Secret, Job de migration e HPA)
+- provisionar a infraestrutura como codigo com Terraform (VPC, EKS e RDS PostgreSQL na AWS)
+- automatizar build, testes e deploy com pipeline CI/CD no GitHub Actions
+- suportar grandes volumes de ordens de servico em horarios de pico com escalabilidade automatica via HPA
+
 Estado atual do repositorio:
 
 - arquitetura em monolito modular com DDD em camadas
@@ -73,6 +83,115 @@ Decisoes importantes hoje:
 - `Cliente` e `Usuario` sao aggregates distintos, ligados por `Cliente.usuarioId`
 - ownership do papel `CLIENTE` e validado nos use cases, nao apenas por RBAC
 - `PrismaTransactionManager` compartilha uma unica transacao entre OS e estoque no consumo de peca
+
+---
+
+## Desenho da Arquitetura
+
+### Componentes da aplicacao
+
+```mermaid
+flowchart LR
+    USER["Consumidores<br/>Postman / Swagger / integracoes externas"]
+
+    subgraph API["Oficina API - NestJS 11 (monolito modular)<br/>modulos: auth, usuario, cliente, veiculo, servico-oficina, estoque, ordem-servico"]
+        direction LR
+        INT["interfaces/<br/>controllers REST v1, DTOs,<br/>guards JWT + RBAC, Swagger"]
+        APPL["application/<br/>casos de uso"]
+        DOM["domain/<br/>entidades, value objects,<br/>eventos e contratos"]
+        INFR["infrastructure/<br/>repositorios Prisma"]
+        SHARED["shared/<br/>kernel, PrismaService,<br/>TransactionManager, http"]
+    end
+
+    PG[("PostgreSQL 16")]
+
+    USER -->|"HTTP /api/v1 com JWT"| INT
+    INT --> APPL
+    APPL --> DOM
+    APPL --> INFR
+    INFR -->|"Prisma ORM"| PG
+    SHARED -.-> INT
+    SHARED -.-> APPL
+    SHARED -.-> INFR
+```
+
+Pontos de atencao:
+
+- cada modulo de negocio segue as quatro camadas (`domain`, `application`, `infrastructure`, `interfaces`)
+- `ordem-servico` e o aggregate central e consome `estoque` na mesma transacao via `PrismaTransactionManager`
+- `shared` e transversal: kernel de dominio, banco, transacoes e contrato HTTP global
+
+### Infraestrutura provisionada
+
+```mermaid
+flowchart TB
+    GH["GitHub Actions<br/>(CI/CD)"]
+
+    subgraph AWS["AWS"]
+        ECR["ECR<br/>repositorio de imagem oficina-api"]
+        SM["Secrets Manager<br/>segredos da app e do banco"]
+
+        subgraph VPC["VPC (subnets publicas e privadas)"]
+            subgraph EKS["EKS - cluster Kubernetes"]
+                MS["metrics-server<br/>(API de metricas)"]
+                subgraph NS["namespace oficina-api"]
+                    DEP["Deployment oficina-api<br/>(pods da API)"]
+                    SVC["Service ClusterIP<br/>oficina-api-service :80 -> :3000"]
+                    HPA["HPA oficina-api-hpa<br/>CPU e memoria"]
+                    JOB["Job oficina-api-migrate<br/>prisma migrate deploy"]
+                    PGK[("Postgres in-cluster<br/>opcional: deploy_k8s_postgres")]
+                end
+            end
+            RDS[("RDS PostgreSQL")]
+        end
+    end
+
+    OPS["Operador<br/>kubectl port-forward"]
+
+    GH -->|"push de imagem"| ECR
+    GH -->|"terraform apply"| VPC
+    SM -->|"vira Secret no cluster"| NS
+    ECR -->|"pull da imagem"| DEP
+    OPS --> SVC
+    SVC --> DEP
+    HPA -->|"le metricas"| MS
+    HPA -->|"escala replicas"| DEP
+    JOB -->|"migrations"| RDS
+    DEP -->|"DATABASE_URL"| RDS
+    DEP -.->|"alternativa academica"| PGK
+```
+
+Recursos criados pelo Terraform (`infra/`):
+
+- VPC com subnets publicas e privadas (`module "vpc"`)
+- cluster EKS com node group (`module "eks"`)
+- RDS PostgreSQL com security group e subnet group dedicados
+- Secrets do Kubernetes populados a partir do AWS Secrets Manager
+- aplicacao declarativa dos manifests de `k8s/` (namespace, config, metrics-server, database opcional, migration, app e HPA)
+
+### Fluxo de deploy
+
+```mermaid
+flowchart TB
+    PUSH["Push / merge na branch main"]
+
+    PUSH --> CI["CI - ci.yml<br/>npm ci + build + testes"]
+    PUSH --> CD
+
+    subgraph CD["CD - cd.yml"]
+        direction TB
+        BT["1. build-test<br/>build e testes automatizados"]
+        IMG["2. build-push-image<br/>docker build + push para o ECR"]
+        TF["3. terraform-apply<br/>fmt, validate, plan e apply"]
+        BT --> IMG --> TF
+    end
+
+    TF -->|"provisiona/atualiza"| INFRA["VPC + EKS + RDS + Secrets"]
+    TF -->|"aplica manifests k8s/ em ordem"| K8S["namespaces -> config -> metrics-server -><br/>database (opcional) -> migration Job -> app -> HPA"]
+    K8S --> ROLL["Rollout do Deployment<br/>com a nova imagem do ECR"]
+```
+
+O deploy e declarativo: o proprio `terraform apply` (job `terraform-apply` do CD) aplica os manifests Kubernetes na ordem correta, executa o Job de migration (`prisma migrate deploy`) antes da aplicacao e so entao promove o rollout da API.
 
 ---
 
@@ -281,6 +400,20 @@ O endpoint de integracao por e-mail aceita atualizacoes operacionais para `RECEB
 
 ---
 
+## Collection das APIs
+
+A collection completa das APIs esta disponivel de duas formas:
+
+| Recurso | Onde encontrar |
+|---|---|
+| Collection Postman (fluxo completo, com scripts que capturam tokens e IDs) | [`postman/oficina-api.postman_collection.json`](postman/oficina-api.postman_collection.json) |
+| Environment Postman (variaveis para localhost) | [`postman/oficina-api.postman_environment.json`](postman/oficina-api.postman_environment.json) |
+| Swagger (documentacao interativa, sempre atualizada com o codigo) | `http://localhost:3000/api/docs` com a aplicacao em execucao |
+
+Para usar a collection: importe os dois arquivos no Postman, selecione o environment `oficina-api` e execute as requests na ordem do fluxo (as variaveis `accessToken`, `refreshToken` e IDs sao preenchidas automaticamente pelos scripts de teste).
+
+---
+
 ## Seguranca
 
 - access token e refresh token com rotacao
@@ -395,6 +528,41 @@ Manifestos versionados em `k8s/` por camadas:
 Observacao: o HPA depende da API de metricas (`metrics.k8s.io`). O Terraform aplica o `metrics-server` antes dos manifestos de autoscaling.
 
 Observacao: para o contexto academico, o banco pode rodar no Kubernetes. Em producao, o caminho recomendado costuma ser servicos gerenciados.
+
+### Deploy em Kubernetes
+
+Caminho recomendado (declarativo): o proprio Terraform aplica os manifests ao provisionar a infraestrutura (`apply_k8s_manifests=true`, ver secao de Terraform abaixo). O pipeline de CD faz exatamente isso.
+
+Caminho manual com `kubectl` (cluster ja provisionado):
+
+```bash
+# apontar o kubeconfig para o cluster EKS (nome segue <project_name>-<environment>)
+aws eks update-kubeconfig --name oficina-api-prod --region <aws-region>
+
+# ajustar a imagem do ECR em k8s/04-app/deployment.yaml e os valores reais em k8s/01-config/app-secret.yaml
+
+# aplicar os manifests em ordem
+kubectl apply -f k8s/00-namespaces
+kubectl apply -f k8s/01-config
+kubectl apply -f k8s/03-messaging     # metrics-server (necessario para o HPA)
+kubectl apply -f k8s/02-database      # somente se optar pelo Postgres in-cluster
+kubectl apply -f k8s/03-migrations    # Job de prisma migrate deploy
+kubectl apply -f k8s/04-app
+kubectl apply -f k8s/05-autoscaling
+
+# acompanhar
+kubectl -n oficina-api get pods
+kubectl -n oficina-api logs job/oficina-api-migrate
+```
+
+Como acessar a API (o Service e `ClusterIP`):
+
+```bash
+kubectl -n oficina-api port-forward svc/oficina-api-service 3000:80
+```
+
+- API: `http://localhost:3000/api`
+- Swagger: `http://localhost:3000/api/docs`
 
 ---
 
