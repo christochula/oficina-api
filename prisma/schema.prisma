@@ -1,0 +1,350 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ENUMS
+// ══════════════════════════════════════════════════════════════════════════════
+
+enum PapelUsuario {
+  ADMINISTRADOR
+  CONSULTOR_TECNICO
+  MECANICO
+  CLIENTE
+}
+
+enum StatusOrdemServico {
+  RECEBIDA
+  ATRIBUIDA
+  EM_DIAGNOSTICO
+  AGUARDANDO_APROVACAO
+  APROVADA
+  EM_EXECUCAO
+  FINALIZADA
+  ENTREGUE
+  CANCELADA
+}
+
+enum TipoLinhaServico {
+  MATERIAL
+  SERVICO
+}
+
+enum TipoDocumento {
+  CPF
+  CNPJ
+}
+
+enum EventoHistoricoOS {
+  ORDEM_ABERTA
+  MECANICO_ATRIBUIDO
+  DIAGNOSTICO_REGISTRADO
+  ORCAMENTO_GERADO
+  ORCAMENTO_APROVADO
+  ORCAMENTO_REJEITADO
+  EXECUCAO_INICIADA
+  PECA_CONSUMIDA
+  ORDEM_FINALIZADA
+  VEICULO_ENTREGUE
+  ORDEM_CANCELADA
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// USUÁRIO
+// ══════════════════════════════════════════════════════════════════════════════
+
+model Usuario {
+  id               String       @id // ULID com prefixo 'us'
+  nome             String
+  email            String       @unique
+  senhaHash        String
+  papel            PapelUsuario
+  refreshTokenHash String? // hash do refresh token ativo
+  ativo            Boolean      @default(true)
+  criadoEm         DateTime     @default(now())
+  atualizadoEm     DateTime     @updatedAt
+
+  // Relações
+  cliente            Cliente?
+  ordensComoMecanico OrdemServico[] @relation("MecanicoResponsavel")
+
+  @@map("usuarios")
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CLIENTE
+// ══════════════════════════════════════════════════════════════════════════════
+
+model Cliente {
+  id           String        @id // ULID com prefixo 'cl'
+  usuarioId    String?       @unique // vínculo opcional com usuário autenticável (papel CLIENTE)
+  tipoDoc      TipoDocumento // CPF (pessoa física) ou CNPJ (pessoa jurídica)
+  numeroDoc    String        @unique // CPF ou CNPJ — identificador único de negócio
+  nome         String
+  email        String
+  telefone     String
+  logradouro   String?
+  numero       String?
+  complemento  String?
+  bairro       String?
+  cidade       String?
+  estado       String?
+  cep          String?
+  ativo        Boolean       @default(true)
+  criadoEm     DateTime      @default(now())
+  atualizadoEm DateTime      @updatedAt
+
+  // Relações
+  usuario       Usuario?       @relation(fields: [usuarioId], references: [id])
+  ordensServico OrdemServico[]
+
+  @@index([tipoDoc, ativo])
+  @@map("clientes")
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// VEÍCULO
+// ══════════════════════════════════════════════════════════════════════════════
+
+model Veiculo {
+  id            String   @id // ULID com prefixo 've'
+  placa         String   @unique
+  renavam       String   @unique
+  chassi        String   @unique
+  marca         String
+  modelo        String
+  ano           Int
+  cor           String
+  quilometragem Int      @default(0)
+  ativo         Boolean  @default(true)
+  criadoEm      DateTime @default(now())
+  atualizadoEm  DateTime @updatedAt
+
+  // Relações
+  ordensServico OrdemServico[]
+
+  @@map("veiculos")
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CATÁLOGO DE SERVIÇOS DA OFICINA
+// ══════════════════════════════════════════════════════════════════════════════
+
+model ServicoOficina {
+  id           String   @id // ULID com prefixo 'sv'
+  nome         String
+  descricao    String?
+  categoria    String?
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Relações
+  servicosSolicitados ServicoSolicitado[]
+
+  @@map("servicos_oficina")
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ORDEM DE SERVIÇO (Aggregate Root Principal)
+// ══════════════════════════════════════════════════════════════════════════════
+
+model OrdemServico {
+  id                    String             @id // ULID com prefixo 'os'
+  numero                Int                @unique @default(autoincrement()) // referência operacional
+  status                StatusOrdemServico @default(RECEBIDA)
+  clienteId             String
+  veiculoId             String
+  mecanicoResponsavelId String?
+  notasInternas         String? // observações internas da oficina
+  notasCliente          String? // observações visíveis ao cliente
+  criadoEm              DateTime           @default(now())
+  atualizadoEm          DateTime           @updatedAt
+
+  // Relações
+  cliente             Cliente             @relation(fields: [clienteId], references: [id])
+  veiculo             Veiculo             @relation(fields: [veiculoId], references: [id])
+  mecanicoResponsavel Usuario?            @relation("MecanicoResponsavel", fields: [mecanicoResponsavelId], references: [id])
+  problemasRelatados  ProblemaRelatado[]
+  servicosSolicitados ServicoSolicitado[]
+  diagnostico         Diagnostico?
+  orcamento           Orcamento?
+  historico           HistoricoOS[]
+  consumosPeca        ConsumoPeca[]
+
+  @@index([clienteId])
+  @@index([status])
+  @@index([status, criadoEm])
+  @@index([mecanicoResponsavelId])
+  @@map("ordens_servico")
+}
+
+// ── Problema Relatado ─────────────────────────────────────────────────────────
+
+model ProblemaRelatado {
+  id             String   @id @default(cuid())
+  ordemServicoId String
+  descricao      String
+  criadoEm       DateTime @default(now())
+
+  ordemServico OrdemServico @relation(fields: [ordemServicoId], references: [id])
+
+  @@index([ordemServicoId])
+  @@map("problemas_relatados")
+}
+
+// ── Serviço Solicitado (referencia catálogo ServicoOficina) ───────────────────
+
+model ServicoSolicitado {
+  id             String   @id @default(cuid())
+  ordemServicoId String
+  servicoId      String // FK para catálogo de serviços
+  nomeServico    String // snapshot do nome no momento da abertura
+  observacao     String? // contexto adicional do cliente
+  criadoEm       DateTime @default(now())
+
+  ordemServico OrdemServico   @relation(fields: [ordemServicoId], references: [id])
+  servico      ServicoOficina @relation(fields: [servicoId], references: [id])
+
+  @@index([ordemServicoId])
+  @@map("servicos_solicitados")
+}
+
+// ── Diagnóstico ───────────────────────────────────────────────────────────────
+
+model Diagnostico {
+  id             String   @id @default(cuid())
+  ordemServicoId String   @unique
+  descricao      String
+  criadoEm       DateTime @default(now())
+
+  ordemServico OrdemServico @relation(fields: [ordemServicoId], references: [id])
+
+  @@map("diagnosticos")
+}
+
+// ── Orçamento ─────────────────────────────────────────────────────────────────
+
+model Orcamento {
+  id             String    @id @default(cuid())
+  ordemServicoId String    @unique
+  total          Decimal   @db.Decimal(10, 2)
+  notasInternas  String? // observações internas do mecânico
+  notasCliente   String? // observações enviadas ao cliente com o orçamento
+  aprovadoEm     DateTime?
+  rejeitadoEm    DateTime?
+  criadoEm       DateTime  @default(now())
+  atualizadoEm   DateTime  @updatedAt
+
+  ordemServico OrdemServico     @relation(fields: [ordemServicoId], references: [id])
+  grupos       GrupoOrcamento[]
+
+  @@map("orcamentos")
+}
+
+// ── Grupo de Orçamento (agrupamento de linhas por problema/serviço) ────────────
+
+model GrupoOrcamento {
+  id          String  @id @default(cuid())
+  orcamentoId String
+  titulo      String
+  total       Decimal @db.Decimal(10, 2)
+  ordem       Int     @default(0)
+
+  orcamento     Orcamento      @relation(fields: [orcamentoId], references: [id])
+  linhasServico LinhaServico[]
+
+  @@map("grupos_orcamento")
+}
+
+// ── Linha de Serviço ──────────────────────────────────────────────────────────
+
+model LinhaServico {
+  id            String           @id @default(cuid())
+  grupoId       String // FK para GrupoOrcamento
+  tipo          TipoLinhaServico
+  descricao     String
+  quantidade    Decimal          @db.Decimal(10, 3)
+  valorUnitario Decimal          @db.Decimal(10, 2)
+  subtotal      Decimal          @db.Decimal(10, 2)
+  pecaId        String? // preenchido apenas para MATERIAL
+
+  grupo GrupoOrcamento @relation(fields: [grupoId], references: [id])
+  peca  Peca?          @relation(fields: [pecaId], references: [id])
+
+  @@map("linhas_servico")
+}
+
+// ── Histórico da OS ───────────────────────────────────────────────────────────
+
+model HistoricoOS {
+  id             String              @id @default(cuid())
+  ordemServicoId String
+  evento         EventoHistoricoOS
+  descricao      String?
+  usuarioId      String? // quem gerou o evento
+  statusAnterior StatusOrdemServico? // status antes da transição (null na abertura)
+  statusNovo     StatusOrdemServico? // status resultante da transição
+  criadoEm       DateTime            @default(now())
+
+  ordemServico OrdemServico @relation(fields: [ordemServicoId], references: [id])
+
+  @@index([ordemServicoId, criadoEm])
+  @@index([statusNovo, criadoEm])
+  @@map("historico_os")
+}
+
+// ── Consumo de Peça ───────────────────────────────────────────────────────────
+
+model ConsumoPeca {
+  id             String   @id @default(cuid())
+  ordemServicoId String
+  pecaId         String
+  quantidade     Decimal  @db.Decimal(10, 3)
+  criadoEm       DateTime @default(now())
+
+  ordemServico OrdemServico @relation(fields: [ordemServicoId], references: [id])
+  peca         Peca         @relation(fields: [pecaId], references: [id])
+
+  @@index([ordemServicoId])
+  @@map("consumos_peca")
+}
+
+// ══════════════════════════════════════════════════════════════════════════════
+// ESTOQUE (Aggregate Root) — Peça é entidade interna
+// ══════════════════════════════════════════════════════════════════════════════
+
+model Peca {
+  id           String   @id // ULID com prefixo 'pc'
+  codigo       String   @unique
+  nome         String
+  descricao    String?
+  precoVenda   Decimal  @db.Decimal(10, 2)
+  ativo        Boolean  @default(true)
+  criadoEm     DateTime @default(now())
+  atualizadoEm DateTime @updatedAt
+
+  // Relações
+  estoque       Estoque?
+  linhasServico LinhaServico[]
+  consumos      ConsumoPeca[]
+
+  @@map("pecas")
+}
+
+model Estoque {
+  id                   String   @id @default(cuid())
+  pecaId               String   @unique
+  quantidadeDisponivel Decimal  @default(0) @db.Decimal(10, 3)
+  quantidadeMinima     Decimal  @default(0) @db.Decimal(10, 3) // alerta de estoque baixo (futuro)
+  atualizadoEm         DateTime @updatedAt
+
+  peca Peca @relation(fields: [pecaId], references: [id])
+
+  @@map("estoque")
+}

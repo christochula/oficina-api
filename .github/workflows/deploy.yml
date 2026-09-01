@@ -1,0 +1,99 @@
+name: Deploy
+
+on:
+  push:
+    branches: [homolog, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: deploy-${{ github.ref_name }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy ${{ github.ref_name }}
+    runs-on: ${{ vars.DEPLOY_RUNNER || 'ubuntu-latest' }}
+    timeout-minutes: 30
+    environment:
+      name: ${{ github.ref_name == 'main' && 'production' || 'homolog' }}
+      url: ${{ vars.APP_URL }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Build and push immutable image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}:${{ github.sha }}
+          labels: |
+            org.opencontainers.image.revision=${{ github.sha }}
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+
+      - name: Configure EKS access
+        run: aws eks update-kubeconfig --name "${{ vars.EKS_CLUSTER_NAME }}" --region "${{ vars.AWS_REGION }}"
+
+      - name: Materialize external secret reference
+        shell: bash
+        run: |
+          set -euo pipefail
+          kubectl create namespace oficina --dry-run=client -o yaml | kubectl apply -f -
+          helm template oficina-api ./helm/oficina-api \
+            --namespace oficina \
+            --show-only templates/externalsecret.yaml \
+            --set environment="${{ github.ref_name == 'main' && 'production' || 'homolog' }}" \
+            --set externalSecrets.databaseSecretName="${{ vars.DATABASE_SECRET_NAME }}" \
+            --set externalSecrets.jwtSecretName="${{ vars.JWT_SECRET_NAME }}" \
+            | kubectl apply -f -
+          for attempt in {1..30}; do
+            kubectl get secret oficina-api -n oficina >/dev/null 2>&1 && exit 0
+            sleep 2
+          done
+          echo "External Secrets não materializou o Secret oficina-api" >&2
+          exit 1
+
+      - name: Deploy atomically with Helm
+        run: |
+          helm upgrade --install oficina-api ./helm/oficina-api \
+            --namespace oficina \
+            --create-namespace \
+            --atomic \
+            --wait \
+            --timeout 10m \
+            --set environment="${{ github.ref_name == 'main' && 'production' || 'homolog' }}" \
+            --set image.repository="${{ steps.ecr.outputs.registry }}/${{ vars.ECR_REPOSITORY }}" \
+            --set image.tag="${{ github.sha }}" \
+            --set config.ddVersion="${{ github.sha }}" \
+            --set config.corsOrigin="${{ vars.CORS_ORIGIN }}" \
+            --set config.ddSite="${{ vars.DD_SITE }}" \
+            --set config.notificationQueueUrl="${{ vars.NOTIFICATION_QUEUE_URL }}" \
+            --set serviceAccount.roleArn="${{ vars.APP_IRSA_ROLE_ARN }}" \
+            --set externalSecrets.databaseSecretName="${{ vars.DATABASE_SECRET_NAME }}" \
+            --set externalSecrets.jwtSecretName="${{ vars.JWT_SECRET_NAME }}" \
+            --set targetGroupArn="${{ vars.API_TARGET_GROUP_ARN }}"
+
+      - name: Verify rollout and health
+        run: |
+          kubectl rollout status deployment/oficina-api -n oficina --timeout=5m
+          kubectl get pods -n oficina -l app.kubernetes.io/name=oficina-api
+

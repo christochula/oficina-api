@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main, homolog]
+  push:
+    branches: [homolog]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quality:
+    name: Quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      DD_TRACE_ENABLED: "false"
+      DD_METRICS_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run format:check
+      - run: npm run lint
+      - run: npm run test:cov -- --runInBand
+      - run: npm run build
+      - uses: azure/setup-helm@v4
+        with:
+          version: v3.17.3
+      - name: Lint Helm chart
+        run: helm lint helm/oficina-api --set image.repository=oficina-api
+      - name: Render Helm chart
+        run: helm template oficina-api helm/oficina-api --set image.repository=oficina-api
+
+  e2e:
+    name: E2E
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      NODE_ENV: test
+      DD_TRACE_ENABLED: "false"
+      DD_METRICS_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - run: npm run test:e2e
+
+  container:
+    name: Container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: oficina-api:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+

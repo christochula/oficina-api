@@ -1,0 +1,55 @@
+environment: homolog
+
+replicaCount: 2
+
+image:
+  repository: ""
+  tag: latest
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: oficina-api
+  roleArn: ""
+  annotations: {}
+
+service:
+  port: 80
+  targetPort: 3000
+
+targetGroupArn: ""
+
+externalSecrets:
+  enabled: true
+  refreshInterval: 1h
+  secretStoreName: aws-secrets-manager
+  databaseSecretName: oficina/homolog/database
+  jwtSecretName: oficina/homolog/jwt
+
+config:
+  notificationQueueUrl: ""
+  corsOrigin: "*"
+  jwtIssuer: oficina-auth-serverless
+  jwtAudience: oficina-api
+  ddSite: datadoghq.com
+  ddService: oficina-api
+  ddVersion: latest
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 256Mi
+  limits:
+    cpu: 1000m
+    memory: 768Mi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 75
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
