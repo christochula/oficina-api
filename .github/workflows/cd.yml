@@ -217,7 +217,7 @@ jobs:
           echo "Using deploy image $IMAGE_URI"
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v4
         with:
           terraform_wrapper: false
 
