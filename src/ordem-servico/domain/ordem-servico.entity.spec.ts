@@ -171,6 +171,18 @@ describe('OrdemServico', () => {
       expect(() => os.atribuirMecanico(consultor)).toThrow(RegraDeNegocio);
     });
 
+    it('deve lançar RegraDeNegocio se mecânico estiver inativo', () => {
+      const os = osRecebida();
+      const mecanico = criarMecanico();
+      mecanico.desativar();
+
+      expect(() => os.atribuirMecanico(mecanico)).toThrow(
+        'Somente um mecânico ativo pode ser atribuído à ordem de serviço',
+      );
+      expect(os.status).toBe(StatusOrdemServico.RECEBIDA);
+      expect(os.mecanicoResponsavelId).toBeNull();
+    });
+
     it('deve lançar RegraDeNegocio se OS não estiver no status RECEBIDA', () => {
       const os = osAtribuida();
       expect(() => os.atribuirMecanico(criarMecanico())).toThrow(

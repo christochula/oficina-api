@@ -1,6 +1,11 @@
 import { Module } from '@nestjs/common';
 import { BuscarUsuarioPorIdUseCase } from './application/casos-de-uso/buscar-usuario-por-id.usecase';
 import { CriarUsuarioUseCase } from './application/casos-de-uso/criar-usuario.usecase';
+import { ListarMecanicosUseCase } from './application/casos-de-uso/listar-mecanicos.usecase';
+import { ListarUsuariosUseCase } from './application/casos-de-uso/listar-usuarios.usecase';
+import { AtualizarUsuarioUseCase } from './application/casos-de-uso/atualizar-usuario.usecase';
+import { AtivarUsuarioUseCase } from './application/casos-de-uso/ativar-usuario.usecase';
+import { DesativarUsuarioUseCase } from './application/casos-de-uso/desativar-usuario.usecase';
 import { USUARIO_REPOSITORY } from './domain/usuario.repository';
 import { PrismaUsuarioRepository } from './infrastructure/persistencia/prisma-usuario.repository';
 import { UsuarioController } from './interfaces/http/v1/usuario.controller';
@@ -18,6 +23,11 @@ import { UsuarioController } from './interfaces/http/v1/usuario.controller';
   providers: [
     CriarUsuarioUseCase,
     BuscarUsuarioPorIdUseCase,
+    ListarMecanicosUseCase,
+    ListarUsuariosUseCase,
+    AtualizarUsuarioUseCase,
+    AtivarUsuarioUseCase,
+    DesativarUsuarioUseCase,
     { provide: USUARIO_REPOSITORY, useClass: PrismaUsuarioRepository },
   ],
   exports: [USUARIO_REPOSITORY, BuscarUsuarioPorIdUseCase],

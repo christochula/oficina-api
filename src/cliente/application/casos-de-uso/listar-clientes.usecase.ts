@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Cliente } from '../../domain/cliente.entity';
 import { CLIENTE_REPOSITORY } from '../../domain/cliente.repository';
-import type { ClienteRepository } from '../../domain/cliente.repository';
+import type {
+  ClienteRepository,
+  FiltrosListagemClientes,
+} from '../../domain/cliente.repository';
 
 /** Resultado paginado da listagem de clientes. */
 export interface ListarClientesOutput {
@@ -23,7 +26,8 @@ export class ListarClientesUseCase {
   async executar(
     pagina: number,
     porPagina: number,
+    filtros: FiltrosListagemClientes = {},
   ): Promise<ListarClientesOutput> {
-    return this.clienteRepository.listar(pagina, porPagina);
+    return this.clienteRepository.listar(pagina, porPagina, filtros);
   }
 }

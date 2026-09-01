@@ -227,6 +227,11 @@ export class OrdemServico extends EntidadeBase<OrdemServicoId> {
         'Somente um mecânico pode ser atribuído à ordem de serviço',
       );
     }
+    if (!mecanico.ativo) {
+      throw new RegraDeNegocio(
+        'Somente um mecânico ativo pode ser atribuído à ordem de serviço',
+      );
+    }
     const anterior = this.status;
     this.mecanicoResponsavelId = mecanico.id.valor;
     this.status = StatusOrdemServico.ATRIBUIDA;

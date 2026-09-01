@@ -78,12 +78,60 @@ describe('Usuario', () => {
     });
   });
 
+  describe('atualizar()', () => {
+    it('atualiza os campos permitidos e revoga refresh em mudança sensível', () => {
+      const usuario = usuarioBase();
+      usuario.atualizarRefreshToken('refresh');
+
+      usuario.atualizar({
+        nome: 'Carlos Souza',
+        email: 'carlos.souza@oficina.com',
+        senhaHash: 'novo-hash',
+        papel: PapelUsuario.CONSULTOR_TECNICO,
+      });
+
+      expect(usuario).toMatchObject({
+        nome: 'Carlos Souza',
+        email: 'carlos.souza@oficina.com',
+        senhaHash: 'novo-hash',
+        papel: PapelUsuario.CONSULTOR_TECNICO,
+        refreshTokenHash: null,
+      });
+    });
+
+    it('preserva refresh token quando altera somente o nome', () => {
+      const usuario = usuarioBase();
+      usuario.atualizarRefreshToken('refresh');
+      usuario.atualizar({ nome: 'Carlos Lima' });
+      expect(usuario.nome).toBe('Carlos Lima');
+      expect(usuario.refreshTokenHash).toBe('refresh');
+    });
+
+    it('preserva refresh token quando valores sensíveis não mudam', () => {
+      const usuario = usuarioBase();
+      usuario.atualizarRefreshToken('refresh');
+      usuario.atualizar({
+        email: usuario.email,
+        senhaHash: usuario.senhaHash,
+        papel: usuario.papel,
+      });
+      expect(usuario.refreshTokenHash).toBe('refresh');
+    });
+  });
+
   describe('desativar()', () => {
     it('deve definir ativo como false', () => {
       const usuario = usuarioBase();
       expect(usuario.ativo).toBe(true);
       usuario.desativar();
       expect(usuario.ativo).toBe(false);
+    });
+
+    it('revoga o refresh token ativo', () => {
+      const usuario = usuarioBase();
+      usuario.atualizarRefreshToken('refresh');
+      usuario.desativar();
+      expect(usuario.refreshTokenHash).toBeNull();
     });
 
     it('deve atualizar atualizadoEm ao desativar', () => {
@@ -96,6 +144,37 @@ describe('Usuario', () => {
       expect(usuario.atualizadoEm.getTime()).toBeGreaterThanOrEqual(
         antes.getTime(),
       );
+    });
+  });
+
+  describe('ativar()', () => {
+    it('reativa sem restaurar refresh token anterior', () => {
+      const usuario = usuarioBase();
+      usuario.atualizarRefreshToken('refresh');
+      usuario.desativar();
+      usuario.ativar();
+      expect(usuario.ativo).toBe(true);
+      expect(usuario.refreshTokenHash).toBeNull();
+    });
+
+    it('revoga refresh legado mesmo se o usuário já estava inativo', () => {
+      const agora = new Date();
+      const usuario = Usuario.reconstituir({
+        id: UsuarioId.novo(),
+        nome: 'Usuário legado',
+        email: 'legado@oficina.com',
+        senhaHash: 'hash',
+        papel: PapelUsuario.CONSULTOR_TECNICO,
+        refreshTokenHash: 'refresh-legado',
+        ativo: false,
+        criadoEm: agora,
+        atualizadoEm: agora,
+      });
+
+      usuario.ativar();
+
+      expect(usuario.ativo).toBe(true);
+      expect(usuario.refreshTokenHash).toBeNull();
     });
   });
 });

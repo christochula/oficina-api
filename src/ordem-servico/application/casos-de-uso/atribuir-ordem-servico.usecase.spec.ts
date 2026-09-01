@@ -7,11 +7,18 @@ import { StatusOrdemServico } from '../../domain/status-ordem-servico.enum';
 
 const mockOsRepo = { buscarPorId: jest.fn(), salvar: jest.fn() };
 const mockUsuarioRepo = { buscarPorId: jest.fn(), salvar: jest.fn() };
+const mockDatabaseTransaction = {
+  executarSerializavel: jest.fn(async (callback: () => Promise<unknown>) =>
+    callback(),
+  ),
+  bloquear: jest.fn().mockResolvedValue(undefined),
+};
 
 function criarUseCase() {
   return new AtribuirOrdemServicoUseCase(
     mockOsRepo as any,
     mockUsuarioRepo as any,
+    mockDatabaseTransaction as any,
   );
 }
 
@@ -97,5 +104,11 @@ describe('AtribuirOrdemServicoUseCase', () => {
     const uc = criarUseCase();
     await uc.executar('os_01', mecanico.id.valor);
     expect(mockOsRepo.salvar).toHaveBeenCalledWith(os);
+    expect(mockDatabaseTransaction.executarSerializavel).toHaveBeenCalledTimes(
+      1,
+    );
+    expect(mockDatabaseTransaction.bloquear).toHaveBeenCalledWith(
+      `oficina:usuario:${mecanico.id.valor}`,
+    );
   });
 });

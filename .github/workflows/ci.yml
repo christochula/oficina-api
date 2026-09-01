@@ -28,12 +28,17 @@ jobs:
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
       - run: npm ci
+      - run: npm ci --prefix frontend
       - run: npx prisma generate
       - run: npm run format:check
       - run: npm run lint
       - run: npm run test:cov -- --runInBand
       - run: npm run build
+      - run: npm run check --prefix frontend
       - uses: azure/setup-helm@v4
         with:
           version: v3.17.3
@@ -74,4 +79,3 @@ jobs:
           tags: oficina-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
-

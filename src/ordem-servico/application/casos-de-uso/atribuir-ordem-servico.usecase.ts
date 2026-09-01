@@ -1,5 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
+import {
+  DATABASE_TRANSACTION,
+  type DatabaseTransactionManager,
+} from '../../../shared/database/database-transaction';
 import { RecursoNaoEncontrado } from '../../../shared/excecoes/dominio.exception';
+import { bloqueioUsuario } from '../../../usuario/application/usuario-locks';
 import { UsuarioId } from '../../../usuario/domain/usuario-id.value-object';
 import { USUARIO_REPOSITORY } from '../../../usuario/domain/usuario.repository';
 import type { UsuarioRepository } from '../../../usuario/domain/usuario.repository';
@@ -24,6 +29,8 @@ export class AtribuirOrdemServicoUseCase {
     private readonly osRepository: OrdemServicoRepository,
     @Inject(USUARIO_REPOSITORY)
     private readonly usuarioRepository: UsuarioRepository,
+    @Inject(DATABASE_TRANSACTION)
+    private readonly databaseTransaction: DatabaseTransactionManager,
   ) {}
 
   /**
@@ -37,6 +44,16 @@ export class AtribuirOrdemServicoUseCase {
    * @throws RegraDeNegocio se a OS não estiver no status RECEBIDA.
    */
   async executar(osId: string, mecanicoId: string): Promise<OrdemServico> {
+    return this.databaseTransaction.executarSerializavel(async () => {
+      await this.databaseTransaction.bloquear(bloqueioUsuario(mecanicoId));
+      return this.executarProtegido(osId, mecanicoId);
+    });
+  }
+
+  private async executarProtegido(
+    osId: string,
+    mecanicoId: string,
+  ): Promise<OrdemServico> {
     const os = await this.osRepository.buscarPorId(OrdemServicoId.de(osId));
     if (!os) throw new RecursoNaoEncontrado('Ordem de Serviço', osId);
 

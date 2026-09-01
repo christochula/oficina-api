@@ -35,4 +35,46 @@ export class PrismaTransactionManager implements DatabaseTransactionManager {
 
     return this.prisma.$transaction((tx) => this.storage.run(tx, callback));
   }
+
+  async executarSerializavel<T>(callback: () => Promise<T>): Promise<T> {
+    if (this.storage.getStore()) return callback();
+
+    const maxTentativas = 3;
+    for (let tentativa = 1; tentativa <= maxTentativas; tentativa += 1) {
+      try {
+        return await this.prisma.$transaction(
+          (tx) => this.storage.run(tx, callback),
+          { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+        );
+      } catch (erro) {
+        if (!this.ehConflitoSerializacao(erro) || tentativa === maxTentativas) {
+          throw erro;
+        }
+      }
+    }
+
+    throw new Error('Falha inesperada ao executar transação serializável');
+  }
+
+  async bloquear(chave: string): Promise<void> {
+    const tx = this.storage.getStore();
+    if (!tx) {
+      throw new Error('Advisory lock solicitado fora de uma transação');
+    }
+
+    await tx.$queryRaw(
+      Prisma.sql`
+        SELECT pg_advisory_xact_lock(hashtext(${chave}))::text AS lock_result
+      `,
+    );
+  }
+
+  private ehConflitoSerializacao(erro: unknown): boolean {
+    return (
+      typeof erro === 'object' &&
+      erro !== null &&
+      'code' in erro &&
+      (erro as { code?: unknown }).code === 'P2034'
+    );
+  }
 }

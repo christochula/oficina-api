@@ -14,7 +14,6 @@ import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
 import { PapeisGuard } from '../../../../auth/guards/papeis.guard';
 import { Papeis } from '../../../../auth/decorators/papeis.decorator';
 import { PapelUsuario } from '../../../../usuario/domain/papel-usuario.enum';
-import { PaginacaoDto } from '../../../../shared/http/dtos/paginacao.dto';
 import { RespostaPaginadaDto } from '../../../../shared/http/dtos/resposta-paginada.dto';
 import { AtualizarClienteUseCase } from '../../../application/casos-de-uso/atualizar-cliente.usecase';
 import { AtivarClienteUseCase } from '../../../application/casos-de-uso/ativar-cliente.usecase';
@@ -25,6 +24,7 @@ import { ListarClientesUseCase } from '../../../application/casos-de-uso/listar-
 import { Cliente } from '../../../domain/cliente.entity';
 import { AtualizarClienteDto } from './dtos/atualizar-cliente.dto';
 import { CriarClienteDto } from './dtos/criar-cliente.dto';
+import { ListarClientesQueryDto } from './dtos/listar-clientes-query.dto';
 
 /**
  * Controller HTTP para o aggregate Cliente.
@@ -78,18 +78,15 @@ export class ClienteController {
   @Version('1')
   @ApiOperation({ summary: 'Listar clientes (paginado)' })
   async listar(
-    @Query() paginacao: PaginacaoDto,
+    @Query() consulta: ListarClientesQueryDto,
   ): Promise<RespostaPaginadaDto<Cliente>> {
+    const { pagina, porPagina, busca, ativo } = consulta;
     const { itens, total } = await this.listarClientes.executar(
-      paginacao.pagina,
-      paginacao.porPagina,
+      pagina,
+      porPagina,
+      { busca, ativo },
     );
-    return new RespostaPaginadaDto(
-      itens,
-      total,
-      paginacao.pagina,
-      paginacao.porPagina,
-    );
+    return new RespostaPaginadaDto(itens, total, pagina, porPagina);
   }
 
   /**

@@ -40,8 +40,7 @@ main()
   .catch((error: unknown) => {
     console.error({
       event: 'admin_seed.failed',
-      error_type:
-        error instanceof Error ? error.name : 'UnknownError',
+      error_type: error instanceof Error ? error.name : 'UnknownError',
     });
     process.exit(1);
   })

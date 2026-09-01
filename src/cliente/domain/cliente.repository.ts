@@ -8,6 +8,14 @@ import { ClienteId } from './cliente-id.value-object';
  */
 export const CLIENTE_REPOSITORY = 'CLIENTE_REPOSITORY';
 
+/** Filtros opcionais aplicados à listagem paginada de clientes. */
+export interface FiltrosListagemClientes {
+  /** Trecho do nome, e-mail, documento ou telefone. */
+  busca?: string;
+  /** Estado de ativação desejado. Quando omitido, retorna ambos. */
+  ativo?: boolean;
+}
+
 /**
  * Interface do repositório de clientes — contrato da camada de domínio.
  * Define as operações de persistência que o domínio necessita sem depender
@@ -51,5 +59,6 @@ export interface ClienteRepository {
   listar(
     pagina: number,
     porPagina: number,
+    filtros?: FiltrosListagemClientes,
   ): Promise<{ itens: Cliente[]; total: number }>;
 }

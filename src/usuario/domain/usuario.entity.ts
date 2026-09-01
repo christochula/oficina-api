@@ -79,11 +79,42 @@ export class Usuario extends EntidadeBase<UsuarioId> {
   }
 
   /**
+   * Atualiza os dados editáveis do usuário.
+   * Mudanças de e-mail, senha ou papel revogam sessões renováveis existentes.
+   */
+  atualizar(dados: {
+    nome?: string;
+    email?: string;
+    senhaHash?: string;
+    papel?: PapelUsuario;
+  }): void {
+    const alteraCredenciais =
+      (dados.email !== undefined && dados.email !== this.email) ||
+      (dados.senhaHash !== undefined && dados.senhaHash !== this.senhaHash) ||
+      (dados.papel !== undefined && dados.papel !== this.papel);
+
+    if (dados.nome !== undefined) this.nome = dados.nome;
+    if (dados.email !== undefined) this.email = dados.email;
+    if (dados.senhaHash !== undefined) this.senhaHash = dados.senhaHash;
+    if (dados.papel !== undefined) this.papel = dados.papel;
+    if (alteraCredenciais) this.refreshTokenHash = null;
+    this.tocarAtualizadoEm();
+  }
+
+  /**
    * Desativa o usuário, impedindo futuros logins sem removê-lo do sistema.
-   * A desativação é irreversível por este método — reativação requer acesso direto ao repositório.
+   * Também revoga o refresh token atual; uma futura reativação exige novo login.
    */
   desativar(): void {
     this.ativo = false;
+    this.refreshTokenHash = null;
+    this.tocarAtualizadoEm();
+  }
+
+  /** Reativa o acesso do usuário sem restaurar sessões anteriores. */
+  ativar(): void {
+    this.ativo = true;
+    this.refreshTokenHash = null;
     this.tocarAtualizadoEm();
   }
 }

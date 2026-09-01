@@ -79,4 +79,33 @@ describe('CriarUsuarioUseCase', () => {
     });
     expect(usuario.id.valor.startsWith('us')).toBe(true);
   });
+
+  it('deve normalizar e-mail antes de verificar e persistir', async () => {
+    mockRepo.buscarPorEmail.mockResolvedValue(null);
+    mockRepo.salvar.mockResolvedValue(undefined);
+
+    const uc = criarUseCase();
+    const usuario = await uc.executar({
+      nome: 'Ana',
+      email: '  ANA@OFICINA.COM.BR ',
+      senha: 'senha123',
+      papel: PapelUsuario.ADMINISTRADOR,
+    });
+
+    expect(mockRepo.buscarPorEmail).toHaveBeenCalledWith('ana@oficina.com.br');
+    expect(usuario.email).toBe('ana@oficina.com.br');
+  });
+
+  it('deve rejeitar senha acima de 72 bytes antes do bcrypt', async () => {
+    const uc = criarUseCase();
+    await expect(
+      uc.executar({
+        nome: 'Ana',
+        email: 'ana@oficina.com.br',
+        senha: 'á'.repeat(37),
+        papel: PapelUsuario.ADMINISTRADOR,
+      }),
+    ).rejects.toThrow('72 bytes');
+    expect(mockRepo.salvar).not.toHaveBeenCalled();
+  });
 });

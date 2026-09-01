@@ -1,8 +1,16 @@
+import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../shared/database/prisma.service';
+import {
+  cleanCNPJ,
+  cleanNumbers,
+} from '../../../shared/utils/documento-validator';
 import { Cliente, TipoDocumento } from '../../domain/cliente.entity';
 import { ClienteId } from '../../domain/cliente-id.value-object';
-import { ClienteRepository } from '../../domain/cliente.repository';
+import {
+  ClienteRepository,
+  FiltrosListagemClientes,
+} from '../../domain/cliente.repository';
 
 /**
  * Implementação do ClienteRepository utilizando Prisma como ORM.
@@ -111,16 +119,54 @@ export class PrismaClienteRepository implements ClienteRepository {
   async listar(
     pagina: number,
     porPagina: number,
+    filtros: FiltrosListagemClientes = {},
   ): Promise<{ itens: Cliente[]; total: number }> {
+    const where = this.criarFiltroListagem(filtros);
     const [registros, total] = await Promise.all([
       this.prisma.cliente.findMany({
+        where,
         orderBy: { nome: 'asc' },
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
-      this.prisma.cliente.count(),
+      this.prisma.cliente.count({ where }),
     ]);
     return { itens: registros.map((r) => this.mapear(r)), total };
+  }
+
+  /** Cria uma única cláusula reutilizada na consulta e na contagem paginada. */
+  private criarFiltroListagem(
+    filtros: FiltrosListagemClientes,
+  ): Prisma.ClienteWhereInput {
+    const busca = filtros.busca?.trim() ?? '';
+    const where: Prisma.ClienteWhereInput = {};
+
+    if (filtros.ativo !== undefined) where.ativo = filtros.ativo;
+    if (!busca) return where;
+
+    const documentoNormalizado = cleanCNPJ(busca);
+    const telefoneNormalizado = cleanNumbers(busca);
+    const alternativas: Prisma.ClienteWhereInput[] = [
+      { nome: { contains: busca, mode: 'insensitive' } },
+      { email: { contains: busca, mode: 'insensitive' } },
+    ];
+
+    if (documentoNormalizado) {
+      alternativas.push({
+        numeroDoc: {
+          contains: documentoNormalizado,
+          mode: 'insensitive',
+        },
+      });
+    }
+    if (telefoneNormalizado) {
+      alternativas.push({
+        telefone: { contains: telefoneNormalizado },
+      });
+    }
+
+    where.OR = alternativas;
+    return where;
   }
 
   /**

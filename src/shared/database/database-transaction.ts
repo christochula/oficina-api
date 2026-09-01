@@ -17,4 +17,16 @@ export interface DatabaseTransactionManager {
    * contexto transacional em andamento.
    */
   executar<T>(callback: () => Promise<T>): Promise<T>;
+
+  /**
+   * Executa uma unidade de trabalho com isolamento serializável.
+   * Conflitos de serialização transitórios são repetidos pela implementação.
+   */
+  executarSerializavel<T>(callback: () => Promise<T>): Promise<T>;
+
+  /**
+   * Adquire um advisory lock transacional identificado por uma chave estável.
+   * Só pode ser chamado dentro de uma transação iniciada pelo gerenciador.
+   */
+  bloquear(chave: string): Promise<void>;
 }

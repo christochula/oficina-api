@@ -1,6 +1,8 @@
 import { Inject, Injectable } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { ConflitoDeRecurso } from '../../../shared/excecoes/dominio.exception';
+import { senhaCompativelComBcrypt } from '../../../shared/utils/bcrypt-password';
+import { RegraDeNegocio } from '../../../shared/excecoes/dominio.exception';
 import { PapelUsuario } from '../../domain/papel-usuario.enum';
 import { Usuario } from '../../domain/usuario.entity';
 import { USUARIO_REPOSITORY } from '../../domain/usuario.repository';
@@ -40,15 +42,19 @@ export class CriarUsuarioUseCase {
    * @throws {ConflitoDeRecurso} se o e-mail informado já estiver em uso.
    */
   async executar(input: CriarUsuarioInput): Promise<Usuario> {
-    const existente = await this.usuarioRepository.buscarPorEmail(input.email);
+    if (!senhaCompativelComBcrypt(input.senha)) {
+      throw new RegraDeNegocio('Senha deve ter no máximo 72 bytes em UTF-8');
+    }
+    const email = input.email.trim().toLowerCase();
+    const existente = await this.usuarioRepository.buscarPorEmail(email);
     if (existente) {
-      throw new ConflitoDeRecurso(`Email '${input.email}' já está em uso`);
+      throw new ConflitoDeRecurso(`Email '${email}' já está em uso`);
     }
 
     const senhaHash = await bcrypt.hash(input.senha, 10);
     const usuario = Usuario.criar({
       nome: input.nome,
-      email: input.email,
+      email,
       senhaHash,
       papel: input.papel,
     });

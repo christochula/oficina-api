@@ -7,20 +7,22 @@
   "license": "MIT",
   "scripts": {
     "build": "nest build",
-    "format": "prettier --write \"{src,test}/**/*.ts\"",
-    "format:check": "prettier --check \"{src,test}/**/*.ts\"",
+    "format": "prettier --write \"{src,test,prisma}/**/*.ts\"",
+    "format:check": "prettier --check \"{src,test,prisma}/**/*.ts\"",
     "start": "node --require dd-trace/init ./node_modules/@nestjs/cli/bin/nest.js start",
     "start:dev": "node --require dd-trace/init ./node_modules/@nestjs/cli/bin/nest.js start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node --require dd-trace/init dist/src/main",
-    "lint": "eslint \"{src,apps,libs,test}/**/*.ts\"",
+    "lint": "eslint \"{src,apps,libs,test,prisma}/**/*.ts\"",
     "lint:fix": "npm run lint -- --fix",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node prisma/seed.ts",
+    "seed:demo": "ts-node prisma/seed-demo.ts",
+    "seed:demo:validate": "ts-node prisma/seed-demo.ts --validate-only"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.1123.0",

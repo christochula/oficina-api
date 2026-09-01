@@ -1,0 +1,68 @@
+const encoded = (value) => encodeURIComponent(String(value));
+
+export const API_ENDPOINTS = Object.freeze({
+  auth: Object.freeze({
+    login: '/auth/login',
+    refresh: '/auth/refresh',
+    logout: '/auth/logout',
+    clientToken: '/auth/token',
+  }),
+  clients: Object.freeze({
+    root: '/clientes',
+    byId: (id) => `/clientes/${encoded(id)}`,
+    byDocument: (document) => `/clientes/documento/${encoded(document)}`,
+    activate: (id) => `/clientes/${encoded(id)}/ativar`,
+    deactivate: (id) => `/clientes/${encoded(id)}/desativar`,
+  }),
+  vehicles: Object.freeze({
+    root: '/veiculos',
+    byId: (id) => `/veiculos/${encoded(id)}`,
+    byPlate: (plate) => `/veiculos/placa/${encoded(plate)}`,
+    activate: (id) => `/veiculos/${encoded(id)}/ativar`,
+    deactivate: (id) => `/veiculos/${encoded(id)}/desativar`,
+  }),
+  inventory: Object.freeze({
+    root: '/estoque',
+    parts: '/estoque/pecas',
+    partById: (id) => `/estoque/pecas/${encoded(id)}`,
+    stockEntry: (id) => `/estoque/pecas/${encoded(id)}/entrada`,
+    activatePart: (id) => `/estoque/pecas/${encoded(id)}/ativar`,
+    deactivatePart: (id) => `/estoque/pecas/${encoded(id)}/desativar`,
+  }),
+  services: Object.freeze({
+    root: '/servicos-oficina',
+    byId: (id) => `/servicos-oficina/${encoded(id)}`,
+    activate: (id) => `/servicos-oficina/${encoded(id)}/ativar`,
+    deactivate: (id) => `/servicos-oficina/${encoded(id)}/desativar`,
+  }),
+  users: Object.freeze({
+    root: '/usuarios',
+    mechanics: '/usuarios/mecanicos',
+    byId: (id) => `/usuarios/${encoded(id)}`,
+    update: (id) => `/usuarios/${encoded(id)}`,
+    activate: (id) => `/usuarios/${encoded(id)}/ativar`,
+    deactivate: (id) => `/usuarios/${encoded(id)}/desativar`,
+  }),
+  orders: Object.freeze({
+    root: '/ordens-servico',
+    queue: '/ordens-servico/fila',
+    byId: (id) => `/ordens-servico/${encoded(id)}`,
+    assign: (id, mechanicId) =>
+      `/ordens-servico/${encoded(id)}/atribuir/${encoded(mechanicId)}`,
+    diagnosis: (id) => `/ordens-servico/${encoded(id)}/diagnostico`,
+    budget: (id) => `/ordens-servico/${encoded(id)}/orcamento`,
+    approve: (id) => `/ordens-servico/${encoded(id)}/aprovar`,
+    reject: (id) => `/ordens-servico/${encoded(id)}/rejeitar`,
+    start: (id) => `/ordens-servico/${encoded(id)}/iniciar-execucao`,
+    consumePart: (id) => `/ordens-servico/${encoded(id)}/consumo-peca`,
+    finish: (id) => `/ordens-servico/${encoded(id)}/finalizar`,
+    deliver: (id) => `/ordens-servico/${encoded(id)}/entregar`,
+    mechanicMine: '/ordens-servico/mecanico/minhas-ordens',
+    mechanicById: (id) => `/ordens-servico/mecanico/${encoded(id)}`,
+    clientMine: '/ordens-servico/minhas/lista',
+    clientById: (id) => `/ordens-servico/minhas/${encoded(id)}`,
+    reportLeadTime: '/ordens-servico/relatorio/lead-time',
+    reportKpis: '/ordens-servico/relatorio/kpis',
+    reportCycleTime: '/ordens-servico/relatorio/tempo-ciclo',
+  }),
+});

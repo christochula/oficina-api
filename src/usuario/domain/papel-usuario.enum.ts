@@ -12,3 +12,19 @@ export enum PapelUsuario {
   MECANICO = 'MECANICO',
   CLIENTE = 'CLIENTE',
 }
+
+/** Papéis operacionais gerenciados pelo cadastro interno da oficina. */
+export const PAPEIS_USUARIO_INTERNOS = [
+  PapelUsuario.ADMINISTRADOR,
+  PapelUsuario.CONSULTOR_TECNICO,
+  PapelUsuario.MECANICO,
+] as const;
+
+export type PapelUsuarioInterno = (typeof PAPEIS_USUARIO_INTERNOS)[number];
+
+/** Indica se o papel pertence à equipe interna da oficina. */
+export function ehPapelUsuarioInterno(
+  papel: PapelUsuario,
+): papel is PapelUsuarioInterno {
+  return (PAPEIS_USUARIO_INTERNOS as readonly PapelUsuario[]).includes(papel);
+}
