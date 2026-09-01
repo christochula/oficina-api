@@ -4,44 +4,44 @@ Use este arquivo como porta de qualidade. Itens de estado externo só podem ser 
 
 ## Conteúdo local
 
-- [ ] Existem exatamente quatro diretórios/repositórios de entrega: `oficina-api`, `oficina-auth-serverless`, `oficina-infra-kubernetes` e `oficina-infra-database`.
-- [ ] Cada repositório tem `.gitignore`, `LICENSE`, `README.md`, `.github/workflows` e configuração de proteção.
-- [ ] Nenhum repositório inclui `node_modules`, `dist`, `coverage`, `.terraform`, `tfstate`, plan, chave, token ou `.env` real.
-- [ ] Todos os marcadores intencionais estão documentados; nenhum `SUBSTITUIR_*` necessário para runtime foi esquecido.
-- [ ] Os quatro READMEs explicam propósito, tecnologias, execução/deploy, arquitetura do repositório e contratos.
-- [ ] Swagger/Postman estão versionados e referenciados pela aplicação.
+- [x] Existem exatamente quatro diretórios/repositórios de entrega: `oficina-api`, `oficina-auth-serverless`, `oficina-infra-kubernetes` e `oficina-infra-database`.
+- [x] Cada repositório tem `.gitignore`, `LICENSE`, `README.md`, `.github/workflows` e configuração de proteção.
+- [x] Nenhum repositório inclui `node_modules`, `dist`, `coverage`, `.terraform`, `tfstate`, plan, chave, token ou `.env` real.
+- [x] Todos os marcadores intencionais estão documentados; nenhum `SUBSTITUIR_*` necessário para runtime foi esquecido.
+- [x] Os quatro READMEs explicam propósito, tecnologias, execução/deploy, arquitetura do repositório e contratos.
+- [x] Swagger/Postman estão versionados e referenciados pela aplicação.
 
 ## Qualidade da aplicação
 
-- [ ] `npm ci` passa com lockfile consistente.
-- [ ] `npm run format:check`, `npm run lint`, `npm run test:cov` e `npm run build` passam.
-- [ ] E2E passa com PostgreSQL limpo.
-- [ ] `prisma format`, `prisma validate` e `prisma migrate deploy` passam.
-- [ ] A imagem Docker constrói e roda como usuário não root.
-- [ ] `helm lint` e render dos dois ambientes passam.
-- [ ] Probes `live` e `ready` têm semânticas distintas.
+- [x] `npm ci` passa com lockfile consistente.
+- [x] `npm run format:check`, `npm run lint`, `npm run test:cov` e `npm run build` passam.
+- [x] E2E passa com PostgreSQL limpo.
+- [x] `prisma format`, `prisma validate` e `prisma migrate deploy` passam.
+- [x] A imagem Docker constrói e roda como usuário não root.
+- [x] `helm lint` e render dos dois ambientes passam.
+- [x] Probes `live` e `ready` têm semânticas distintas.
 
 ## Autenticação e segurança
 
-- [ ] Testes cobrem CPF válido/formatado, checksum inválido, cliente inexistente/inativo e falha de banco.
-- [ ] JWT expira, valida issuer/audience/algoritmo e não contém CPF.
-- [ ] Ausência, alteração e expiração do token bloqueiam rotas privadas.
-- [ ] Cliente não acessa/aprova/rejeita OS de outro cliente.
-- [ ] Respostas e logs não permitem enumerar CPF.
-- [ ] Segredos vêm do Secrets Manager; CI usa OIDC e permissões mínimas.
-- [ ] API, ALB e RDS não têm exposição pública indevida.
-- [ ] Dependências e imagem foram examinadas; riscos aceitos estão registrados.
+- [x] Testes cobrem CPF válido/formatado, checksum inválido, cliente inexistente/inativo e falha de banco.
+- [x] JWT expira, valida issuer/audience/algoritmo e não contém CPF.
+- [x] Ausência, alteração e expiração do token bloqueiam rotas privadas.
+- [x] Cliente não acessa/aprova/rejeita OS de outro cliente.
+- [x] Respostas e logs não permitem enumerar CPF.
+- [x] Segredos vêm do Secrets Manager; CI usa OIDC e permissões mínimas.
+- [x] API, ALB e RDS não têm exposição pública indevida.
+- [x] Dependências e imagem foram examinadas; riscos aceitos estão registrados.
 
 ## Terraform e Kubernetes
 
-- [ ] `terraform fmt -check -recursive`, `init -backend=false` e `validate` passam nos três repositórios IaC.
+- [x] `terraform fmt -check -recursive`, `init -backend=false` e `validate` passam nos três repositórios IaC.
 - [ ] Plans de homologação e produção foram revisados e salvos como evidência sem divulgar dados sensíveis.
-- [ ] Backends remotos são criptografados e bloqueados por ambiente.
-- [ ] RDS produção tem Multi-AZ, backup/PITR, deletion protection, snapshot final, KMS e logs.
-- [ ] Proxy exige TLS e SG do banco aceita somente origens declaradas.
-- [ ] EKS tem nós privados, add-ons, IAM/IRSA e autoscaling.
-- [ ] App tem dois pods mínimos, HPA 2–10, PDB, requests/limits, probes e rollout atômico.
-- [ ] Migration executa antes do rollout e falha de migration interrompe o deploy.
+- [x] Backends remotos são criptografados e bloqueados por ambiente.
+- [x] RDS produção tem Multi-AZ, backup/PITR, deletion protection, snapshot final, KMS e logs.
+- [x] Proxy exige TLS e SG do banco aceita somente origens declaradas.
+- [x] EKS tem nós privados, add-ons, IAM/IRSA e autoscaling.
+- [x] App tem dois pods mínimos, HPA 2–10, PDB, requests/limits, probes e rollout atômico.
+- [x] Migration executa antes do rollout e falha de migration interrompe o deploy.
 
 ## Datadog
 

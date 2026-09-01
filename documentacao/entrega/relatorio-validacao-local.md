@@ -9,8 +9,8 @@ Data: 31/08/2026.
 - Build, lint e TypeScript aprovados, sem erros ou avisos.
 - Jest: 62 suítes e 330 testes aprovados.
 - Cobertura global: 90,74% de statements e 91,92% de linhas.
-- Schema Prisma válido com URL apenas sintática; nenhuma conexão foi aberta.
-- E2E alinhado ao JWT de cliente emitido pela Lambda, sem login local de cliente.
+- Schema Prisma válido; as duas migrations foram aplicadas em PostgreSQL temporário.
+- E2E alinhado ao JWT de cliente emitido pela Lambda: 2 suítes e 6 testes aprovados.
 
 ### `oficina-auth-serverless`
 
@@ -23,11 +23,22 @@ Data: 31/08/2026.
 
 - YAML, JSON, HCL, delimitadores, UTF-8, whitespace e contratos entre outputs/inputs foram auditados estaticamente.
 - Verificados os limites de rede: VPC Link para ALB interno, IRSA restrita à fila, workloads para RDS Proxy e Proxy para RDS.
-- Terraform, Helm, TFLint e Checkov possuem validações configuradas nas pipelines.
+- `terraform fmt -check`, `init -backend=false` e `validate` passaram nas cinco raízes Terraform com as versões oficiais da CI.
+- Os lockfiles foram atualizados com checksums oficiais para Linux e Windows; o repositório de banco recebeu o lockfile que faltava.
+- `helm lint` e `helm template` passaram nos charts da aplicação e da plataforma.
+- TFLint 0.64.0 passou nas três raízes Kubernetes; Checkov passou com 81 checks e nenhuma falha.
 
-## Não executado nesta máquina
+## Validação Docker
 
-O Docker não foi iniciado nesta finalização. Após a falha anterior do computador, Testcontainers, build da imagem e stack local não foram executados. Terraform e Helm também não estão instalados localmente. Esses checks estão automatizados na CI e devem ser confirmados na primeira execução remota.
+- Docker Engine 29.2.1 disponibilizou 16 CPUs e aproximadamente 16 GB de memória.
+- E2E com Testcontainers: 2 suítes e 6 testes aprovados em PostgreSQL 16 limpo.
+- A imagem `oficina-api:local-test` foi construída no target `production`; `npm ci` e `npm prune` reportaram zero vulnerabilidades.
+- O container executou como usuário `node`, UID 1000, aplicou as duas migrations e atingiu estado `healthy`.
+- `/api/health/live`, `/api/health/ready` e `/api/docs` retornaram 200; rota protegida sem JWT retornou 401.
+- `docker compose config --quiet` passou usando uma cópia temporária de `.env.example`, removida após o teste.
+- Os dois containers e a rede temporários foram removidos; o container `oficina_db` preexistente não foi alterado.
+
+## Dependências externas
 
 Dependem ainda de ambiente externo: `terraform plan/apply`, rollout EKS, tráfego e ingestão Datadog reais, monitores, assinatura SNS, URLs públicas, vídeo, PDF exportado, proteção efetiva de branches e convite a `soat-architecture`.
 
