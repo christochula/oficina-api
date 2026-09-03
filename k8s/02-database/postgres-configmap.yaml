@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: postgres-config
-  namespace: oficina-api
-data:
-  POSTGRES_DB: "oficina_db"
-  POSTGRES_USER: "oficina"
