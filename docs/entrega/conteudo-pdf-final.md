@@ -12,10 +12,10 @@
 
 ## Repositórios
 
-1. Aplicação no Kubernetes — `SUBSTITUIR_URL_GITHUB_OFICINA_API`
-2. Autenticação/Lambda/API Gateway — `SUBSTITUIR_URL_GITHUB_AUTH_SERVERLESS`
-3. Infraestrutura Kubernetes/Datadog — `SUBSTITUIR_URL_GITHUB_INFRA_KUBERNETES`
-4. Infraestrutura do banco gerenciado — `SUBSTITUIR_URL_GITHUB_INFRA_DATABASE`
+1. Aplicação no Kubernetes — https://github.com/christochula/oficina-api
+2. Autenticação/Lambda/API Gateway — https://github.com/christochula/oficina-auth-serverless
+3. Infraestrutura Kubernetes/Datadog — https://github.com/christochula/oficina-infra-kubernetes
+4. Infraestrutura do banco gerenciado — https://github.com/christochula/oficina-infra-database
 
 ## Vídeo
 
@@ -45,7 +45,22 @@
 
 ## Resumo da solução
 
-A entrada pública usa API Gateway HTTP API. Uma Lambda valida CPF e cliente ativo, emitindo JWT curto; um Lambda authorizer protege as rotas. O tráfego autorizado segue por VPC Link e ALB interno para o NestJS no Amazon EKS. A persistência usa RDS PostgreSQL/Proxy privado. Terraform provisiona nuvem e Datadog; GitHub Actions com OIDC valida e publica homologação/produção. Datadog agrega APM, logs JSON correlacionados, métricas de Kubernetes/Lambda e indicadores de ordens de serviço.
+A entrada pública usa **API Gateway HTTP API**. Uma **Lambda** valida o CPF e o
+cliente ativo (consulta ao RDS via TLS), emitindo um **JWT HS256 curto**; um
+**Lambda authorizer** protege `ANY /api/{proxy+}`. Após autorização, o API
+Gateway faz **HTTP_PROXY** para o **ELB público** de um `Service type:
+LoadBalancer` do **Amazon EKS**, onde roda a aplicação **NestJS**. A persistência
+é **Amazon RDS PostgreSQL 16** (endpoint público com `rds.force_ssl`).
+Notificações são desacopladas em **SQS → Lambda → SNS**. **Terraform** provisiona
+a nuvem e os recursos Datadog; **GitHub Actions** (credenciais de sessão do AWS
+Academy) valida e aplica no merge para `main`. **Datadog** agrega APM, logs JSON
+correlacionados (`correlation_id` ↔ `dd.trace_id`), métricas de Kubernetes e as
+métricas de negócio de ordens de serviço.
+
+O ambiente é o **AWS Academy Learner Lab**; as adaptações em relação ao desenho
+corporativo (LabRole em vez de IRSA/OIDC, ingress público, RDS público com TLS,
+sem RDS Proxy / Cluster Autoscaler / integração AWS↔Datadog) estão documentadas
+em `docs/adr/ADR-005` a `ADR-009`, com o caminho de reversão para conta real.
 
 ## Confirmação de acesso
 
