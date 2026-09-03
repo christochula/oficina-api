@@ -4,7 +4,7 @@ Aplicação principal do Tech Challenge 3. Este repositório mantém o backend N
 
 ## Arquitetura deste repositório
 
-> Executado no **AWS Academy Learner Lab** — ver `documentacao/adr/` para as decisões e limitações.
+> Executado no **AWS Academy Learner Lab** — ver `docs/adr/` para as decisões e limitações.
 
 ```mermaid
 flowchart LR
@@ -27,7 +27,7 @@ O API Gateway e as Lambdas ficam em `oficina-auth-serverless`; VPC/EKS/ECR/Datad
 - Jest e Testcontainers
 - Docker/OCI e Helm/Kubernetes
 - Datadog APM (`dd-trace`), DogStatsD, logs JSON e Unified Service Tagging
-- GitHub Actions com autenticação AWS por OIDC
+- GitHub Actions (credenciais de sessão do AWS Academy)
 
 ## Execução local
 
@@ -114,7 +114,7 @@ A suíte herdada e ampliada contém testes unitários e E2E. O workflow `CI` exe
 
 ## Documentação da entrega
 
-Toda a documentação compartilhada está centralizada em [`documentacao/`](documentacao/): diagramas, RFCs, ADRs, modelo ER, runbooks, matriz de requisitos, roteiro do vídeo e conteúdo-base do PDF final. Os demais repositórios mantêm apenas o `README.md` obrigatório e apontam para esta pasta.
+Toda a documentação compartilhada está centralizada em [`docs/`](docs/README.md): diagramas, RFCs, ADRs, modelo ER, runbooks, matriz de requisitos, roteiro do vídeo e conteúdo-base do PDF final. Os demais repositórios mantêm apenas o `README.md` obrigatório e apontam para esta pasta.
 
 ## Licença
 

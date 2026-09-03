@@ -1,9 +1,20 @@
 # CLAUDE.md - Contexto do Projeto oficina_api
 
+> **Fase 3 / AWS Academy:** a entrega roda no AWS Academy Learner Lab. A camada
+> de infraestrutura foi adaptada (LabRole em vez de IRSA/OIDC, ingress via
+> `Service LoadBalancer`, RDS publico com TLS, sem RDS Proxy / Cluster Autoscaler
+> / integracao AWS-Datadog). As pastas `infra/` e `k8s/` foram removidas deste
+> repo — a infra vive em `oficina-infra-kubernetes`, `oficina-infra-database` e
+> `oficina-auth-serverless`. Detalhes em `docs/adr/ADR-005..009` e
+> `docs/operacao/runbook-deploy-academy.md`.
+
 ## Documentacao de referencia
 
 | Documento | Foco |
 |---|---|
+| `docs/README.md` | Indice de toda a documentacao (arquitetura, RFCs, ADRs, operacao, entrega) |
+| `docs/operacao/runbook-deploy-academy.md` | Sequencia de deploy dos 4 repos no AWS Academy |
+| `docs/operacao/datadog-setup.md` | Passos manuais da conta Datadog |
 | `docs/dicionario-ubiquo.md` | Linguagem ubiqua, aggregates, papeis e termos do dominio |
 | `docs/fluxos-negocio-oficina.md` | Fluxos operacionais e regras de negocio do sistema |
 | `docs/decisoes-arquiteturais-oficina.md` | Decisoes de modelagem, transacoes, migracoes e trade-offs |

@@ -11,12 +11,12 @@ O desafio determina quatro repositórios: função Lambda, infraestrutura Kubern
 
 Manter:
 
-1. `oficina-auth-serverless`: API Gateway, Lambdas e infraestrutura associada.
-2. `oficina-infra-kubernetes`: rede, EKS, ALB/ECR, add-ons e Datadog.
-3. `oficina-infra-database`: RDS, Proxy, KMS, segredos, observação e backups.
-4. `oficina-api`: domínio NestJS, Prisma, imagem, Helm e documentação compartilhada.
+1. `oficina-auth-serverless`: API Gateway, 3 Lambdas (CPF→JWT, authorizer, notification), SQS/SNS.
+2. `oficina-infra-kubernetes`: VPC (default), EKS, node group, ECR, metrics-server, Datadog Agent e observabilidade como código.
+3. `oficina-infra-database`: RDS PostgreSQL, security group e secret de conexão.
+4. `oficina-api`: domínio NestJS, Prisma/migrations, imagem, Helm e documentação compartilhada.
 
-Documentos transversais ficam em `oficina-api/documentacao`; cada raiz mantém somente seu README operacional obrigatório.
+Documentos transversais ficam em `oficina-api/docs`; cada raiz mantém somente seu README obrigatório. Ver ADR-005 a ADR-009 para as adaptações ao AWS Academy.
 
 ## Consequências
 

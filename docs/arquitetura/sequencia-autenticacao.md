@@ -7,8 +7,7 @@ sequenceDiagram
   participant G as API Gateway
   participant L as Lambda Auth
   participant S as Secrets Manager
-  participant P as RDS Proxy
-  participant D as PostgreSQL
+  participant D as PostgreSQL (RDS)
   participant A as Lambda Authorizer
   participant B as Oficina API/EKS
   participant DD as Datadog
@@ -18,8 +17,7 @@ sequenceDiagram
   L->>L: Normaliza e valida dígitos do CPF
   L->>S: Obtém credenciais DB e segredo JWT
   S-->>L: Segredos em memória
-  L->>P: SELECT cliente por CPF e tipo CPF
-  P->>D: Consulta parametrizada
+  L->>D: SELECT id, ativo FROM clientes WHERE tipoDoc='CPF' AND numeroDoc=$1 (TLS)
   D-->>L: id e status ativo
   alt CPF inválido, cliente ausente ou inativo
     L->>DD: Métrica auth.failure + log sem CPF
@@ -34,8 +32,8 @@ sequenceDiagram
   G->>A: Autoriza token (cache desabilitado/route-aware)
   A->>S: Lê segredo JWT em cold start
   A->>A: Valida assinatura, exp, iss, aud e scopes
-  A-->>G: allow/deny + client_id mínimo
-  G->>B: VPC Link -> ALB, propaga correlação/trace
+  A-->>G: allow/deny + headers x-auth-* mínimos
+  G->>B: HTTP_PROXY (internet) -> ELB publico do EKS, propaga correlação/trace
   B->>D: Revalida cliente ativo e executa caso de uso
   B-->>C: Resposta da API
 ```
