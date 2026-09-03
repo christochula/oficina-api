@@ -235,17 +235,23 @@ Checklist:
 
 ---
 
-## 8. Observabilidade (Datadog) — ver `documentacao/operacao/datadog.md`
+## 8. Observabilidade (Datadog)
 
-Depende de conta Datadog + secret `oficina/datadog`. Habilitação:
+Passo a passo completo em **`documentacao/operacao/datadog-setup.md`**. Resumo:
 
-```bash
-# stack observability do repo de kubernetes + Datadog Agent no cluster
-gh variable set DATADOG_ENABLED -R christochula/oficina-infra-kubernetes -b "true"
-gh variable set DD_ENABLED      -R christochula/oficina-api              -b "true"
-gh workflow run "Terraform deploy" -R christochula/oficina-infra-kubernetes --ref main
-gh workflow run Deploy             -R christochula/oficina-api            --ref main
-```
+1. Criar conta Datadog (free trial) + API key + APP key.
+2. `aws secretsmanager create-secret --name oficina/datadog --secret-string '{"api_key":"...","app_key":"..."}'`
+3. Ligar:
+   ```bash
+   gh variable set DATADOG_ENABLED -R christochula/oficina-infra-kubernetes -b "true"
+   gh variable set DD_ENABLED      -R christochula/oficina-api              -b "true"
+   gh variable set API_BASE_URL    -R christochula/oficina-infra-kubernetes -b "http://$LB_HOST"
+   gh workflow run "Terraform deploy" -R christochula/oficina-infra-kubernetes --ref main
+   gh workflow run Deploy             -R christochula/oficina-api            --ref main
+   ```
+4. Isso instala o Datadog Agent no EKS + cria dashboard/monitores/Synthetic.
+5. Gerar tráfego (repetir a seção 7 algumas vezes, criar/avançar OS) para as 5
+   métricas de negócio aparecerem no Metrics Explorer.
 
 ---
 
