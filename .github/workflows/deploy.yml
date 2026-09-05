@@ -95,6 +95,7 @@ jobs:
             --set image.tag="${{ github.sha }}-${{ github.run_number }}" \
             --set config.ddVersion="${{ github.sha }}" \
             --set config.corsOrigin="${{ vars.CORS_ORIGIN || '*' }}" \
+            --set config.cspConnectSrc="${{ vars.FRONTEND_CLIENT_AUTH_BASE_URL }}" \
             --set config.ddSite="${{ vars.DD_SITE || 'datadoghq.com' }}" \
             --set config.ddEnabled="${{ vars.DD_ENABLED || 'false' }}" \
             --set config.notificationQueueUrl="${{ vars.NOTIFICATION_QUEUE_URL }}"
