@@ -26,6 +26,18 @@ export function configurarAplicacao(
     servidorHttp.disable('x-powered-by');
   }
 
+  const connectSrc = ["'self'", process.env.CSP_CONNECT_SRC?.trim()]
+    .filter(Boolean)
+    .join(' ');
+  const contentSecurityPolicy = [
+    "default-src 'self'",
+    `connect-src ${connectSrc}`,
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: https:",
+    "font-src 'self' data:",
+  ].join('; ');
+
   app.enableCors({
     origin: process.env.CORS_ORIGIN ?? '*',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
@@ -54,10 +66,7 @@ export function configurarAplicacao(
     );
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');
-    res.setHeader(
-      'Content-Security-Policy',
-      "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:",
-    );
+    res.setHeader('Content-Security-Policy', contentSecurityPolicy);
 
     requestContext.run({ correlationId }, () => {
       res.once('finish', () => {

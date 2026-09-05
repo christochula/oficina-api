@@ -58,6 +58,8 @@ spec:
               value: {{ .Values.service.targetPort | quote }}
             - name: CORS_ORIGIN
               value: {{ .Values.config.corsOrigin | quote }}
+            - name: CSP_CONNECT_SRC
+              value: {{ .Values.config.cspConnectSrc | quote }}
             - name: JWT_ISSUER
               value: {{ .Values.config.jwtIssuer | quote }}
             - name: JWT_AUDIENCE

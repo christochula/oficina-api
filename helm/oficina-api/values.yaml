@@ -24,6 +24,7 @@ service:
 config:
   notificationQueueUrl: ""
   corsOrigin: "*"
+  cspConnectSrc: ""
   jwtIssuer: oficina-auth-serverless
   jwtAudience: oficina-api
   ddSite: datadoghq.com
