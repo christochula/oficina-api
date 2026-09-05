@@ -81,7 +81,7 @@ export function normalizeMechanicResults(payload) {
 function mechanicOptionDetails(mechanic) {
   const email = String(mechanic?.email ?? '').trim();
   const id = compactId(mechanic?.id);
-  return [email, id ? `ID ${id}` : ''].filter(Boolean);
+  return [email, id ? `ID: ${id}` : ''].filter(Boolean);
 }
 
 function optionDomId(baseId, index) {
@@ -98,11 +98,11 @@ export function renderMechanicComboboxOptions(
       const active = index === activeIndex;
       const selected = Boolean(selectedId && selectedId === id);
       const name = String(mechanic?.nome ?? '').trim() || 'Mecânico sem nome';
-      const details = mechanicOptionDetails(mechanic).join(' · ');
+      const details = mechanicOptionDetails(mechanic);
 
       return `<li id="${escapeAttribute(optionDomId(baseId, index))}" class="client-combobox__option${active ? ' is-active' : ''}${selected ? ' is-selected' : ''}" role="option" aria-selected="${String(selected)}" aria-posinset="${index + 1}" aria-setsize="${mechanics.length}" data-mechanic-option data-mechanic-index="${index}">
         <span class="client-combobox__avatar mechanic-combobox__avatar" aria-hidden="true">${escapeHtml(initials(name))}</span>
-        <span class="client-combobox__identity"><strong>${escapeHtml(name)}</strong>${details ? `<small>${escapeHtml(details)}</small>` : ''}</span>
+        <span class="client-combobox__identity"><strong>${escapeHtml(name)}</strong>${details.map((detail) => `<small>${escapeHtml(detail)}</small>`).join('')}</span>
         ${icon(selected ? 'check_circle' : 'chevron_right', 'client-combobox__meta')}
       </li>`;
     })
