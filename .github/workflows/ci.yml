@@ -39,7 +39,7 @@ jobs:
       - run: npm run test:cov -- --runInBand
       - run: npm run build
       - run: npm run check --prefix frontend
-      - uses: azure/setup-helm@v4
+      - uses: azure/setup-helm@v5
         with:
           version: v3.17.3
       - name: Lint Helm chart
