@@ -10,21 +10,16 @@ image:
 serviceAccount:
   create: true
   name: oficina-api
-  roleArn: ""
-  annotations: {}
 
+# AWS Academy: sem AWS Load Balancer Controller / TargetGroupBinding.
+# type LoadBalancer -> o cloud-provider in-tree do EKS cria um ELB publico.
 service:
+  type: LoadBalancer
   port: 80
   targetPort: 3000
 
-targetGroupArn: ""
-
-externalSecrets:
-  enabled: true
-  refreshInterval: 1h
-  secretStoreName: aws-secrets-manager
-  databaseSecretName: oficina/homolog/database
-  jwtSecretName: oficina/homolog/jwt
+# O Secret "oficina-api" (DATABASE_URL, JWT_SECRET, ...) e criado pelo pipeline
+# a partir do AWS Secrets Manager (sem External Secrets Operator).
 
 config:
   notificationQueueUrl: ""
@@ -34,6 +29,7 @@ config:
   ddSite: datadoghq.com
   ddService: oficina-api
   ddVersion: latest
+  ddEnabled: "false"
 
 resources:
   requests:
@@ -46,7 +42,7 @@ resources:
 autoscaling:
   enabled: true
   minReplicas: 2
-  maxReplicas: 10
+  maxReplicas: 8
   targetCPUUtilizationPercentage: 70
   targetMemoryUtilizationPercentage: 75
 

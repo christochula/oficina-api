@@ -78,7 +78,21 @@ spec:
             - name: DD_LOGS_INJECTION
               value: "true"
             - name: DD_RUNTIME_METRICS_ENABLED
-              value: "true"
+              value: {{ .Values.config.ddEnabled | quote }}
+            - name: DD_TRACE_ENABLED
+              value: {{ .Values.config.ddEnabled | quote }}
+            - name: DD_METRICS_ENABLED
+              value: {{ .Values.config.ddEnabled | quote }}
+            # DogStatsD/APM: o Agent (DaemonSet) escuta no host. hot-shots e
+            # dd-trace enviam para DD_AGENT_HOST:8125 / :8126.
+            - name: DD_AGENT_HOST
+              valueFrom:
+                fieldRef:
+                  fieldPath: status.hostIP
+            - name: DD_DOGSTATSD_PORT
+              value: "8125"
+            - name: DD_TRACE_AGENT_PORT
+              value: "8126"
           resources:
             {{- toYaml .Values.resources | nindent 12 }}
           livenessProbe:

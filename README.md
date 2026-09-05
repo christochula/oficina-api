@@ -4,19 +4,20 @@ Aplicação principal do Tech Challenge 3. Este repositório mantém o backend N
 
 ## Arquitetura deste repositório
 
+> Executado no **AWS Academy Learner Lab** — ver `docs/adr/` para as decisões e limitações.
+
 ```mermaid
 flowchart LR
-  GW[AWS API Gateway] -->|JWT validado| ALB[ALB interno]
-  ALB --> TGB[TargetGroupBinding]
-  TGB --> SVC[Service Kubernetes]
+  GW[AWS API Gateway] -->|JWT validado| ELB[ELB publico<br/>Service LoadBalancer]
+  ELB --> SVC[Service Kubernetes]
   SVC --> API[Pods NestJS]
-  API --> RDS[(RDS PostgreSQL / Proxy)]
-  API --> DD[Datadog Agent]
-  ESO[External Secrets Operator] -->|Secrets Manager| API
-  HPA[HPA CPU e memória] --> API
+  API --> RDS[(RDS PostgreSQL)]
+  API -. LabRole .-> SQS[SQS notificacoes]
+  API --> DD[Datadog Agent DaemonSet]
+  HPA[HPA CPU e memoria] --> API
 ```
 
-O API Gateway e as Lambdas ficam no repositório serverless; VPC, EKS, ALB, Datadog Operator e add-ons ficam na infraestrutura Kubernetes; RDS, Proxy e segredo de conexão ficam na infraestrutura de banco.
+O API Gateway e as Lambdas ficam em `oficina-auth-serverless`; VPC/EKS/ECR/Datadog Agent em `oficina-infra-kubernetes`; RDS e o secret de conexão em `oficina-infra-database`. Sem ALB interno / VPC Link / IRSA / External Secrets Operator (indisponíveis no Learner Lab): o ingress é um `Service type: LoadBalancer` público e o Secret da aplicação é criado pelo pipeline a partir do Secrets Manager.
 
 ## Tecnologias
 
@@ -26,7 +27,7 @@ O API Gateway e as Lambdas ficam no repositório serverless; VPC, EKS, ALB, Data
 - Jest e Testcontainers
 - Docker/OCI e Helm/Kubernetes
 - Datadog APM (`dd-trace`), DogStatsD, logs JSON e Unified Service Tagging
-- GitHub Actions com autenticação AWS por OIDC
+- GitHub Actions (credenciais de sessão do AWS Academy)
 
 ## Execução local
 
@@ -99,22 +100,13 @@ A suíte herdada e ampliada contém testes unitários e E2E. O workflow `CI` exe
 
 ## Deploy automático
 
-| Branch | GitHub Environment | Ambiente |
-|---|---|---|
-| `homolog` | `homolog` | Homologação |
-| `main` | `production` | Produção |
+`.github/workflows/deploy.yml` roda a cada merge em `main` (e via *workflow_dispatch*): build da imagem → ECR (`oficina-homolog-api:<sha>`), cria o Secret `oficina-api` a partir do AWS Secrets Manager, `helm upgrade --install --atomic --wait`. O chart roda `prisma migrate deploy` (hook), probes HTTP, PDB, HPA 2–8 réplicas e `Service type: LoadBalancer`.
 
-O workflow cria uma imagem imutável com tag igual ao commit, envia ao ECR e executa `helm upgrade --atomic`. O chart materializa segredos pelo External Secrets Operator, executa `prisma migrate deploy`, cria probes HTTP, PDB, HPA de 2 a 10 réplicas e TargetGroupBinding para o ALB privado.
+**GitHub Secrets** (renovar a cada sessão do Learner Lab, ~4h): `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`. Opcionais: `ADMIN_SEED_PASSWORD`, `ORCAMENTO_WEBHOOK_TOKEN`.
 
-Variáveis obrigatórias nos GitHub Environments:
+**GitHub Variables** (após os outros repos subirem): `NOTIFICATION_QUEUE_URL` (output de `oficina-auth-serverless`), `DATABASE_SECRET_ID` (default `oficina/homolog/database/connection`), `JWT_SECRET_ID` (default `oficina/homolog/jwt`), `DD_ENABLED`, `DD_SITE`, `CORS_ORIGIN`.
 
-- `AWS_DEPLOY_ROLE_ARN`, `AWS_REGION`, `EKS_CLUSTER_NAME`
-- `ECR_REPOSITORY`, `API_TARGET_GROUP_ARN`
-- `DATABASE_SECRET_NAME`, `JWT_SECRET_NAME`
-- `APP_URL`, `CORS_ORIGIN`, `DD_SITE`
-- `NOTIFICATION_QUEUE_URL`, `APP_IRSA_ROLE_ARN`, `DEPLOY_RUNNER` (runner com acesso de rede ao endpoint privado do EKS)
-
-A role OIDC deve restringir repositório, branch/environment e `aud=sts.amazonaws.com`. Nenhuma access key estática é usada.
+`ci.yml` (PR/push): formatação, lint, cobertura, build, E2E, `helm lint`/`template`, build do container (sem push) — não usa AWS.
 
 ## Proteção do repositório
 
@@ -122,7 +114,7 @@ A role OIDC deve restringir repositório, branch/environment e `aud=sts.amazonaw
 
 ## Documentação da entrega
 
-Toda a documentação compartilhada está centralizada em [`documentacao/`](documentacao/): diagramas, RFCs, ADRs, modelo ER, runbooks, matriz de requisitos, roteiro do vídeo e conteúdo-base do PDF final. Os demais repositórios mantêm apenas o `README.md` obrigatório e apontam para esta pasta.
+Toda a documentação compartilhada está centralizada em [`docs/`](docs/README.md): diagramas, RFCs, ADRs, modelo ER, runbooks, matriz de requisitos, roteiro do vídeo e conteúdo-base do PDF final. Os demais repositórios mantêm apenas o `README.md` obrigatório e apontam para esta pasta.
 
 ## Licença
 
