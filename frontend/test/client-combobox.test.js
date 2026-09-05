@@ -182,10 +182,10 @@ test('normaliza envelopes e remove clientes inativos ou sem ID', () => {
   assert.deepEqual(normalizeClientResults(null), []);
 });
 
-test('renderiza opções seguras com documento e contato para desambiguação', () => {
+test('renderiza nome, ID, documento e contatos em linhas seguras separadas', () => {
   const malicious = {
     ...clients[0],
-    id: 'cl03TESTE',
+    id: 'cl03<unsafe>&',
     nome: '<script>alert(1)</script>',
   };
   const html = renderClientComboboxOptions([clients[0], malicious], {
@@ -197,9 +197,23 @@ test('renderiza opções seguras com documento e contato para desambiguação', 
   assert.match(html, /id="order-client-option-1"/);
   assert.match(html, /class="client-combobox__option is-active"/);
   assert.match(html, /class="client-combobox__option is-selected"/);
-  assert.match(html, /CPF 529\.982\.247-25 · maria@example\.com · \(11\) 99999-9999/);
+  const identity = html.match(
+    /<span class="client-combobox__identity"><strong>Maria Silva<\/strong>([\s\S]*?)<\/span>/,
+  )?.[1];
+  assert.ok(identity);
+  assert.deepEqual(
+    [...identity.matchAll(/<small>(.*?)<\/small>/g)].map((match) => match[1]),
+    [
+      'ID: cl01TESTE',
+      'CPF 529.982.247-25',
+      'maria@example.com',
+      '(11) 99999-9999',
+    ],
+  );
+  assert.doesNotMatch(identity, / · /);
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html, /<small>ID: cl03&lt;unsafe&gt;&amp;<\/small>/);
 });
 
 test('navegação do listbox percorre, retorna e atende Home/End', () => {

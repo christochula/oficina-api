@@ -170,10 +170,10 @@ test('normalização é fail-closed e descarta inativos, outros papéis e papel 
   assert.deepEqual(normalizeMechanicResults(null), []);
 });
 
-test('opções exibem nome, e-mail e ID com escaping', () => {
+test('opções exibem nome, e-mail e ID em linhas seguras separadas', () => {
   const malicious = {
     ...mechanics[0],
-    id: 'us03MECANICO',
+    id: 'us03<unsafe>-IDENTIFICADOR-LONGO',
     nome: '<script>alert(1)</script>',
   };
   const html = renderMechanicComboboxOptions([mechanics[0], malicious], {
@@ -185,9 +185,18 @@ test('opções exibem nome, e-mail e ID com escaping', () => {
   assert.match(html, /id="order-mechanic-option-1"/);
   assert.match(html, /class="client-combobox__option is-active"/);
   assert.match(html, /class="client-combobox__option is-selected"/);
-  assert.match(html, /carlos.souza@oficina.test · ID us01MECANICO/);
+  const identity = html.match(
+    /<span class="client-combobox__identity"><strong>Carlos Henrique Souza<\/strong>([\s\S]*?)<\/span>/,
+  )?.[1];
+  assert.ok(identity);
+  assert.deepEqual(
+    [...identity.matchAll(/<small>(.*?)<\/small>/g)].map((match) => match[1]),
+    ['carlos.souza@oficina.test', 'ID: us01MECANICO'],
+  );
+  assert.doesNotMatch(identity, / · /);
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
+  assert.match(html, /<small>ID: us03&lt;unsa…-LONGO<\/small>/);
 });
 
 test('rótulo selecionado usa nome e e-mail, nunca o texto livre da busca', () => {

@@ -538,22 +538,24 @@ function actionButtons(key, item, mutationAllowed, currentSubject = '') {
 function renderClientRow(item, mutationAllowed) {
   const id = itemId('clientes', item);
   return `<tr>
-    <th scope="row"><strong>${escapeHtml(item.nome || 'Sem nome')}</strong><small title="${escapeHtml(id)}">${escapeHtml(compactId(id))}</small></th>
-    <td><span>${escapeHtml(item.tipoDoc || 'Documento')}</span><small>${escapeHtml(maskDocument(item.numeroDoc))}</small></td>
-    <td><span>${escapeHtml(maskEmail(item.email))}</span><small>${escapeHtml(maskPhone(item.telefone))}</small></td>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Sem nome')}</strong><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
+    <td><span class="resource-cell-stack"><span>${escapeHtml(item.tipoDoc || 'Documento')}</span><small>${escapeHtml(maskDocument(item.numeroDoc))}</small></span></td>
+    <td><span class="resource-cell-stack"><span>${escapeHtml(maskEmail(item.email))}</span><small>${escapeHtml(maskPhone(item.telefone))}</small></span></td>
     <td>${activeBadge(item.ativo)}</td>
-    <td>${actionButtons('clientes', item, mutationAllowed)}</td>
+    ${mutationAllowed ? `<td>${actionButtons('clientes', item, mutationAllowed)}</td>` : ''}
   </tr>`;
 }
 
 function renderVehicleRow(item, mutationAllowed) {
   const id = itemId('veiculos', item);
   return `<tr>
-    <th scope="row"><strong>${escapeHtml(maskPlate(item.placa))}</strong><small title="${escapeHtml(id)}">${escapeHtml(compactId(id))}</small></th>
-    <td><span>${escapeHtml(`${item.marca ?? ''} ${item.modelo ?? ''}`.trim() || '—')}</span><small>${escapeHtml(item.ano ?? '—')}</small></td>
-    <td><span>${escapeHtml(item.cor || '—')}</span><small>${escapeHtml(formatKm(item.quilometragem))}</small></td>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(maskPlate(item.placa))}</strong><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
+    <td>${escapeHtml(`${item.marca ?? ''} ${item.modelo ?? ''}`.trim() || '—')}</td>
+    <td class="numeric-cell">${escapeHtml(item.ano ?? '—')}</td>
+    <td>${escapeHtml(item.cor || '—')}</td>
+    <td class="numeric-cell">${escapeHtml(formatKm(item.quilometragem))}</td>
     <td>${activeBadge(item.ativo)}</td>
-    <td>${actionButtons('veiculos', item, mutationAllowed)}</td>
+    ${mutationAllowed ? `<td>${actionButtons('veiculos', item, mutationAllowed)}</td>` : ''}
   </tr>`;
 }
 
@@ -563,33 +565,33 @@ function renderStockRow(item, mutationAllowed) {
   const minimum = Number(item.quantidadeMinima ?? 0);
   const low = available <= minimum;
   return `<tr>
-    <th scope="row"><strong>${escapeHtml(item.peca?.nome || 'Peça sem nome')}</strong><small>${escapeHtml(item.peca?.codigo || 'Sem código')} · <span title="${escapeHtml(id)}">${escapeHtml(compactId(id))}</span></small></th>
-    <td class="numeric-cell"><strong>${escapeHtml(integerFormatter.format(available))}</strong><small>Mínimo: ${escapeHtml(integerFormatter.format(minimum))}</small></td>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.peca?.nome || 'Peça sem nome')}</strong><small class="mono-value">Código: ${escapeHtml(item.peca?.codigo || 'Sem código')}</small><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
+    <td class="numeric-cell"><span class="resource-cell-stack"><strong>${escapeHtml(integerFormatter.format(available))}</strong><small>Mínimo: ${escapeHtml(integerFormatter.format(minimum))}</small></span></td>
     <td class="numeric-cell">${escapeHtml(formatMoney(item.peca?.precoVenda))}</td>
     <td>${activeBadge(item.peca?.ativo, low && item.peca?.ativo !== false)}</td>
-    <td>${actionButtons('estoque', item, mutationAllowed)}</td>
+    ${mutationAllowed ? `<td>${actionButtons('estoque', item, mutationAllowed)}</td>` : ''}
   </tr>`;
 }
 
 function renderServiceRow(item, mutationAllowed) {
   const id = itemId('catalogo', item);
   return `<tr>
-    <th scope="row"><strong>${escapeHtml(item.nome || 'Serviço sem nome')}</strong><small title="${escapeHtml(id)}">${escapeHtml(compactId(id))}</small></th>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Serviço sem nome')}</strong><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
     <td>${escapeHtml(item.categoria || 'Sem categoria')}</td>
     <td class="resource-description">${escapeHtml(item.descricao || 'Sem descrição')}</td>
     <td>${activeBadge(item.ativo)}</td>
-    <td>${actionButtons('catalogo', item, mutationAllowed)}</td>
+    ${mutationAllowed ? `<td>${actionButtons('catalogo', item, mutationAllowed)}</td>` : ''}
   </tr>`;
 }
 
 function renderUserRow(item, mutationAllowed, currentSubject) {
   const id = itemId('usuarios', item);
   return `<tr>
-    <th scope="row"><strong>${escapeHtml(item.nome || 'Usuário sem nome')}</strong><small title="${escapeHtml(id)}">${escapeHtml(compactId(id))}</small></th>
-    <td><span>${escapeHtml(item.email || '—')}</span><small>Criado em ${escapeHtml(formatDate(item.criadoEm))}</small></td>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Usuário sem nome')}</strong><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
+    <td><span class="resource-cell-stack"><span>${escapeHtml(item.email || '—')}</span><small>Criado em ${escapeHtml(formatDate(item.criadoEm))}</small></span></td>
     <td>${escapeHtml(roleLabel(item.papel))}</td>
     <td>${activeBadge(item.ativo)}</td>
-    <td>${actionButtons('usuarios', item, mutationAllowed, currentSubject)}</td>
+    ${mutationAllowed ? `<td>${actionButtons('usuarios', item, mutationAllowed, currentSubject)}</td>` : ''}
   </tr>`;
 }
 
@@ -597,30 +599,30 @@ function tableDefinition(key) {
   if (key === 'clientes')
     return {
       caption: 'Lista de clientes',
-      headings: ['Cliente', 'Documento', 'Contato', 'Situação', 'Ações'],
+      headings: ['Cliente / ID', 'Documento', 'Contato', 'Situação', 'Ações'],
       row: renderClientRow,
     };
   if (key === 'veiculos')
     return {
       caption: 'Lista de veículos',
-      headings: ['Placa', 'Veículo', 'Dados atuais', 'Situação', 'Ações'],
+      headings: ['Placa / ID', 'Veículo', 'Ano', 'Cor', 'KM', 'Situação', 'Ações'],
       row: renderVehicleRow,
     };
   if (key === 'estoque')
     return {
       caption: 'Lista de peças em estoque',
-      headings: ['Peça', 'Saldo', 'Preço de venda', 'Situação', 'Ações'],
+      headings: ['Peça / Código / ID', 'Saldo', 'Preço de venda', 'Situação', 'Ações'],
       row: renderStockRow,
     };
   if (key === 'usuarios')
     return {
       caption: 'Lista de usuários',
-      headings: ['Usuário', 'Contato', 'Papel', 'Situação', 'Ações'],
+      headings: ['Usuário / ID', 'Contato', 'Papel', 'Situação', 'Ações'],
       row: renderUserRow,
     };
   return {
     caption: 'Catálogo de serviços',
-    headings: ['Serviço', 'Categoria', 'Descrição', 'Situação', 'Ações'],
+    headings: ['Serviço / ID', 'Categoria', 'Descrição', 'Situação', 'Ações'],
     row: renderServiceRow,
   };
 }
@@ -629,7 +631,7 @@ function mobileCard(key, item, mutationAllowed, currentSubject = '') {
   const id = itemId(key, item);
   if (key === 'clientes') {
     return `<article class="resource-card interactive-card">
-      <header><div><h3>${escapeHtml(item.nome || 'Sem nome')}</h3><small title="${escapeHtml(id)}">${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
+      <header><div><h3>${escapeHtml(item.nome || 'Sem nome')}</h3><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
       <dl><div><dt>Documento</dt><dd>${escapeHtml(maskDocument(item.numeroDoc))}</dd></div><div><dt>Contato</dt><dd>${escapeHtml(maskEmail(item.email))}</dd></div></dl>
       ${actionButtons(key, item, mutationAllowed)}
     </article>`;
@@ -637,7 +639,7 @@ function mobileCard(key, item, mutationAllowed, currentSubject = '') {
   if (key === 'veiculos') {
     return `<article class="resource-card interactive-card">
       <header><div><h3>${escapeHtml(maskPlate(item.placa))}</h3><small>${escapeHtml(`${item.marca ?? ''} ${item.modelo ?? ''}`.trim())}</small></div>${activeBadge(item.ativo)}</header>
-      <dl><div><dt>Ano e cor</dt><dd>${escapeHtml(`${item.ano ?? '—'} · ${item.cor ?? '—'}`)}</dd></div><div><dt>Quilometragem</dt><dd>${escapeHtml(formatKm(item.quilometragem))}</dd></div></dl>
+      <dl><div><dt>Ano</dt><dd>${escapeHtml(item.ano ?? '—')}</dd></div><div><dt>Cor</dt><dd>${escapeHtml(item.cor ?? '—')}</dd></div><div><dt>Quilometragem</dt><dd>${escapeHtml(formatKm(item.quilometragem))}</dd></div></dl>
       ${actionButtons(key, item, mutationAllowed)}
     </article>`;
   }
@@ -646,20 +648,20 @@ function mobileCard(key, item, mutationAllowed, currentSubject = '') {
     const minimum = Number(item.quantidadeMinima ?? 0);
     const low = available <= minimum;
     return `<article class="resource-card interactive-card">
-      <header><div><h3>${escapeHtml(item.peca?.nome || 'Peça sem nome')}</h3><small>${escapeHtml(item.peca?.codigo || 'Sem código')}</small></div>${activeBadge(item.peca?.ativo, low && item.peca?.ativo !== false)}</header>
+      <header><div><h3>${escapeHtml(item.peca?.nome || 'Peça sem nome')}</h3><small class="mono-value">${escapeHtml(item.peca?.codigo || 'Sem código')}</small></div>${activeBadge(item.peca?.ativo, low && item.peca?.ativo !== false)}</header>
       <dl><div><dt>Saldo</dt><dd>${escapeHtml(integerFormatter.format(available))} un.</dd></div><div><dt>Mínimo</dt><dd>${escapeHtml(integerFormatter.format(minimum))} un.</dd></div><div><dt>Preço</dt><dd>${escapeHtml(formatMoney(item.peca?.precoVenda))}</dd></div></dl>
       ${actionButtons(key, item, mutationAllowed)}
     </article>`;
   }
   if (key === 'usuarios') {
     return `<article class="resource-card interactive-card">
-      <header><div><h3>${escapeHtml(item.nome || 'Usuário sem nome')}</h3><small title="${escapeHtml(id)}">${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
+      <header><div><h3>${escapeHtml(item.nome || 'Usuário sem nome')}</h3><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
       <dl><div><dt>E-mail</dt><dd>${escapeHtml(item.email || '—')}</dd></div><div><dt>Papel</dt><dd>${escapeHtml(roleLabel(item.papel))}</dd></div><div><dt>Criado em</dt><dd>${escapeHtml(formatDate(item.criadoEm))}</dd></div></dl>
       ${actionButtons(key, item, mutationAllowed, currentSubject)}
     </article>`;
   }
   return `<article class="resource-card interactive-card">
-    <header><div><h3>${escapeHtml(item.nome || 'Serviço sem nome')}</h3><small title="${escapeHtml(id)}">${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
+    <header><div><h3>${escapeHtml(item.nome || 'Serviço sem nome')}</h3><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
     <dl><div><dt>Categoria</dt><dd>${escapeHtml(item.categoria || 'Sem categoria')}</dd></div><div><dt>Descrição</dt><dd>${escapeHtml(item.descricao || 'Sem descrição')}</dd></div></dl>
     ${actionButtons(key, item, mutationAllowed)}
   </article>`;
@@ -714,6 +716,7 @@ function renderResults(definition, state, role, currentSubject = '') {
   if (!items.length)
     return renderEmpty(definition, state, mutationAllowed, items);
   const table = tableDefinition(definition.key);
+  const headings = mutationAllowed ? table.headings : table.headings.slice(0, -1);
   const total = Number(state.meta.total ?? state.items.length);
   const pageCount = state.items.length;
   const filteredLabel = state.search && state.mode === 'page'
@@ -723,12 +726,11 @@ function renderResults(definition, state, role, currentSubject = '') {
       : `${pageCount} de ${total} resultado(s)`;
   return `<div class="resource-results__summary" role="status" aria-live="polite">
       <span>${escapeHtml(filteredLabel)}</span>
-      ${state.mode === 'page' ? `<span>Ordenação fornecida pela API</span>` : ''}
     </div>
     <div class="resource-table-container">
       <table class="resource-table responsive-data-view">
         <caption class="sr-only">${escapeHtml(table.caption)}</caption>
-        <thead><tr>${table.headings.map((heading) => `<th scope="col">${escapeHtml(heading)}</th>`).join('')}</tr></thead>
+        <thead><tr>${headings.map((heading) => `<th scope="col">${escapeHtml(heading)}</th>`).join('')}</tr></thead>
         <tbody>${items.map((item) => table.row(item, mutationAllowed, currentSubject)).join('')}</tbody>
       </table>
     </div>

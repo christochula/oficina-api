@@ -188,7 +188,7 @@ test('busca de recursos reserva a largura do botão e empilha no mobile', async 
   const css = await readFile(cssPath, 'utf8');
   assert.match(
     css,
-    /\.input-with-action\s*\{[^}]*display:\s*grid;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) max-content;/s,
+    /\.input-with-action\s*\{[^}]*display:\s*grid;[^}]*flex:\s*0 0 auto;[^}]*grid-template-columns:\s*minmax\(0, 1fr\) max-content;/s,
   );
   assert.match(
     css,
@@ -213,6 +213,47 @@ test('busca de recursos reserva a largura do botão e empilha no mobile', async 
   assert.match(
     css,
     /@media \(max-width: 47\.99rem\)[\s\S]*?\.resource-search--users\s*\{[^}]*grid-template-columns:\s*minmax\(0, 1fr\);/s,
+  );
+});
+
+test('tabelas de recursos preservam hierarquia visual e semântica das linhas', async () => {
+  const cssPath = fileURLToPath(
+    new URL('../src/app-overrides.css', import.meta.url),
+  );
+  const css = await readFile(cssPath, 'utf8');
+
+  assert.match(
+    css,
+    /\.resource-table thead th\s*\{[^}]*text-transform:\s*uppercase;/s,
+  );
+  assert.doesNotMatch(css, /\.resource-table th\s*\{/);
+  assert.match(
+    css,
+    /\.resource-table tbody th\s*\{[^}]*color:\s*var\(--color-text\);[^}]*font-size:\s*0\.8125rem;[^}]*letter-spacing:\s*normal;[^}]*text-transform:\s*none;/s,
+  );
+  assert.match(
+    css,
+    /\.resource-cell-stack\s*\{[^}]*display:\s*grid;[^}]*color:\s*var\(--color-text\);[^}]*font-size:\s*0\.8125rem;[^}]*letter-spacing:\s*normal;[^}]*text-transform:\s*none;/s,
+  );
+  assert.match(
+    css,
+    /\.resource-cell-stack\s*>\s*strong,\s*\.resource-cell-stack\s*>\s*span,\s*\.resource-cell-stack\s*>\s*small\s*\{[^}]*display:\s*block;[^}]*overflow-wrap:\s*anywhere;/s,
+  );
+  assert.match(
+    css,
+    /\.resource-cell-stack\s*>\s*small\s*\{[^}]*color:\s*var\(--color-text-muted\);[^}]*font-size:\s*0\.7rem;/s,
+  );
+  assert.doesNotMatch(
+    css,
+    /\.resource-cell-stack\s*>\s*small\s*\{[^}]*font-family:/s,
+  );
+  assert.match(
+    css,
+    /\.resource-table \.numeric-cell\s*\{[^}]*font-variant-numeric:\s*tabular-nums;[^}]*text-align:\s*right;/s,
+  );
+  assert.match(
+    css,
+    /\.table-primary-link small\s*\{[^}]*overflow-wrap:\s*anywhere;[^}]*font-family:\s*var\(--font-mono\);/s,
   );
 });
 

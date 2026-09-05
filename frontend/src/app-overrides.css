@@ -1137,6 +1137,7 @@
   display: grid;
   width: 100%;
   min-width: 0;
+  flex: 0 0 auto;
   grid-template-columns: minmax(0, 1fr) max-content;
   align-items: stretch;
 }
@@ -1185,12 +1186,66 @@
   vertical-align: middle;
 }
 
-.resource-table th {
+.resource-table thead th {
   background: var(--color-surface-muted);
   color: var(--color-text-muted);
   font-size: 0.7rem;
   letter-spacing: 0.04em;
   text-transform: uppercase;
+}
+
+.resource-table tbody th {
+  background: transparent;
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.resource-cell-stack {
+  display: grid;
+  min-width: 0;
+  gap: 0.2rem;
+  color: var(--color-text);
+  font-size: 0.8125rem;
+  font-weight: 400;
+  letter-spacing: normal;
+  line-height: 1.35;
+  text-transform: none;
+}
+
+.resource-cell-stack > strong,
+.resource-cell-stack > span,
+.resource-cell-stack > small {
+  display: block;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.resource-cell-stack > small {
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.resource-record-id {
+  overflow-wrap: anywhere;
+  color: var(--color-text-muted);
+  font-size: 0.7rem;
+  font-weight: 500;
+  line-height: 1.35;
+}
+
+.resource-table .resource-actions {
+  display: inline-flex;
+  width: max-content;
+  min-width: max-content;
+  max-width: none;
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
 }
 
 .resource-card-list {
@@ -1310,6 +1365,7 @@
 }
 
 .table-primary-link small {
+  overflow-wrap: anywhere;
   color: var(--color-text-muted);
   font-family: var(--font-mono);
 }
@@ -1326,7 +1382,7 @@
   font-size: 0.8rem;
 }
 
-.numeric-cell {
+.resource-table .numeric-cell {
   font-variant-numeric: tabular-nums;
   text-align: right;
 }

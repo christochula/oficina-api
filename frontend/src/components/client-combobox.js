@@ -59,9 +59,11 @@ function formatClientDocument(client) {
 }
 
 function clientOptionDetails(client) {
+  const id = domainId(client?.id);
   const document = formatClientDocument(client);
   const phone = formatPhone(client?.telefone) || String(client?.telefone ?? '').trim();
   return [
+    id ? `ID: ${id}` : '',
     document ? `${client?.tipoDoc || 'Documento'} ${document}` : '',
     String(client?.email ?? '').trim(),
     phone,
@@ -102,7 +104,7 @@ export function renderClientComboboxOptions(
       const active = index === activeIndex;
       const selected = Boolean(selectedId && selectedId === id);
       const name = String(client?.nome ?? '').trim() || 'Cliente sem nome';
-      const details = clientOptionDetails(client).join(' · ');
+      const details = clientOptionDetails(client);
       const initials = name
         .split(/\s+/)
         .slice(0, 2)
@@ -111,7 +113,7 @@ export function renderClientComboboxOptions(
         .toUpperCase();
       return `<li id="${escapeAttribute(optionDomId(baseId, index))}" class="client-combobox__option${active ? ' is-active' : ''}${selected ? ' is-selected' : ''}" role="option" aria-selected="${String(selected)}" aria-posinset="${index + 1}" aria-setsize="${clients.length}" data-client-option data-client-index="${index}">
         <span class="client-combobox__avatar" aria-hidden="true">${escapeHtml(initials || 'C')}</span>
-        <span class="client-combobox__identity"><strong>${escapeHtml(name)}</strong>${details ? `<small>${escapeHtml(details)}</small>` : ''}</span>
+        <span class="client-combobox__identity"><strong>${escapeHtml(name)}</strong>${details.map((detail) => `<small>${escapeHtml(detail)}</small>`).join('')}</span>
         ${icon(selected ? 'check_circle' : 'chevron_right', 'client-combobox__meta')}
       </li>`;
     })

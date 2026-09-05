@@ -88,7 +88,6 @@ export function renderLoginView() {
         <h1 id="auth-welcome-title">Cada serviço na etapa certa, com clareza para a equipe e para o cliente.</h1>
         <p>Acompanhe ordens de serviço, aprovações e execução em uma experiência operacional direta e segura.</p>
       </div>
-      <p class="auth-visual-footer">Acesso protegido e adequado ao seu perfil.</p>
     </section>
     <section class="auth-panel" aria-labelledby="auth-title">
       <div class="auth-card">
@@ -109,7 +108,6 @@ export function renderLoginView() {
           ${operatorForm()}
         </section>
 
-        <p class="auth-note">O acesso de cliente é exclusivo para acompanhar suas próprias ordens e decidir sobre orçamentos. A equipe usa credenciais internas.</p>
       </div>
     </section>
   </main>`;
