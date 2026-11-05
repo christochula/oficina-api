@@ -488,7 +488,7 @@ function budgetBuilderModal() {
   modal.root.addEventListener('click', (event) => {
     const action = event.target.closest('[data-action]')?.dataset.action;
     if (action === 'budget:add-line') addLine();
-    if (action === 'budget:remove-line' && lines.children.length > 1) event.target.closest('[data-line]')?.remove();
+    if (action === 'budget:remove-line' && lines.children.length > 1) event.target.closest('fieldset[data-line]')?.remove();
     if (action === 'modal-cancel') modal.close();
   });
   return modal;
@@ -496,7 +496,7 @@ function budgetBuilderModal() {
 
 function budgetPayload(form) {
   const data = new FormData(form);
-  const lines = [...form.querySelectorAll('[data-line]')].map((row) => {
+  const lines = [...form.querySelectorAll('fieldset[data-line]')].map((row) => {
     const key = row.dataset.line;
     const tipo = formValue(data, `type-${key}`); const pecaId = formValue(data, `piece-${key}`);
     return { tipo, descricao: formValue(data, `description-${key}`), quantidade: Number(formValue(data, `quantity-${key}`)), valorUnitario: Number(formValue(data, `price-${key}`)), ...(tipo === 'MATERIAL' && pecaId ? { pecaId } : {}) };
