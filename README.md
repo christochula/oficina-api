@@ -1,3 +1,18 @@
+# Oficina - Fase 4 / OS Service
+
+O runtime distribuído usa este repositório como OS Service e orquestrador da Saga, com Billing/PostgreSQL e Production/DynamoDB em repositórios independentes. O portal existente acompanha o fluxo e bloqueia a entrega sem pagamento confirmado.
+
+- [Arquitetura, divisão dos dados e Saga](docs/fase4/arquitetura.md)
+- [Configuração: onde preencher cada chave, senha e token](docs/fase4/configuracao.md)
+- [Testes, evidências, roteiro do vídeo e PDF](docs/fase4/entrega.md)
+- [Resultados da validação local](docs/fase4/validacao-local.md)
+
+Quickstart: manter os três repositórios lado a lado, executar `docker compose -f compose.phase4.yml up -d --build`, `npm run test:bdd` e `npm run test:frontend:e2e`. `PHASE4_ENABLED=true` é o modo de entrega; `false` preserva a regressão histórica da Fase 3. Leia o guia antes de configurar AWS.
+
+---
+
+A documentação abaixo preserva o histórico da Fase 3; contratos e configuração da Fase 4 estão nos links acima.
+
 # Oficina API
 
 Aplicação principal do Tech Challenge 3. Este repositório mantém o backend NestJS, o modelo Prisma, as migrações, a imagem OCI e o chart Helm executado no Amazon EKS. A autenticação de clientes por CPF é emitida pelo repositório `oficina-auth-serverless`; o login de operadores por e-mail e senha permanece disponível.

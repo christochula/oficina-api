@@ -62,6 +62,23 @@ export class TelemetryService implements OnModuleDestroy {
     this.increment('oficina.integrations.errors', { integration });
   }
 
+  sagaTransition(step: string, status: string): void {
+    this.increment('oficina.saga.transitions', { step, status });
+    if (status === 'COMPENSATED')
+      this.increment('oficina.saga.compensations', { step, status });
+  }
+
+  messageProcessed(failed = false): void {
+    this.increment(
+      failed ? 'oficina.messaging.failed' : 'oficina.messaging.processed',
+      { queue: 'os-events' },
+    );
+  }
+
+  sagaPendingAge(seconds: number, step = 'unknown'): void {
+    this.client.gauge('oficina.saga.pending_age_seconds', seconds, { step });
+  }
+
   async onModuleDestroy(): Promise<void> {
     await new Promise<void>((resolve) => this.client.close(() => resolve()));
   }

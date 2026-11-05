@@ -24,6 +24,8 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       open: false,
       proxy: {
+        '/api/v1/billing': proxyTo(env.VITE_DEV_BILLING_TARGET || 'http://localhost:3001'),
+        '/api/v1/production': proxyTo(env.VITE_DEV_PRODUCTION_TARGET || 'http://localhost:3002'),
         '/auth/token': proxyTo(authTarget),
         '/api': proxyTo(apiTarget),
       },

@@ -1,0 +1,99 @@
+{
+  "owner": "christochula",
+  "environment": "homolog",
+  "sharedRepositoryVariables": {
+    "SONAR_ORGANIZATION": "REPLACE_ORGANIZATION"
+  },
+  "sharedEnvironmentSecretsFromEnv": [
+    "AWS_ACCESS_KEY_ID",
+    "AWS_SECRET_ACCESS_KEY",
+    "AWS_SESSION_TOKEN"
+  ],
+  "sharedEnvironmentVariables": {
+    "TF_STATE_BUCKET": "REPLACE_EXISTING_STATE_BUCKET",
+    "VPC_ID": "REPLACE_VPC_ID",
+    "PRIVATE_SUBNET_IDS_JSON": "[\"REPLACE_SUBNET_A\",\"REPLACE_SUBNET_B\"]",
+    "EKS_NODE_SECURITY_GROUP_ID": "REPLACE_NODE_SECURITY_GROUP_ID"
+  },
+  "repositories": {
+    "oficina-api": {
+      "repositorySecretsFromEnv": [
+        "SONAR_TOKEN"
+      ],
+      "repositoryVariables": {
+        "SONAR_PROJECT_KEY": "REPLACE_OS_PROJECT_KEY",
+        "BILLING_CI_REF": "main",
+        "PRODUCTION_CI_REF": "main"
+      },
+      "environmentVariables": {
+        "OS_DATABASE_SECRET_ID": "REPLACE_OS_DATABASE_SECRET_ID",
+        "JWT_SECRET_ID": "REPLACE_SHARED_JWT_SECRET_ID",
+        "OS_RUNTIME_SECRET_ID": "REPLACE_OS_RUNTIME_SECRET_ID",
+        "OS_QUEUE_URL": "REPLACE_OS_QUEUE_URL",
+        "BILLING_QUEUE_URL": "REPLACE_BILLING_QUEUE_URL",
+        "PRODUCTION_QUEUE_URL": "REPLACE_PRODUCTION_QUEUE_URL",
+        "BILLING_SERVICE_URL": "http://oficina-billing:3001",
+        "PRODUCTION_SERVICE_URL": "http://oficina-production-service:3002"
+      }
+    },
+    "oficina-billing-service": {
+      "repositorySecretsFromEnv": [
+        "SONAR_TOKEN"
+      ],
+      "repositoryVariables": {
+        "SONAR_PROJECT_KEY": "REPLACE_BILLING_PROJECT_KEY"
+      },
+      "environmentVariables": {
+        "DATABASE_SECRET_ID": "REPLACE_BILLING_DATABASE_SECRET_ID",
+        "JWT_SECRET_ID": "REPLACE_SHARED_JWT_SECRET_ID",
+        "BILLING_RUNTIME_SECRET_ID": "REPLACE_BILLING_RUNTIME_SECRET_ID",
+        "BILLING_QUEUE_URL": "REPLACE_BILLING_QUEUE_URL",
+        "OS_QUEUE_URL": "REPLACE_OS_QUEUE_URL",
+        "MP_NOTIFICATION_URL": "https://REPLACE_PUBLIC_HOST/api/v1/billing/webhooks/mercadopago",
+        "MP_BACK_URL": "https://REPLACE_PORTAL_HOST/#/ordens"
+      }
+    },
+    "oficina-production-service": {
+      "repositorySecretsFromEnv": [
+        "SONAR_TOKEN"
+      ],
+      "repositoryVariables": {
+        "SONAR_PROJECT_KEY": "REPLACE_PRODUCTION_PROJECT_KEY"
+      },
+      "environmentVariables": {
+        "EKS_CLUSTER_NAME": "oficina-homolog-eks",
+        "OS_QUEUE_URL": "REPLACE_OS_QUEUE_URL"
+      }
+    },
+    "oficina-auth-serverless": {
+      "repositorySecretsFromEnv": [
+        "SONAR_TOKEN"
+      ],
+      "repositoryVariables": {
+        "SONAR_PROJECT_KEY": "REPLACE_AUTH_PROJECT_KEY"
+      },
+      "environmentVariables": {
+        "JWT_SECRET_ARN": "REPLACE_SHARED_JWT_SECRET_ARN",
+        "AUTH_CLIENT_LOOKUP_SECRET_ARN": "REPLACE_AUTH_LOOKUP_SECRET_ARN",
+        "BACKEND_URL": "http://REPLACE_OS_ELB",
+        "BILLING_BACKEND_URL": "http://REPLACE_BILLING_ELB:3001",
+        "PRODUCTION_BACKEND_URL": "http://REPLACE_PRODUCTION_ELB:3002",
+        "DATADOG_ENABLED": "true",
+        "DATADOG_API_KEY_SECRET_ARN": "REPLACE_DATADOG_API_KEY_SECRET_ARN",
+        "DD_SITE": "datadoghq.com"
+      }
+    },
+    "oficina-infra-database": {
+      "environmentVariables": {}
+    },
+    "oficina-infra-kubernetes": {
+      "environmentVariables": {
+        "DATADOG_ENABLED": "true",
+        "DATADOG_SECRET_ID": "oficina/fase4/datadog",
+        "DD_SITE": "datadoghq.com",
+        "DATADOG_API_URL": "https://api.datadoghq.com/",
+        "API_BASE_URL": "https://REPLACE_GATEWAY_HOST"
+      }
+    }
+  }
+}

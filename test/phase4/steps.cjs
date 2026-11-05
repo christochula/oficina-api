@@ -1,0 +1,14 @@
+const {Given,When,Then,BeforeAll,setDefaultTimeout}=require('@cucumber/cucumber');
+const assert=require('node:assert/strict');
+const h=require('./support.cjs');
+setDefaultTimeout(90000); let data;
+BeforeAll(async()=>{data=await h.setup();});
+Given('uma OS diagnosticada com orçamento aguardando aprovação',async function(){this.order=await h.prepare(data);});
+Given('uma OS cujo orçamento exige mais peças que o estoque',async function(){this.order=await h.prepare(data,2,1,'filial-rj');});
+When('o cliente aprova o orçamento',async function(){this.result=await h.approve(data,this.order);});
+Then('a Saga libera a execução',function(){assert.equal(this.result.sagaState,'COMPLETED');});
+When('o mecânico conclui o reparo e a cobrança é criada',async function(){await h.complete(data,this.order);});
+Then('a entrega permanece bloqueada',async function(){await h.request('os',`/api/v1/ordens-servico/${this.order.id}/entregar`,data.admin.accessToken,{},'PATCH',409);});
+When('o Mercado Pago confirma o pagamento',async function(){await h.pay(data,this.order);});
+Then('a oficina pode entregar o veículo',async function(){const result=await h.request('os',`/api/v1/ordens-servico/${this.order.id}/entregar`,data.admin.accessToken,{},'PATCH');assert.equal(result.status,'ENTREGUE');});
+Then('a Saga libera as reservas e preserva a aprovação',async function(){assert.equal(this.result.sagaState,'COMPENSATED');assert.equal(this.result.status,'APROVADA');const billing=await h.request('billing',`/api/v1/billing/orders/${this.order.id}`,data.clientToken);assert.equal(billing.budget.approved,true);assert.equal(billing.budget.frozen,false);const production=await h.request('production',`/api/v1/production/orders/${this.order.id}`,data.mechanic.accessToken);assert.notEqual(production.status,'READY');});

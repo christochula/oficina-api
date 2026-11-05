@@ -10,13 +10,19 @@ import { UsuarioModule } from './usuario/usuario.module';
 import { VeiculoModule } from './veiculo/veiculo.module';
 import { HealthModule } from './health/health.module';
 import { ObservabilityModule } from './shared/observability/observability.module';
+import { Phase4Module } from './phase4/module';
+
+const environment = ConfigModule.forRoot({ isGlobal: true });
+const distributed =
+  process.env.PHASE4_ENABLED === 'true' ||
+  (process.env.PHASE4_ENABLED !== 'false' && process.env.NODE_ENV !== 'test');
 
 // Módulo raiz da aplicação — registra todos os módulos de funcionalidade.
 // ConfigModule é global para que variáveis de ambiente (.env) sejam acessíveis em toda a app.
 // DatabaseModule é global (@Global) e disponibiliza o PrismaService sem importação explícita.
 @Module({
   imports: [
-    ConfigModule.forRoot({ isGlobal: true }), // carrega .env e expõe ConfigService globalmente
+    environment,
     ObservabilityModule, // logger JSON, correlação e métricas de negócio Datadog
     DatabaseModule, // PrismaService global — deve ser importado antes dos módulos de domínio
     HealthModule, // liveness e readiness usados por Kubernetes e Datadog Synthetics
@@ -25,8 +31,7 @@ import { ObservabilityModule } from './shared/observability/observability.module
     ClienteModule, // gerenciamento de clientes da oficina
     VeiculoModule, // gerenciamento de veículos atendidos
     ServicoOficinaModule, // catálogo de serviços da oficina — base para OS
-    OrdemServicoModule, // ciclo de vida completo das OS — aggregate central
-    EstoqueModule, // controle de peças e quantidades
+    ...(distributed ? [Phase4Module] : [OrdemServicoModule, EstoqueModule]),
   ],
 })
 export class AppModule {}

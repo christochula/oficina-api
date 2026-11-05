@@ -11,6 +11,7 @@ import { RespostaInterceptor } from './interceptors/resposta.interceptor';
 import { JsonLoggerService } from '../observability/json-logger.service';
 import { requestContext } from '../observability/request-context';
 import { TelemetryService } from '../observability/telemetry.service';
+import { captureTraceparent } from '../observability/trace-context';
 import { sanitizeHttpPath } from './sanitize-http-path';
 
 export function configurarAplicacao(
@@ -68,37 +69,43 @@ export function configurarAplicacao(
     res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Content-Security-Policy', contentSecurityPolicy);
 
-    requestContext.run({ correlationId }, () => {
-      res.once('finish', () => {
-        const durationMs =
-          Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-        const route = sanitizeHttpPath(req.path);
+    requestContext.run(
+      {
+        correlationId,
+        traceparent: captureTraceparent(req.header('traceparent')),
+      },
+      () => {
+        res.once('finish', () => {
+          const durationMs =
+            Number(process.hrtime.bigint() - startedAt) / 1_000_000;
+          const route = sanitizeHttpPath(req.path);
 
-        logger.log(
-          {
-            event: 'http_request_completed',
-            method: req.method,
-            path: route,
-            status_code: res.statusCode,
-            duration_ms: Number(durationMs.toFixed(2)),
-          },
-          'HttpRequest',
-        );
-        telemetry.apiRequest(durationMs, req.method, res.statusCode);
+          logger.log(
+            {
+              event: 'http_request_completed',
+              method: req.method,
+              path: route,
+              status_code: res.statusCode,
+              duration_ms: Number(durationMs.toFixed(2)),
+            },
+            'HttpRequest',
+          );
+          telemetry.apiRequest(durationMs, req.method, res.statusCode);
 
-        if (res.statusCode >= 500 && req.path.includes('/ordens-servico')) {
-          telemetry.serviceOrderProcessingFailure('http_request');
-        }
-        if (
-          res.statusCode >= 400 &&
-          (req.path.includes('/webhook') || req.path.includes('/integracoes'))
-        ) {
-          telemetry.integrationError('http');
-        }
-      });
+          if (res.statusCode >= 500 && req.path.includes('/ordens-servico')) {
+            telemetry.serviceOrderProcessingFailure('http_request');
+          }
+          if (
+            res.statusCode >= 400 &&
+            (req.path.includes('/webhook') || req.path.includes('/integracoes'))
+          ) {
+            telemetry.integrationError('http');
+          }
+        });
 
-      next();
-    });
+        next();
+      },
+    );
   });
 
   app.setGlobalPrefix('api');
