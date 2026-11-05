@@ -56,12 +56,12 @@ class Architecture(Flowable):
         c.setFillColor(MUTED);c.setFont("Helvetica",8)
         c.drawString(0,0,"EKS compartilhado | Bancos exclusivos | Datadog: traces, logs e métricas")
 
-draft=not DATA.get("participantes") or not DATA.get("video_url")
+draft=not DATA.get("participantes") or not DATA.get("video_url") or any(not person.get("identificacao") for person in DATA.get("participantes", []))
 story.extend([Spacer(1,20),p("Oficina<br/>Tech Challenge - Fase 4","Cover"),p("Microsserviços, Saga Pattern e entrega automatizada","Subtitle4")])
 if draft:story.append(p("<b>RASCUNHO DE ENTREGA</b> - identificação dos participantes e/ou vídeo ainda pendentes."))
 story.extend([p("Participantes","Heading2")])
 if DATA.get("participantes"):
-    for person in DATA["participantes"]:story.append(p(f"{person['nome']} - {person['identificacao']}"))
+    for person in DATA["participantes"]:story.append(p(f"{person['nome']} - {person.get('identificacao') or 'RM pendente'}"))
 else:story.append(p("Identificação dos participantes: pendente de preenchimento pelo grupo."))
 story.append(p("Repositórios","Heading2"))
 for url in DATA["repositorios"]:

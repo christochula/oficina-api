@@ -1,5 +1,8 @@
 {
-  "participantes": [],
+  "participantes": [
+    { "nome": "Matheus Chula", "identificacao": "" },
+    { "nome": "Karina Lage", "identificacao": "" }
+  ],
   "video_url": "",
   "ambiente": "homolog",
   "repositorios": [
