@@ -6,6 +6,7 @@ O runtime distribuído usa este repositório como OS Service e orquestrador da S
 - [Configuração: onde preencher cada chave, senha e token](docs/fase4/configuracao.md)
 - [Testes, evidências, roteiro do vídeo e PDF](docs/fase4/entrega.md)
 - [Resultados da validação local](docs/fase4/validacao-local.md)
+- [Repositórios publicados, PRs e proteções](docs/fase4/publicacao.md)
 
 Quickstart: manter os três repositórios lado a lado, executar `docker compose -f compose.phase4.yml up -d --build`, `npm run test:bdd` e `npm run test:frontend:e2e`. `PHASE4_ENABLED=true` é o modo de entrega; `false` preserva a regressão histórica da Fase 3. Leia o guia antes de configurar AWS.
 

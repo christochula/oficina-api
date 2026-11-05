@@ -1,6 +1,6 @@
 # Configuração de CI/CD Fase 4
 
-`configure-repositories.mjs` define proteção de `main` nos seis repositórios com PR obrigatório, uma aprovação e nomes reais dos checks. Por padrão somente mostra ações, nomes de variables e nomes de secrets. Nunca mostra valores secretos. **Não foi executado contra o GitHub.**
+`configure-repositories.mjs` define proteção de `main` nos seis repositórios com PR obrigatório, uma aprovação e nomes reais dos checks. Por padrão somente mostra ações, nomes de variables e nomes de secrets. Nunca mostra valores secretos. **As proteções e os Environments homolog foram aplicados e verificados no GitHub após autorização do usuário.** Credenciais externas ainda devem ser preenchidas; consulte [publicação e revisão](../docs/fase4/publicacao.md).
 
 ```sh
 node scripts/configure-repositories.mjs
