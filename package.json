@@ -24,7 +24,9 @@
     "seed:demo": "ts-node prisma/seed-demo.ts",
     "seed:demo:validate": "ts-node prisma/seed-demo.ts --validate-only",
     "test:bdd": "cucumber-js test/phase4/features/*.feature --require test/phase4/steps.cjs --format progress --format json:bdd-report.json",
-    "test:frontend:e2e": "playwright test -c test/phase4/playwright.config.cjs"
+    "test:frontend:e2e": "playwright test -c test/phase4/playwright.config.cjs",
+    "test:frontend:manual": "playwright test -c test/phase4/manual-playwright.config.cjs",
+    "seed:local-demo": "node scripts/seed-local-demo.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.1123.0",

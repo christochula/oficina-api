@@ -16,4 +16,11 @@ for endpoint in http://localhost:3000/api/health/ready http://localhost:3001/api
   done
   if [ "$ready" != true ]; then echo "Readiness timeout: $endpoint" >&2; exit 1; fi
 done
-if [ "$suite" = bdd ]; then npm run test:bdd; else npm run test:frontend:e2e; fi
+if [ "$suite" = bdd ]; then
+  npm run test:bdd
+else
+  node scripts/seed-local-demo.cjs
+  export LOCAL_DEMO_MODE=true
+  npm run test:frontend:e2e
+  npm run test:frontend:manual
+fi

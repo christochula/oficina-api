@@ -18,7 +18,7 @@ npm run test:frontend:e2e
 
 O Compose usa dois PostgreSQL, LocalStack com DynamoDB/SQS e um simulador HTTP do Mercado Pago. Somente nesse ambiente os segredos e senhas locais do arquivo Compose são usados. Os bancos são separados e os serviços usam somente suas conexões.
 
-O BDD cria dados fictícios pelas APIs dos serviços responsáveis. São Paulo (`filial-sp`) e Rio de Janeiro (`filial-rj`) têm estoques independentes. Para abrir o portal durante desenvolvimento, execute `npm run dev --prefix frontend` e use `http://localhost:5173`. Login local de administrador após o BDD: `admin@oficina.com`, senha de demonstração definida em `test/phase4/support.cjs`. Nos testes locais, a sessão de cliente é emitida pelo fixture com a chave exclusiva de demonstração. O login por CPF via Lambda é validado no ambiente AWS, após configuração dos acessos. Isso não configura credenciais AWS.
+O BDD cria dados fictícios pelas APIs dos serviços responsáveis. São Paulo (`filial-sp`) e Rio de Janeiro (`filial-rj`) têm estoques independentes. O [roteiro de teste pelo navegador](teste-navegador-local.md) prepara os acessos fictícios e habilita login por CPF pelo adaptador de desenvolvimento, que consulta o cadastro real do OS. O checkout local é simulado e preserva seus dados após reinícios. Na AWS, o login por CPF usa a Lambda e o checkout consulta o Mercado Pago com as credenciais da conta vendedora de teste verificada. As credenciais locais de demonstração não são usadas no deploy.
 
 ## Onde preencher cada segredo
 

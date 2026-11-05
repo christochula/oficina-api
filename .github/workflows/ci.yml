@@ -40,6 +40,7 @@ jobs:
       - run: npm run test:cov -- --runInBand
       - run: npm run build
       - run: node --test scripts/check-deploy-gates.test.mjs
+      - run: node --test test/phase4/mercadopago-stub.test.cjs
       - uses: actions/upload-artifact@v4
         with: { name: os-coverage, path: coverage/ }
   integration:
@@ -123,6 +124,8 @@ jobs:
             oficina-api/bdd-report.json
             oficina-api/playwright-report/
             oficina-api/test-results/
+            oficina-api/output/phase4-manual-e2e/
+            oficina-api/output/phase4-manual-e2e-report.json
             oficina-api/phase4-compose.log
   container:
     name: Container

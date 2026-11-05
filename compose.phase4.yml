@@ -30,7 +30,10 @@ services:
   mercadopago:
     image: node:22-alpine
     command: [node, /stub.cjs]
-    volumes: ["./test/phase4/mercadopago-stub.cjs:/stub.cjs:ro"]
+    environment: { DEMO_STATE_FILE: /data/state.json }
+    volumes:
+      - ./test/phase4/mercadopago-stub.cjs:/stub.cjs:ro
+      - ./.tmp/mercadopago-demo:/data
     ports: ["8088:8088"]
   billing:
     build: ../oficina-billing-service
@@ -46,7 +49,6 @@ services:
       MP_API_BASE_URL: http://mercadopago:8088
       MP_NOTIFICATION_URL: http://billing:3001/api/v1/billing/webhooks/mercadopago
       MP_BACK_URL: http://localhost:5173/#/ordens
-      MP_SANDBOX: "true"
     ports: ["3001:3001"]
     depends_on: { billing-db: { condition: service_healthy }, localstack: { condition: service_healthy } }
   production:

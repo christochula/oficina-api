@@ -85,3 +85,5 @@ kubeconfig-*
 /bdd-report.json
 /output/pdf/page-*.png
 /phase4-compose.log
+/output/phase4-manual-e2e/
+/output/phase4-manual-e2e-report.json

@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, loadEnv } from 'vite';
+import { localDemoAuthPlugin } from './dev/local-demo-auth.mjs';
 
 function proxyTo(target) {
   return {
@@ -15,7 +16,7 @@ export default defineConfig(({ mode }) => {
   const authTarget = env.VITE_DEV_AUTH_TARGET || apiTarget;
 
   return {
-    plugins: [tailwindcss()],
+    plugins: [tailwindcss(), localDemoAuthPlugin({ env, apiTarget })],
     base: '/',
     envPrefix: 'VITE_',
     server: {

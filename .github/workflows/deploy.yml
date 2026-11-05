@@ -44,7 +44,7 @@ jobs:
         with:
           context: .
           push: true
-          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}-${{ github.run_number }}
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.event.workflow_run.head_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           build-args: |
             VITE_API_BASE_URL=${{ vars.FRONTEND_API_BASE_URL || '/api/v1' }}
             VITE_CLIENT_AUTH_BASE_URL=${{ vars.FRONTEND_CLIENT_AUTH_BASE_URL || '' }}
@@ -61,7 +61,7 @@ jobs:
       - name: Deploy Fase 4 without replacing legacy namespace
         env:
           IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
-          TAG: ${{ github.event.workflow_run.head_sha }}-${{ github.run_number }}
+          TAG: ${{ github.event.workflow_run.head_sha }}-${{ github.run_id }}-${{ github.run_attempt }}
           INBOX_QUEUE_URL: ${{ vars.OS_QUEUE_URL }}
           BILLING_QUEUE_URL: ${{ vars.BILLING_QUEUE_URL }}
           PRODUCTION_QUEUE_URL: ${{ vars.PRODUCTION_QUEUE_URL }}
