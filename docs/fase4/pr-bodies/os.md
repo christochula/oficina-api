@@ -1,0 +1,3 @@
+O ciclo da OS passa a coordenar orçamento e produção em serviços independentes, com bancos exclusivos, Saga persistente, outbox/inbox, compensações e cobrança após o reparo. O portal mantém suas rotas e ganha estados de preparação/pagamento; a API só permite entregar um veículo com pagamento confirmado.
+
+Inclui Terraform/Helm e CI/CD independentes, contratos OpenAPI/Postman, configuração dos acessos e rascunho do PDF. Validação local: 551 testes do OS, 64 do portal, BDD com três serviços, Playwright, quatro cenários de resiliência e regressão E2E da Fase 3. Os gates de cobertura passam nas quatro métricas. Deploy AWS, SonarCloud, Mercado Pago de teste e Datadog dependem dos acessos externos; não foram apresentados como executados.

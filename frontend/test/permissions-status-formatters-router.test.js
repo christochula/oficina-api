@@ -51,9 +51,12 @@ test('ações de OS respeitam estado e responsável pelo fluxo', () => {
     [ORDER_ACTIONS.START],
   );
   assert.deepEqual(
-    getAllowedOrderActions(ROLES.ADMIN, ORDER_STATUS.FINISHED),
+    getAllowedOrderActions(ROLES.ADMIN, ORDER_STATUS.READY_FOR_DELIVERY),
     [ORDER_ACTIONS.DELIVER],
   );
+  assert.deepEqual(getAllowedOrderActions(ROLES.ADMIN, ORDER_STATUS.FINISHED), []);
+  assert.deepEqual(getAllowedOrderActions(ROLES.ADMIN, ORDER_STATUS.AWAITING_PAYMENT), []);
+  assert.deepEqual(getAllowedOrderActions(ROLES.CLIENT, ORDER_STATUS.AWAITING_PAYMENT), [ORDER_ACTIONS.PAY]);
 });
 
 test('timeline cancelada encerra no ramo de rejeição', () => {

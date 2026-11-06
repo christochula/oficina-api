@@ -844,14 +844,15 @@ function vehicleForm(item, editing) {
 
 function stockForm(item, editing) {
   return `<div class="form-grid">
+    ${inputField({ name: 'filialId', label: 'Filial', value: item?.filialId || 'filial-sp', required: true, readonly: editing, hint: 'Saldo e reservas pertencem a esta filial.' })}
     ${inputField({ name: 'codigo', label: 'Código da peça', value: item?.peca?.codigo, required: true, readonly: editing, hint: editing ? 'O código é imutável.' : undefined })}
     ${inputField({ name: 'nome', label: 'Nome da peça', value: item?.peca?.nome, required: true, minlength: 2 })}
     ${inputField({ name: 'precoVenda', label: 'Preço de venda', value: item?.peca?.precoVenda ?? '', type: 'number', required: true, min: 0, step: '0.01', inputmode: 'decimal' })}
     ${
       editing
         ? ''
-        : inputField({ name: 'quantidadeInicial', label: 'Quantidade inicial', value: 0, type: 'number', min: 0, step: '0.001', inputmode: 'decimal' }) +
-          inputField({ name: 'quantidadeMinima', label: 'Quantidade mínima', value: 0, type: 'number', min: 0, step: '0.001', inputmode: 'decimal', hint: 'Definida somente no cadastro nesta versão da API.' })
+        : inputField({ name: 'quantidadeInicial', label: 'Quantidade inicial', value: 0, type: 'number', min: 0, step: '1', inputmode: 'numeric' }) +
+          inputField({ name: 'quantidadeMinima', label: 'Quantidade mínima', value: 0, type: 'number', min: 0, step: '1', inputmode: 'numeric', hint: 'Definida somente no cadastro nesta versão da API.' })
     }
     ${textAreaField({ name: 'descricao', label: 'Descrição', value: item?.peca?.descricao })}
   </div>`;
@@ -893,7 +894,7 @@ function dialogCopy(key, mode, item) {
       title: 'Dar entrada no estoque',
       description: `Adicione unidades ao saldo de ${item?.peca?.nome ?? 'esta peça'}.`,
       submit: 'Registrar entrada',
-      body: `<div class="form-grid">${inputField({ name: 'quantidade', label: 'Quantidade de entrada', type: 'number', required: true, min: '0.001', step: '0.001', inputmode: 'decimal', hint: 'Informe um valor maior que zero.' })}</div>`,
+      body: `<div class="form-grid">${inputField({ name: 'quantidade', label: 'Quantidade de entrada', type: 'number', required: true, min: '1', step: '1', inputmode: 'numeric', hint: 'Informe uma quantidade inteira de unidades.' })}</div>`,
     };
   const editing = mode === 'edit';
   const titles = {
@@ -1171,6 +1172,7 @@ function buildPayload(key, mode, formData, item = null) {
     if (mode === 'edit') return { ...base, descricao: base.descricao ?? null };
     return compactObject({
       codigo: formValue(formData, 'codigo'),
+      filialId: formValue(formData, 'filialId') || 'filial-sp',
       ...base,
       quantidadeInicial: numericValue(formData, 'quantidadeInicial', { optional: true }),
       quantidadeMinima: numericValue(formData, 'quantidadeMinima', { optional: true }),
@@ -1406,16 +1408,17 @@ export function mountResourcesView(root, route, ctx = {}) {
 
   const mutationPath = (mode, item, active) => {
     const id = itemId(key, item);
+    const branchQuery = key === 'estoque' && item?.filialId ? `?filialId=${encodeURIComponent(item.filialId)}` : '';
     if (mode === 'create')
       return key === 'estoque' ? `${definition.endpoint}/pecas` : definition.endpoint;
     if (mode === 'entry')
-      return `${definition.endpoint}/pecas/${encodeURIComponent(id)}/entrada`;
+      return `${definition.endpoint}/pecas/${encodeURIComponent(id)}/entrada${branchQuery}`;
     const base =
       key === 'estoque'
         ? `${definition.endpoint}/pecas/${encodeURIComponent(id)}`
         : `${definition.endpoint}/${encodeURIComponent(id)}`;
-    if (mode === 'toggle') return `${base}/${active ? 'desativar' : 'ativar'}`;
-    return base;
+    if (mode === 'toggle') return `${base}/${active ? 'desativar' : 'ativar'}${branchQuery}`;
+    return `${base}${branchQuery}`;
   };
 
   const submitMutation = async (form, mode) => {

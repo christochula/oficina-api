@@ -1,0 +1,16 @@
+{
+  "participantes": [
+    { "nome": "Matheus Chula", "identificacao": "" },
+    { "nome": "Karina Lage", "identificacao": "" }
+  ],
+  "video_url": "",
+  "ambiente": "homolog",
+  "repositorios": [
+    "https://github.com/christochula/oficina-api",
+    "https://github.com/christochula/oficina-billing-service",
+    "https://github.com/christochula/oficina-production-service",
+    "https://github.com/christochula/oficina-auth-serverless",
+    "https://github.com/christochula/oficina-infra-kubernetes",
+    "https://github.com/christochula/oficina-infra-database"
+  ]
+}

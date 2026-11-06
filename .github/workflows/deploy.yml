@@ -1,111 +1,125 @@
 name: Deploy
-
 on:
-  push:
+  workflow_run:
+    workflows: [CI]
     branches: [main]
+    types: [completed]
   workflow_dispatch:
-
+    inputs:
+      target_ref:
+        description: Branch revisada que contem o commit aprovado no CI
+        required: true
+        type: string
+      target_sha:
+        description: SHA completo de 40 caracteres, deve ser o HEAD da branch
+        required: true
+        type: string
+  push:
+    tags: ["phase4/os-deploy-*"]
 permissions:
   contents: read
-
+  actions: read
 concurrency:
-  group: deploy-main
+  group: deploy-phase4-os
   cancel-in-progress: false
-
 env:
   AWS_REGION: us-east-1
-  ENVIRONMENT: homolog
-  NAMESPACE: oficina
-  ECR_REPOSITORY: oficina-homolog-api
-  CLUSTER_NAME: oficina-homolog-eks
-
+  NAMESPACE: oficina-fase4
+  ECR_REPOSITORY: oficina-fase4-os
+  CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME || 'oficina-homolog-eks' }}
 jobs:
   deploy:
+    name: Deploy OS
+    environment: homolog
+    if: github.event_name != 'workflow_run' || (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push' && github.event.workflow_run.head_branch == 'main')
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    env:
+      TARGET_SHA: ${{ inputs.target_sha || github.event.workflow_run.head_sha || github.sha }}
+      TARGET_REF: ${{ inputs.target_ref || github.event.workflow_run.head_branch || vars.DEPLOY_SOURCE_REF || 'feature/phase4-distributed' }}
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Configure AWS credentials (AWS Academy session keys)
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Checkout reviewed workflow controls before target source
+        uses: actions/checkout@v4
+        with: { ref: "${{ github.workflow_sha }}" }
+      - name: Verify exact commit passed every required gate before publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REQUIRED_DEPLOY_GATES: Quality,Integration,Sonar,Frontend,BDD,Container
+          CI_WORKFLOW_FILE: ci.yml
+          DISPATCH_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}
+          DISPATCH_REF: ${{ github.event_name == 'workflow_dispatch' && github.ref || '' }}
+        run: node scripts/check-deploy-gates.mjs
+      - name: Checkout exact tested source
+        uses: actions/checkout@v4
+        with: { ref: "${{ env.TARGET_SHA }}" }
+      - uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
           aws-region: ${{ env.AWS_REGION }}
-
-      - id: ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
+      - name: Resolve kubectl version matching the EKS cluster minor
+        id: kubectl
+        run: |
+          set -euo pipefail
+          minor="$(aws eks describe-cluster --name "$CLUSTER_NAME" --query cluster.version --output text)"
+          [[ "$minor" =~ ^1\.[0-9]+$ ]] || { echo 'Unexpected EKS version'; exit 1; }
+          version="$(curl --fail --silent --show-error --location --proto '=https' --tlsv1.2 "https://dl.k8s.io/release/stable-${minor}.txt")"
+          [[ "$version" =~ ^v1\.[0-9]+\.[0-9]+$ ]] || { echo 'Unexpected official kubectl version'; exit 1; }
+          case "$version" in "v$minor".*) ;; *) echo 'kubectl minor must match EKS'; exit 1 ;; esac
+          printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+      - uses: azure/setup-kubectl@v4
+        with:
+          version: ${{ steps.kubectl.outputs.version }}
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
       - uses: docker/setup-buildx-action@v3
-
-      - name: Build and push image
-        uses: docker/build-push-action@v6
+      - uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ env.TARGET_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
           build-args: |
             VITE_API_BASE_URL=${{ vars.FRONTEND_API_BASE_URL || '/api/v1' }}
             VITE_CLIENT_AUTH_BASE_URL=${{ vars.FRONTEND_CLIENT_AUTH_BASE_URL || '' }}
-          tags: |
-            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}-${{ github.run_number }}
-            ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
-
       - uses: azure/setup-helm@v4
-        with:
-          version: v3.17.3
-
-      - name: Configure kubectl for EKS
-        run: aws eks update-kubeconfig --name "${{ env.CLUSTER_NAME }}" --region "${{ env.AWS_REGION }}"
-
-      - name: Create application Secret from AWS Secrets Manager
+        with: { version: v3.17.3 }
+      - name: Configure Kubernetes and isolated runtime secret
+        env:
+          DATABASE_SECRET_ID: ${{ vars.OS_DATABASE_SECRET_ID }}
+          JWT_SECRET_ID: ${{ vars.JWT_SECRET_ID }}
+          RUNTIME_SECRET_ID: ${{ vars.OS_RUNTIME_SECRET_ID }}
+        run: bash scripts/prepare-os-deploy-secrets.sh
+      - name: Deploy Fase 4 without replacing legacy namespace
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}
+          TAG: ${{ env.TARGET_SHA }}-${{ github.run_id }}-${{ github.run_attempt }}
+          INBOX_QUEUE_URL: ${{ vars.OS_QUEUE_URL }}
+          BILLING_QUEUE_URL: ${{ vars.BILLING_QUEUE_URL }}
+          PRODUCTION_QUEUE_URL: ${{ vars.PRODUCTION_QUEUE_URL }}
+          BILLING_SERVICE_URL: ${{ vars.BILLING_SERVICE_URL || 'http://oficina-billing:3001' }}
+          PRODUCTION_SERVICE_URL: ${{ vars.PRODUCTION_SERVICE_URL || 'http://oficina-production-service:3002' }}
+          CORS_ORIGIN: ${{ vars.CORS_ORIGIN }}
+          DD_ENABLED: ${{ vars.DD_ENABLED || 'true' }}
+          DD_SITE: ${{ vars.DD_SITE || 'datadoghq.com' }}
+          CLIENT_AUTH_URL: ${{ vars.FRONTEND_CLIENT_AUTH_BASE_URL }}
+          NOTIFICATION_QUEUE_URL: ${{ vars.NOTIFICATION_QUEUE_URL }}
         run: |
           set -euo pipefail
-          DB_SECRET_ID="${{ vars.DATABASE_SECRET_ID || 'oficina/homolog/database/connection' }}"
-          JWT_SECRET_ID="${{ vars.JWT_SECRET_ID || 'oficina/homolog/jwt' }}"
-
-          DB_JSON="$(aws secretsmanager get-secret-value --secret-id "$DB_SECRET_ID" --query SecretString --output text)"
-          JWT_JSON="$(aws secretsmanager get-secret-value --secret-id "$JWT_SECRET_ID" --query SecretString --output text)"
-
-          DATABASE_URL="$(jq -r '.url' <<<"$DB_JSON")"
-          JWT_SECRET="$(jq -r '.secret' <<<"$JWT_JSON")"
-          JWT_REFRESH_SECRET="$(jq -r '.refreshSecret' <<<"$JWT_JSON")"
-          for v in DATABASE_URL JWT_SECRET JWT_REFRESH_SECRET; do echo "::add-mask::${!v}"; done
-
-          kubectl create namespace "${NAMESPACE}" --dry-run=client -o yaml | kubectl apply -f -
-          kubectl create secret generic oficina-api -n "${NAMESPACE}" \
-            --from-literal=DATABASE_URL="$DATABASE_URL" \
-            --from-literal=JWT_SECRET="$JWT_SECRET" \
-            --from-literal=JWT_REFRESH_SECRET="$JWT_REFRESH_SECRET" \
-            --from-literal=JWT_EXPIRATION="15m" \
-            --from-literal=JWT_REFRESH_EXPIRATION="7d" \
-            --from-literal=ADMIN_SEED_PASSWORD="${{ secrets.ADMIN_SEED_PASSWORD || 'Admin@123' }}" \
-            --from-literal=ORCAMENTO_WEBHOOK_TOKEN="${{ secrets.ORCAMENTO_WEBHOOK_TOKEN || 'webhook-token-demo' }}" \
-            --dry-run=client -o yaml | kubectl apply -f -
-
-      - name: Deploy with Helm
+          helm upgrade --install oficina-api helm/oficina-api --namespace "$NAMESPACE" --create-namespace --atomic --wait --timeout 12m \
+            --set-string image.repository="$IMAGE" --set-string image.tag="$TAG" \
+            --set-string config.phase4Enabled=true --set-string config.ddVersion="$TAG" \
+            --set-string config.inboxQueueUrl="$INBOX_QUEUE_URL" --set-string config.billingQueueUrl="$BILLING_QUEUE_URL" \
+            --set-string config.productionQueueUrl="$PRODUCTION_QUEUE_URL" --set-string config.billingServiceUrl="$BILLING_SERVICE_URL" \
+            --set-string config.productionServiceUrl="$PRODUCTION_SERVICE_URL" --set-string config.ddEnabled="$DD_ENABLED" \
+            --set-string config.ddSite="$DD_SITE" --set-string config.corsOrigin="$CORS_ORIGIN" \
+            --set-string config.cspConnectSrc="$CLIENT_AUTH_URL" --set-string config.notificationQueueUrl="$NOTIFICATION_QUEUE_URL"
+          kubectl rollout status deployment/oficina-api -n "$NAMESPACE" --timeout=5m
+          kubectl get pods,svc,hpa -n "$NAMESPACE"
+      - name: Ensure the initial administrator exists after migrations and rollout
         run: |
-          helm upgrade --install oficina-api ./helm/oficina-api \
-            --namespace "${NAMESPACE}" --create-namespace \
-            --atomic --wait --timeout 12m \
-            --set environment="${ENVIRONMENT}" \
-            --set image.repository="${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}" \
-            --set image.tag="${{ github.sha }}-${{ github.run_number }}" \
-            --set config.ddVersion="${{ github.sha }}" \
-            --set config.corsOrigin="${{ vars.CORS_ORIGIN || '*' }}" \
-            --set config.cspConnectSrc="${{ vars.FRONTEND_CLIENT_AUTH_BASE_URL }}" \
-            --set config.ddSite="${{ vars.DD_SITE || 'datadoghq.com' }}" \
-            --set config.ddEnabled="${{ vars.DD_ENABLED || 'false' }}" \
-            --set config.notificationQueueUrl="${{ vars.NOTIFICATION_QUEUE_URL }}"
-
-      - name: Verify rollout and expose URL
-        run: |
-          kubectl rollout status deployment/oficina-api -n "${NAMESPACE}" --timeout=5m
-          kubectl get pods,svc,hpa -n "${NAMESPACE}"
-          LB="$(kubectl get svc oficina-api -n "${NAMESPACE}" -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')"
-          echo "### Deploy OK" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Imagem: \`${{ github.sha }}\`" >> "$GITHUB_STEP_SUMMARY"
-          echo "- LoadBalancer: http://${LB}" >> "$GITHUB_STEP_SUMMARY"
-          echo "- Swagger: http://${LB}/api/docs" >> "$GITHUB_STEP_SUMMARY"
+          set -euo pipefail
+          kubectl exec -n "$NAMESPACE" deployment/oficina-api -c api -- node dist/prisma/seed.js

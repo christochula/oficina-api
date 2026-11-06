@@ -1,5 +1,6 @@
 # Normaliza line endings para LF no repositório
 * text=auto eol=lf
+*.pdf binary
 
 # Arquivos binários — sem conversão
 *.png binary

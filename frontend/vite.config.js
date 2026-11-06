@@ -1,5 +1,6 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig, loadEnv } from 'vite';
+import { localDemoAuthPlugin } from './dev/local-demo-auth.mjs';
 
 function proxyTo(target) {
   return {
@@ -15,7 +16,7 @@ export default defineConfig(({ mode }) => {
   const authTarget = env.VITE_DEV_AUTH_TARGET || apiTarget;
 
   return {
-    plugins: [tailwindcss()],
+    plugins: [tailwindcss(), localDemoAuthPlugin({ env, apiTarget })],
     base: '/',
     envPrefix: 'VITE_',
     server: {
@@ -24,6 +25,8 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       open: false,
       proxy: {
+        '/api/v1/billing': proxyTo(env.VITE_DEV_BILLING_TARGET || 'http://localhost:3001'),
+        '/api/v1/production': proxyTo(env.VITE_DEV_PRODUCTION_TARGET || 'http://localhost:3002'),
         '/auth/token': proxyTo(authTarget),
         '/api': proxyTo(apiTarget),
       },

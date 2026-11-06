@@ -326,10 +326,10 @@ test('atribuição de OS usa busca dinâmica e submit real para selecionar mecâ
   assert.match(actions, /form="order-action-form"/);
 });
 
-test('fila interna informa seu escopo parcial sem prometer histórico completo', () => {
+test('fila interna informa as etapas distribuídas de pagamento e entrega', () => {
   const html = renderOrdersListView({ role: ROLES.ADMIN });
   assert.match(html, /Escopo da fila/);
-  assert.match(html, /demais estados não compõem esta listagem/);
+  assert.match(html, /preparação, execução, pagamento e entrega/);
 });
 
 test('gestão de recursos respeita gating de papéis', () => {

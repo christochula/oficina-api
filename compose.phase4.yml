@@ -1,0 +1,80 @@
+name: oficina-phase4
+x-runtime: &runtime
+  NODE_ENV: development
+  JWT_SECRET: local-only-access-secret-32-bytes-minimum
+  JWT_REFRESH_SECRET: local-only-refresh-secret-32-bytes-minimum
+  JWT_ISSUER: oficina-auth-serverless
+  JWT_AUDIENCE: oficina-api
+  AUTH_CLIENT_LOOKUP_TOKEN: local-only-internal-token-32-bytes-minimum
+  AWS_REGION: us-east-1
+  AWS_ENDPOINT_URL: http://localstack:4566
+  AWS_ACCESS_KEY_ID: test
+  AWS_SECRET_ACCESS_KEY: test
+  DD_TRACE_ENABLED: "false"
+  DD_METRICS_ENABLED: "false"
+services:
+  os-db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: os, POSTGRES_PASSWORD: local-os-only, POSTGRES_DB: oficina_os }
+    healthcheck: { test: [CMD-SHELL, "pg_isready -U os -d oficina_os"], interval: 2s, timeout: 3s, retries: 30 }
+  billing-db:
+    image: postgres:16-alpine
+    environment: { POSTGRES_USER: billing, POSTGRES_PASSWORD: local-billing-only, POSTGRES_DB: oficina_billing }
+    healthcheck: { test: [CMD-SHELL, "pg_isready -U billing -d oficina_billing"], interval: 2s, timeout: 3s, retries: 30 }
+  localstack:
+    image: localstack/localstack:4.10
+    environment: { SERVICES: "sqs,dynamodb", AWS_DEFAULT_REGION: us-east-1, SQS_ENDPOINT_STRATEGY: path }
+    ports: ["4566:4566"]
+    volumes: ["./test/phase4/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro"]
+    healthcheck: { test: [CMD-SHELL, "test -f /tmp/phase4-ready || awslocal dynamodb describe-table --table-name oficina-production >/dev/null"], interval: 3s, timeout: 5s, retries: 40 }
+  mercadopago:
+    image: node:22-alpine
+    command: [node, /stub.cjs]
+    environment: { DEMO_STATE_FILE: /data/state.json }
+    volumes:
+      - ./test/phase4/mercadopago-stub.cjs:/stub.cjs:ro
+      - ./.tmp/mercadopago-demo:/data
+    ports: ["8088:8088"]
+  billing:
+    build: ../oficina-billing-service
+    environment:
+      <<: *runtime
+      PORT: 3001
+      DATABASE_URL: postgresql://billing:local-billing-only@billing-db:5432/oficina_billing
+      DATABASE_SSL: "false"
+      INBOX_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/billing-commands
+      OS_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/os-events
+      MP_ACCESS_TOKEN: TEST-local-provider-only
+      MP_WEBHOOK_SECRET: local-only-webhook-secret
+      MP_API_BASE_URL: http://mercadopago:8088
+      MP_NOTIFICATION_URL: http://billing:3001/api/v1/billing/webhooks/mercadopago
+      MP_BACK_URL: http://localhost:5173/#/ordens
+    ports: ["3001:3001"]
+    depends_on: { billing-db: { condition: service_healthy }, localstack: { condition: service_healthy } }
+  production:
+    build: ../oficina-production-service
+    environment:
+      <<: *runtime
+      PORT: 3002
+      DYNAMODB_TABLE_NAME: oficina-production
+      INBOX_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/production-commands
+      OS_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/os-events
+      ENABLE_DEMO_FAILURES: "true"
+    ports: ["3002:3002"]
+    depends_on: { localstack: { condition: service_healthy } }
+  os:
+    build: .
+    command: [sh, -c, "npx prisma migrate deploy && node --require dd-trace/init dist/src/main"]
+    environment:
+      <<: *runtime
+      PHASE4_ENABLED: "true"
+      PORT: 3000
+      DATABASE_URL: postgresql://os:local-os-only@os-db:5432/oficina_os
+      BILLING_SERVICE_URL: http://billing:3001
+      PRODUCTION_SERVICE_URL: http://production:3002
+      INBOX_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/os-events
+      BILLING_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/billing-commands
+      PRODUCTION_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/production-commands
+      SAGA_TIMEOUT_MS: 60000
+    ports: ["3000:3000"]
+    depends_on: { os-db: { condition: service_healthy }, localstack: { condition: service_healthy } }

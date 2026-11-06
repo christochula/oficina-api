@@ -77,3 +77,13 @@ infra/.terraform/
 
 # Kubernetes local configs (podem conter segredos)
 kubeconfig-*
+
+/.npm-cache
+/.cache
+/test-results
+/playwright-report
+/bdd-report.json
+/output/pdf/page-*.png
+/phase4-compose.log
+/output/phase4-manual-e2e/
+/output/phase4-manual-e2e-report.json
