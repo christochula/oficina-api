@@ -74,6 +74,13 @@ export function transition(order: Order, event: Message): Delivery[] {
       history(order, 'EXECUCAO_LIBERADA');
       break;
     case 'ExecutionStarted':
+      // Delayed physical events cannot reopen a completed repair or payment.
+      if (
+        ['AGUARDANDO_PAGAMENTO', 'PRONTA_PARA_ENTREGA', 'ENTREGUE'].includes(
+          order.status,
+        )
+      )
+        break;
       if (order.sagaState === 'COMPENSATING')
         order.sagaState = 'MANUAL_ATTENTION';
       history(order, 'EXECUCAO_INICIADA', 'EM_EXECUCAO');

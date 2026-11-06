@@ -47,13 +47,34 @@ async function loginOperator(page, email, password) {
 async function refreshOrderUntil(page, rolePath, predicate, label) {
   let snapshot;
   await expect(async () => {
-    const pending = page.waitForResponse((response) => response.request().method() === 'GET' && pathOf(response).endsWith(rolePath), { timeout: 12000 });
-    await page.reload();
-    const response = await pending;
-    expect(response.ok(), `Order refresh: ${response.status()}`).toBeTruthy();
-    snapshot = decode(await response.json());
-    expect(predicate(snapshot), label).toBeTruthy();
-    await expect(page.locator('#next-action-title')).toBeVisible();
+    let navigationStarted = false;
+    let navigationCommitted = false;
+    const freshRequests = new WeakSet();
+    const onNavigation = (frame) => {
+      if (navigationStarted && frame === page.mainFrame()) navigationCommitted = true;
+    };
+    const onRequest = (request) => {
+      if (request.isNavigationRequest() && request.frame() === page.mainFrame()) navigationStarted = true;
+      if (navigationCommitted && request.method() === 'GET' && pathOf(request).endsWith(rolePath)) freshRequests.add(request);
+    };
+    page.on('request', onRequest);
+    page.on('framenavigated', onNavigation);
+    // Ignore an in-flight request from the redirect page. Its body may become
+    // unavailable when reload commits, even if its response arrives afterwards.
+    const pending = page.waitForResponse((response) => freshRequests.has(response.request()), { timeout: 12000 }).then(async (response) => {
+      expect(response.ok(), `Order refresh: ${response.status()}`).toBeTruthy();
+      return decode(await response.json());
+    });
+    pending.catch(() => {}); // A failed reload must not leave an unhandled waiter.
+    try {
+      await page.reload();
+      snapshot = await pending;
+      expect(predicate(snapshot), label).toBeTruthy();
+      await expect(page.locator('#next-action-title')).toBeVisible();
+    } finally {
+      page.off('request', onRequest);
+      page.off('framenavigated', onNavigation);
+    }
   }).toPass({ timeout: 75000, intervals: [1000, 2000] });
   return snapshot;
 }

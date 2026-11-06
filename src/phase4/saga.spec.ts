@@ -1,4 +1,4 @@
-import { command, Order } from './contracts';
+import { command, history, Order } from './contracts';
 import { transition } from './saga';
 
 export function fixture(): Order {
@@ -63,6 +63,52 @@ describe('Saga distribuída de preparação e cobrança', () => {
     expect(transition(order, command(order, 'ExecutionReady'))).toEqual([]);
     expect(order.sagaState).toBe('COMPENSATED');
   });
+  it('ignora inicio tardio apos reparo sem reabrir execucao ou repetir cobranca', () => {
+    const order = fixture();
+    order.status = 'EM_EXECUCAO';
+    order.totalCents = 15000;
+    const payment = transition(order, command(order, 'ProductionCompleted'));
+    expect(payment.map((delivery) => delivery.message.type)).toEqual([
+      'CreatePayment',
+    ]);
+    const completedRepair = structuredClone(order);
+
+    expect(transition(order, command(order, 'ExecutionStarted'))).toEqual([]);
+    expect(transition(order, command(order, 'ProductionCompleted'))).toEqual(
+      [],
+    );
+    expect(order).toEqual(completedRepair);
+
+    transition(
+      order,
+      command(order, 'PaymentConfirmed', { amountCents: 15000 }),
+    );
+    expect(order.status).toBe('PRONTA_PARA_ENTREGA');
+    expect(order.paymentConfirmed).toBe(true);
+  });
+  it.each(['PRONTA_PARA_ENTREGA', 'ENTREGUE'])(
+    'preserva %s e seu historico diante de eventos fisicos tardios',
+    (status) => {
+      const order = fixture();
+      order.status = 'EM_EXECUCAO';
+      order.totalCents = 15000;
+      transition(order, command(order, 'ProductionCompleted'));
+      transition(
+        order,
+        command(order, 'PaymentConfirmed', { amountCents: 15000 }),
+      );
+      if (status === 'ENTREGUE') history(order, 'VEICULO_ENTREGUE', 'ENTREGUE');
+      const paidOrder = structuredClone(order);
+
+      for (const type of ['ExecutionStarted', 'ProductionCompleted'])
+        expect(transition(order, command(order, type))).toEqual([]);
+
+      expect(order).toEqual(paidOrder);
+      expect(order.status).toBe(status);
+      expect(order.paymentConfirmed).toBe(true);
+      expect(order.sagaState).toBe('PAID');
+    },
+  );
   it('ignora respostas de tentativa anterior e rejeita outra filial ou OS', () => {
     const order = fixture();
     expect(
