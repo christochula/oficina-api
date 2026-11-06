@@ -2,6 +2,8 @@ import { joinUrl } from '../core/config.js';
 import { SESSION_KIND } from '../core/session.js';
 import { ApiError } from './errors.js';
 
+const ACCESS_REFRESH_MARGIN_MS = 30_000;
+
 function appendQuery(parameters, key, value) {
   if (value === null || value === undefined || value === '') return;
   if (Array.isArray(value)) {
@@ -144,6 +146,16 @@ export function createHttpClient({
     return refreshPromise;
   }
 
+  function expireSession(correlationId) {
+    clearSession?.('expired');
+    const error = new ApiError(
+      'Sua sessão expirou. Entre novamente para continuar.',
+      { status: 401, code: 'SESSION_EXPIRED', correlationId },
+    );
+    onUnauthorized?.(error);
+    throw error;
+  }
+
   async function execute(path, options, retried = false, tokenOverride = null) {
     const {
       method = 'GET',
@@ -161,8 +173,38 @@ export function createHttpClient({
     } = options;
 
     const session = getSession?.() ?? null;
-    const requestToken = tokenOverride ?? token ?? (auth ? session?.accessToken : null);
+    let requestToken = tokenOverride ?? token ?? (auth ? session?.accessToken : null);
     const headers = new Headers(customHeaders);
+    const usesSessionToken = auth && retryOnUnauthorized && !retried &&
+      tokenOverride === null && token == null && !headers.has('Authorization');
+    const expiresAt = session?.accessExpiresAt;
+    if (usesSessionToken && requestToken && typeof expiresAt === 'number' &&
+      Number.isFinite(expiresAt)) {
+      const now = Date.now();
+      if (session.kind === SESSION_KIND.CLIENT && expiresAt <= now) {
+        expireSession(correlationId);
+      }
+      // Expiration metadata schedules renewal only; the API still validates
+      // every token and enforces authorization. A Gateway denial can be 403.
+      if (session.kind === SESSION_KIND.OPERATOR &&
+        expiresAt <= now + ACCESS_REFRESH_MARGIN_MS) {
+        const refreshExpiresAt = session.refreshExpiresAt;
+        const refreshExpired = typeof refreshExpiresAt === 'number' &&
+          Number.isFinite(refreshExpiresAt) && refreshExpiresAt <= now;
+        if (!session.refreshToken || refreshExpired ||
+          typeof refreshSession !== 'function') {
+          expireSession(correlationId);
+        }
+        let refreshed;
+        try {
+          refreshed = await refreshOnce(session);
+        } catch {
+          expireSession(correlationId);
+        }
+        if (!refreshed?.accessToken) expireSession(correlationId);
+        requestToken = refreshed.accessToken;
+      }
+    }
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
     if (!headers.has('X-Correlation-Id')) {
       headers.set('X-Correlation-Id', correlationId);
@@ -256,17 +298,7 @@ export function createHttpClient({
         }
       }
 
-      clearSession?.('expired');
-      const sessionError = new ApiError(
-        'Sua sessão expirou. Entre novamente para continuar.',
-        {
-          status: 401,
-          code: 'SESSION_EXPIRED',
-          correlationId: responseCorrelationId,
-        },
-      );
-      onUnauthorized?.(sessionError);
-      throw sessionError;
+      expireSession(responseCorrelationId);
     }
 
     if (!response.ok) {

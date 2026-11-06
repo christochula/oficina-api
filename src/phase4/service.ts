@@ -22,6 +22,12 @@ export interface RemoteOrder {
   mecanicoId?: string;
 }
 
+class RemoteOrderNotFound extends BadGatewayException {
+  constructor(service: 'billing' | 'production') {
+    super(`${service} indisponível (404)`);
+  }
+}
+
 @Injectable()
 export class DistributedOrders {
   constructor(
@@ -70,6 +76,7 @@ export class DistributedOrders {
       },
     );
     if (!response.ok) {
+      if (response.status === 404) throw new RemoteOrderNotFound(service);
       if (response.status === 403)
         throw new ForbiddenException(
           'Ação não permitida pelo serviço responsável',
@@ -180,9 +187,35 @@ export class DistributedOrders {
   async read(id: string, user: JwtPayload) {
     const order = await this.store.get(id);
     this.assertAccess(order, user);
+    // Capture the committed outbox state before GET: the worker may finish
+    // registration after a participant has already returned its initial 404.
+    const registering =
+      order.status === 'RECEBIDA' && order.sagaState === 'AWAITING_DIAGNOSIS'
+        ? await this.store.pendingRegistrations(id)
+        : [];
+    const pending = new Set<'billing' | 'production'>();
+    const snapshot = async (
+      service: 'billing' | 'production',
+    ): Promise<RemoteOrder> => {
+      try {
+        return await this.remote(
+          service,
+          `/internal/orders/${encodeURIComponent(id)}`,
+        );
+      } catch (error) {
+        if (
+          error instanceof RemoteOrderNotFound &&
+          registering.includes(service)
+        ) {
+          pending.add(service);
+          return {};
+        }
+        throw error;
+      }
+    };
     const [billing, production] = await Promise.all([
-      this.remote('billing', `/internal/orders/${encodeURIComponent(id)}`),
-      this.remote('production', `/internal/orders/${encodeURIComponent(id)}`),
+      snapshot('billing'),
+      snapshot('production'),
     ]);
     const budget = billing.budget;
     const result = {
@@ -220,6 +253,9 @@ export class DistributedOrders {
           }
         : null,
       pagamento: billing.payment,
+      sincronizacaoPendente: (['billing', 'production'] as const).filter(
+        (service) => pending.has(service),
+      ),
       preparacao: order.sagaState,
       consumosPeca: production.consumptions || [],
       mecanicoResponsavelId:

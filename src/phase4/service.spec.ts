@@ -43,6 +43,7 @@ function setup(value = fixture()) {
   const store = {
     get: jest.fn().mockResolvedValue(value),
     list: jest.fn().mockResolvedValue([value]),
+    pendingRegistrations: jest.fn().mockResolvedValue([]),
     create: jest.fn(async (created: Order) => created),
     mutate: jest.fn(
       async (_id: string, change: (current: Order) => unknown) => {
@@ -390,6 +391,146 @@ describe('DistributedOrders authorization and lifecycle', () => {
   });
 });
 
+describe('DistributedOrders initial participant synchronization', () => {
+  const saved = { ...process.env };
+  beforeEach(() => {
+    process.env.BILLING_SERVICE_URL = 'http://billing';
+    process.env.PRODUCTION_SERVICE_URL = 'http://production';
+  });
+  afterEach(() => {
+    process.env = { ...saved };
+    jest.restoreAllMocks();
+  });
+
+  it('shows the committed order while initial participant registration is pending, without writing on GET', async () => {
+    const { service, store } = setup();
+    store.pendingRegistrations.mockResolvedValue(['billing', 'production']);
+    const http = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as Response);
+
+    await expect(service.read('os-test', client)).resolves.toMatchObject({
+      id: 'os-test',
+      status: 'RECEBIDA',
+      orcamento: null,
+      diagnostico: null,
+      paymentConfirmed: false,
+      sincronizacaoPendente: ['billing', 'production'],
+    });
+    expect(http).toHaveBeenCalledTimes(2);
+    for (const [, options] of http.mock.calls)
+      expect(options?.method).toBe('GET');
+    expect(store.create).not.toHaveBeenCalled();
+    expect(store.mutate).not.toHaveBeenCalled();
+  });
+
+  it('captures pending registration before GET, then clears it once participant snapshots are available', async () => {
+    const { service, store } = setup();
+    store.pendingRegistrations.mockResolvedValue(['billing']);
+    const http = jest
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation(async (url) => {
+        expect(store.pendingRegistrations).toHaveBeenCalledWith('os-test');
+        // The worker can acknowledge the registration after this request's
+        // missing-snapshot response has already been produced.
+        store.pendingRegistrations.mockResolvedValue([]);
+        const billingRequest =
+          typeof url === 'string' && url.includes('/billing/');
+        return {
+          ok: !billingRequest,
+          status: billingRequest ? 404 : 200,
+          json: async () => ({}),
+        } as Response;
+      });
+
+    await expect(service.read('os-test', admin)).resolves.toMatchObject({
+      sincronizacaoPendente: ['billing'],
+    });
+    http.mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    } as Response);
+    await expect(service.read('os-test', admin)).resolves.toMatchObject({
+      sincronizacaoPendente: [],
+    });
+  });
+
+  it('keeps missing snapshots as errors once registration has been acknowledged', async () => {
+    const { service, store } = setup();
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as Response);
+    await expect(service.read('os-test', admin)).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+    expect(store.pendingRegistrations).toHaveBeenCalledWith('os-test');
+  });
+
+  it('does not hide a billing 404 because a different participant is still registering', async () => {
+    const { service, store } = setup();
+    store.pendingRegistrations.mockResolvedValue(['production']);
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status: 404,
+    } as Response);
+    await expect(service.read('os-test', admin)).rejects.toBeInstanceOf(
+      BadGatewayException,
+    );
+  });
+
+  it.each([
+    [401, BadGatewayException],
+    [403, ForbiddenException],
+    [503, BadGatewayException],
+  ])(
+    'never hides upstream HTTP %i behind pending registration',
+    async (status, error) => {
+      const { service, store } = setup();
+      store.pendingRegistrations.mockResolvedValue(['billing', 'production']);
+      jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status,
+      } as Response);
+      await expect(service.read('os-test', admin)).rejects.toBeInstanceOf(
+        error,
+      );
+    },
+  );
+
+  it.each([
+    ['AGUARDANDO_APROVACAO', 'AWAITING_APPROVAL'],
+    ['RECEBIDA', 'AWAITING_APPROVAL'],
+    ['EM_DIAGNOSTICO', 'AWAITING_DIAGNOSIS'],
+  ])(
+    'does not use initial registration fallback for %s/%s',
+    async (status, state) => {
+      const { service, store, value } = setup();
+      value.status = status;
+      value.sagaState = state;
+      store.pendingRegistrations.mockResolvedValue(['billing', 'production']);
+      jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+        ok: false,
+        status: 404,
+      } as Response);
+      await expect(service.read('os-test', admin)).rejects.toBeInstanceOf(
+        BadGatewayException,
+      );
+      expect(store.pendingRegistrations).not.toHaveBeenCalled();
+    },
+  );
+
+  it('checks ownership before querying participant synchronization', async () => {
+    const { service, store } = setup();
+    await expect(
+      service.read('os-test', { ...client, clienteId: 'another-client' }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(store.pendingRegistrations).not.toHaveBeenCalled();
+  });
+});
+
 describe('DistributedOrders remote boundary', () => {
   const saved = { ...process.env };
   afterEach(() => {
@@ -442,6 +583,7 @@ describe('DistributedOrders remote boundary', () => {
   });
   it.each([
     [400, BadRequestException],
+    [404, BadGatewayException],
     [403, ForbiddenException],
     [409, ConflictException],
     [503, BadGatewayException],

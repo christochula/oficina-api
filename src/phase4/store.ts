@@ -36,6 +36,22 @@ export class OrderStore {
     if (!row) throw new NotFoundException('OS não encontrada');
     return row.data;
   }
+  async pendingRegistrations(id: string) {
+    const rows = await this.prisma.$queryRaw<
+      { destination: 'REGISTER_BILLING' | 'REGISTER_PRODUCTION' }[]
+    >`SELECT destination FROM phase4_outbox
+      WHERE sent_at IS NULL AND message->>'osId'=${id}
+      AND destination IN ('REGISTER_BILLING','REGISTER_PRODUCTION')`;
+    return [
+      ...new Set(
+        rows.map(({ destination }) =>
+          destination === 'REGISTER_BILLING'
+            ? ('billing' as const)
+            : ('production' as const),
+        ),
+      ),
+    ];
+  }
   async mutate(
     id: string,
     change: (order: Order) => Delivery[],

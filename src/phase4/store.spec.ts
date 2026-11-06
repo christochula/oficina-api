@@ -105,6 +105,31 @@ describe('OrderStore transactional ownership', () => {
     expect(tx.$executeRaw).toHaveBeenCalledTimes(1);
   });
 
+  it('reports only unsent participant registrations scoped to the requested OS', async () => {
+    const { store, prisma } = setup();
+    prisma.$queryRaw.mockResolvedValueOnce([
+      { destination: 'REGISTER_PRODUCTION' },
+      { destination: 'REGISTER_BILLING' },
+      { destination: 'REGISTER_BILLING' },
+    ]);
+    await expect(store.pendingRegistrations('os-test')).resolves.toEqual([
+      'production',
+      'billing',
+    ]);
+    const [query, ...parameters] = prisma.$queryRaw.mock.calls[0] as [
+      TemplateStringsArray,
+      ...unknown[],
+    ];
+    expect(query.join('?')).toContain('sent_at IS NULL');
+    expect(query.join('?')).toContain("message->>'osId'=?");
+    expect(query.join('?')).toContain(
+      "destination IN ('REGISTER_BILLING','REGISTER_PRODUCTION')",
+    );
+    expect(parameters).toEqual(['os-test']);
+    prisma.$queryRaw.mockResolvedValueOnce([]);
+    await expect(store.pendingRegistrations('os-test')).resolves.toEqual([]);
+  });
+
   it('locks the OS and atomically persists inbox, transition and outgoing command', async () => {
     const { store, tx } = setup();
     const value = order();

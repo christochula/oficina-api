@@ -147,3 +147,154 @@ test('endpoints codificam identificadores vindos da interface', () => {
     '/ordens-servico/id%20com%20espa%C3%A7o',
   );
 });
+
+test('operador renova antes do Gateway receber o access token expirado', async () => {
+  let session = {
+    kind: SESSION_KIND.OPERATOR,
+    accessToken: 'expired-access',
+    refreshToken: 'valid-refresh',
+    accessExpiresAt: Date.now() - 60_000,
+    refreshExpiresAt: Date.now() + 600_000,
+  };
+  const events = [];
+  const client = createHttpClient({
+    getSession: () => session,
+    refreshSession: async () => {
+      events.push('refresh');
+      session = { ...session, accessToken: 'renewed-access', accessExpiresAt: Date.now() + 900_000 };
+      return session;
+    },
+    fetchImpl: async (_url, init) => {
+      const token = init.headers.get('Authorization');
+      events.push(token);
+      return token === 'Bearer expired-access'
+        ? jsonResponse({ message: 'Forbidden' }, { status: 403 })
+        : jsonResponse({ data: { ok: true } });
+    },
+  });
+
+  assert.deepEqual(await client.get('/clientes'), { ok: true });
+  assert.deepEqual(events, ['refresh', 'Bearer renewed-access']);
+});
+
+test('requisições concorrentes perto da expiração compartilham uma renovação', async () => {
+  let session = {
+    kind: SESSION_KIND.OPERATOR,
+    accessToken: 'expiring-access',
+    refreshToken: 'valid-refresh',
+    accessExpiresAt: Date.now() + 10_000,
+  };
+  let release;
+  const pending = new Promise((resolve) => { release = resolve; });
+  let refreshCount = 0;
+  const seenTokens = [];
+  const client = createHttpClient({
+    getSession: () => session,
+    refreshSession: async () => {
+      refreshCount += 1;
+      await pending;
+      session = { ...session, accessToken: 'renewed-access', accessExpiresAt: Date.now() + 900_000 };
+      return session;
+    },
+    fetchImpl: async (_url, init) => {
+      seenTokens.push(init.headers.get('Authorization'));
+      return jsonResponse({ data: { ok: true } });
+    },
+  });
+
+  const requests = [client.get('/clientes'), client.get('/veiculos')];
+  await Promise.resolve();
+  assert.equal(refreshCount, 1);
+  assert.equal(seenTokens.length, 0);
+  release();
+  await Promise.all(requests);
+  await client.get('/servicos-oficina');
+  assert.equal(refreshCount, 1);
+  assert.deepEqual(seenTokens, Array(3).fill('Bearer renewed-access'));
+});
+
+test('cliente expirado encerra sessão antes de enviar request e nunca usa refresh', async () => {
+  const events = [];
+  const client = createHttpClient({
+    getSession: () => ({ kind: SESSION_KIND.CLIENT, accessToken: 'client-access', accessExpiresAt: Date.now() - 1 }),
+    refreshSession: async () => { events.push('unexpected-refresh'); },
+    fetchImpl: async () => { events.push('unexpected-fetch'); },
+    clearSession: (reason) => events.push(`clear:${reason}`),
+    onUnauthorized: (error) => events.push(error.code),
+  });
+
+  await assert.rejects(client.get('/minhas', { correlationId: 'expired-client' }),
+    (error) => error.code === 'SESSION_EXPIRED' && error.status === 401 && error.correlationId === 'expired-client');
+  assert.deepEqual(events, ['clear:expired', 'SESSION_EXPIRED']);
+});
+
+test('falha ou resposta incompleta na renovação antecipada limpa a sessão', async (t) => {
+  for (const outcome of ['rejected', 'missing-token']) {
+    await t.test(outcome, async () => {
+      const events = [];
+      const client = createHttpClient({
+        getSession: () => ({ kind: SESSION_KIND.OPERATOR, accessToken: 'expired', refreshToken: 'refresh', accessExpiresAt: Date.now() - 1 }),
+        refreshSession: async () => { events.push('refresh'); if (outcome === 'rejected') throw new Error('refresh denied'); return {}; },
+        fetchImpl: async () => { events.push('unexpected-fetch'); },
+        clearSession: (reason) => events.push(`clear:${reason}`),
+        onUnauthorized: (error) => events.push(error.code),
+      });
+      await assert.rejects(client.get('/clientes'), (error) => error.code === 'SESSION_EXPIRED');
+      assert.deepEqual(events, ['refresh', 'clear:expired', 'SESSION_EXPIRED']);
+    });
+  }
+});
+
+test('refresh token vencido não é enviado na renovação antecipada', async () => {
+  const events = [];
+  const client = createHttpClient({
+    getSession: () => ({ kind: SESSION_KIND.OPERATOR, accessToken: 'expired', refreshToken: 'expired-refresh', accessExpiresAt: Date.now() - 1, refreshExpiresAt: Date.now() - 1 }),
+    refreshSession: async () => { events.push('unexpected-refresh'); },
+    fetchImpl: async () => { events.push('unexpected-fetch'); },
+    clearSession: (reason) => events.push(`clear:${reason}`),
+  });
+  await assert.rejects(client.get('/clientes'), (error) => error.code === 'SESSION_EXPIRED');
+  assert.deepEqual(events, ['clear:expired']);
+});
+
+test('tokens explícitos, auth false e retry desativado preservam a chamada original', async (t) => {
+  for (const [label, options, expected] of [
+    ['token explícito', { token: 'explicit-token' }, 'Bearer explicit-token'],
+    ['header explícito', { headers: { Authorization: 'Bearer header-token' } }, 'Bearer header-token'],
+    ['público', { auth: false }, null],
+    ['retry desativado', { retryOnUnauthorized: false }, 'Bearer stored-token'],
+  ]) {
+    await t.test(label, async () => {
+      let seen;
+      let refreshCount = 0;
+      const client = createHttpClient({
+        getSession: () => ({ kind: SESSION_KIND.OPERATOR, accessToken: 'stored-token', refreshToken: 'refresh', accessExpiresAt: Date.now() - 1 }),
+        refreshSession: async () => { refreshCount += 1; },
+        fetchImpl: async (_url, init) => { seen = init.headers.get('Authorization'); return jsonResponse({ ok: true }); },
+      });
+      await client.get('/route', options);
+      assert.equal(seen, expected);
+      assert.equal(refreshCount, 0);
+    });
+  }
+});
+
+test('403 de autorização permanece 403 e não dispara refresh reativo', async (t) => {
+  for (const expiration of [undefined, Date.now() + 900_000, Date.now() + 10_000]) {
+    await t.test(String(expiration), async () => {
+      let refreshCount = 0;
+      let fetchCount = 0;
+      let clearCount = 0;
+      const client = createHttpClient({
+        getSession: () => ({ kind: SESSION_KIND.OPERATOR, accessToken: 'access', refreshToken: 'refresh', accessExpiresAt: expiration }),
+        refreshSession: async () => { refreshCount += 1; return { accessToken: 'renewed' }; },
+        clearSession: () => { clearCount += 1; },
+        fetchImpl: async () => { fetchCount += 1; return jsonResponse({ mensagem: 'Papel sem permissão' }, { status: 403 }); },
+      });
+      await assert.rejects(client.get('/admin'), (error) => error.status === 403 && error.code !== 'SESSION_EXPIRED');
+      assert.equal(refreshCount, expiration && expiration < Date.now() + 30_000 ? 1 : 0);
+      assert.equal(fetchCount, 1);
+      assert.equal(clearCount, 0);
+    });
+  }
+});
