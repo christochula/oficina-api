@@ -11,6 +11,21 @@ O runtime distribuído usa este repositório como OS Service e orquestrador da S
 
 Quickstart: manter os três repositórios lado a lado, executar `docker compose -f compose.phase4.yml up -d --build`, `npm run test:bdd` e `npm run test:frontend:e2e`. `PHASE4_ENABLED=true` é o modo de entrega; `false` preserva a regressão histórica da Fase 3. Leia o guia antes de configurar AWS.
 
+## Homologação e evidências da Fase 4
+
+Snapshot de 06/11/2026, fonte implantada `3657c33`:
+
+- [CI aprovado](https://github.com/christochula/oficina-api/actions/runs/42235917925): checks `Quality`, `Integration`, `Sonar`, `Frontend`, `BDD` e `Container` aprovados no mesmo SHA.
+- [SonarCloud](https://sonarcloud.io/dashboard?id=christochula-oficina_oficina-api): cobertura **91,8%**, linhas 96,2% e branches 85,0%; quality gate aprovado. São métricas Sonar, distintas do resumo Jest local.
+- [Relatório de cobertura](https://github.com/christochula/oficina-api/actions/runs/42235917925/artifacts/13511692411): artifact `os-coverage` da mesma execução CI.
+- [Deploy por GitHub Actions aprovado](https://github.com/christochula/oficina-api/actions/runs/42236847066): imagem imutável do SHA `3657c33c0a8776501b641276f92832b735634aa0`, duas réplicas prontas no EKS e health público HTTP200 após o rollout.
+- [Portal de homologação](https://8phthn792m.execute-api.us-east-1.amazonaws.com), [Swagger OS](https://8phthn792m.execute-api.us-east-1.amazonaws.com/api/docs) e [OpenAPI OS](https://8phthn792m.execute-api.us-east-1.amazonaws.com/api/docs-json).
+- Contratos públicos no mesmo Gateway: [OpenAPI Billing](https://8phthn792m.execute-api.us-east-1.amazonaws.com/api/v1/billing/openapi.json) e [OpenAPI Production](https://8phthn792m.execute-api.us-east-1.amazonaws.com/api/v1/production/openapi.json).
+
+Validação manual no portal em 06/11/2026: a OS de demonstração #1 passou por abertura, atribuição, diagnóstico, orçamento de R$175,00, aprovação, compensação por falta de estoque, reposição e nova Saga, execução, pagamento no Checkout Pro com contas de teste e entrega. O webhook assinado recebeu HTTP201; o estado final foi `ENTREGUE`, com pagamento `APPROVED` e `paymentConfirmed=true`.
+
+Os endpoints foram consultados com HTTP200 em 06/11/2026. A disponibilidade da homologação depende da sessão ativa do AWS Academy; renovar as credenciais temporárias e fazer rollout pelos workflows ao iniciar outra sessão.
+
 ---
 
 A documentação abaixo preserva o histórico da Fase 3; contratos e configuração da Fase 4 estão nos links acima.
@@ -71,10 +86,9 @@ O valor de `JWT_SECRET` local deve ser igual ao usado pela função serverless p
 - Swagger local: `http://localhost:3000/api/docs`
 - Postman: [`postman/oficina-api.postman_collection.json`](postman/oficina-api.postman_collection.json)
 - Contrato da autenticação por CPF: `../oficina-auth-serverless/openapi.yaml`
-- Swagger homologação: `https://SUBSTITUIR_HOST_HOMOLOG/api/docs`
-- Swagger produção: `https://SUBSTITUIR_HOST_PRODUCAO/api/docs`
+- [Swagger homologação](https://8phthn792m.execute-api.us-east-1.amazonaws.com/api/docs)
 
-Os dois últimos links são marcadores deliberados: devem ser substituídos somente após os endpoints existirem.
+O endereço publicado acima é o ambiente de homologação da Fase 4 no AWS Academy.
 
 ## Autenticação
 
