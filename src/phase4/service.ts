@@ -193,7 +193,8 @@ export class DistributedOrders {
       order.status === 'RECEBIDA' && order.sagaState === 'AWAITING_DIAGNOSIS'
         ? await this.store.pendingRegistrations(id)
         : [];
-    const pending = new Set<'billing' | 'production'>();
+    // Remote visibility alone does not acknowledge the registration outbox.
+    const pending = new Set<'billing' | 'production'>(registering);
     const snapshot = async (
       service: 'billing' | 'production',
     ): Promise<RemoteOrder> => {
@@ -207,7 +208,6 @@ export class DistributedOrders {
           error instanceof RemoteOrderNotFound &&
           registering.includes(service)
         ) {
-          pending.add(service);
           return {};
         }
         throw error;
@@ -312,6 +312,14 @@ export class DistributedOrders {
   ) {
     const order = await this.store.get(id);
     this.assertAccess(order, user);
+    if (
+      order.status === 'RECEBIDA' &&
+      order.sagaState === 'AWAITING_DIAGNOSIS' &&
+      (await this.store.pendingRegistrations(id)).length > 0
+    )
+      throw new ConflictException(
+        'OS aguardando sincronização inicial; tente novamente em instantes',
+      );
     return this.remote(
       service,
       `/orders/${encodeURIComponent(id)}/${action}`,

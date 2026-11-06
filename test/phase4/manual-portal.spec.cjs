@@ -149,7 +149,7 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
       evidence.orderId = orderId;
       evidence.orderTransitions.push('POST OS via wizard');
       await expect(admin).toHaveURL(new RegExp(`#\/ordens\/${orderId}$`));
-      await refreshOrderUntil(admin, `/ordens-servico/${orderId}`, (snapshot) => snapshot.status === 'RECEBIDA', 'A OS deve existir nos três serviços');
+      await refreshOrderUntil(admin, `/ordens-servico/${orderId}`, (snapshot) => snapshot.status === 'RECEBIDA' && Array.isArray(snapshot.sincronizacaoPendente) && snapshot.sincronizacaoPendente.length === 0, 'A OS deve existir nos três serviços sem inscrições pendentes');
       await capture(admin, '01-os-criada-pelo-wizard');
     });
 

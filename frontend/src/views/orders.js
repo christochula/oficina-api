@@ -418,8 +418,15 @@ function historyMarkup(order) {
   return `<ol class="event-list">${history.map((event) => `<li><span class="event-icon">${icon('history')}</span><div><strong>${escapeHtml(String(event.evento ?? 'Atualização').replaceAll('_', ' '))}</strong><p>${event.statusAnterior ? `${escapeHtml(statusMeta(event.statusAnterior).label)} → ` : ''}${escapeHtml(statusMeta(event.statusNovo).label)}</p><time datetime="${escapeAttribute(event.criadoEm ?? '')}">${escapeHtml(formatDateTime(event.criadoEm))}</time></div></li>`).join('')}</ol>`;
 }
 
+function awaitingRegistration(order) {
+  return order.status === 'RECEBIDA' &&
+    Array.isArray(order.sincronizacaoPendente) &&
+    order.sincronizacaoPendente.length > 0;
+}
+
 function nextAction(order, role) {
   const status = order.status;
+  if (awaitingRegistration(order)) return { tone: 'neutral', icon: 'hourglass_top', title: 'Preparando atendimento', text: 'Estamos confirmando a abertura da ordem. A atribuição do mecânico será liberada em instantes.', actions: button({ label: 'Atualizar andamento', variant: 'secondary', action: 'order:retry' }) };
   if (status === 'AGUARDANDO_PAGAMENTO') return { tone: 'attention', icon: 'payments', title: 'Reparo concluído: aguardando pagamento', text: role === ROLES.CLIENT ? 'Pague com segurança no Mercado Pago para liberar a retirada do veículo.' : 'A entrega será liberada após a confirmação do pagamento.', actions: role === ROLES.CLIENT ? button({ label: 'Pagar OS', iconName: 'payments', variant: 'primary', action: 'order:pay' }) : '' };
   if (order.preparacao === 'COMPENSATED') return { tone: 'attention', icon: 'info', title: 'Preparação cancelada', text: 'As reservas foram desfeitas. A equipe pode tentar preparar a execução novamente.', actions: INTERNAL_ROLES.has(role) ? button({ label: 'Tentar preparação novamente', variant: 'primary', action: 'order:saga-retry' }) : '' };
   if (status === 'APROVADA' && order.preparacao && order.preparacao !== 'COMPLETED') return { tone: 'neutral', icon: 'hourglass_top', title: 'Preparando execução', text: 'A oficina está confirmando o orçamento e a disponibilidade das peças.', actions: button({ label: 'Atualizar andamento', variant: 'secondary', action: 'order:retry' }) };
@@ -507,23 +514,58 @@ function budgetPayload(form) {
 export async function mountOrderDetailView(root, { id, role, api, navigate, notify }) {
   const target = root.querySelector('#order-detail');
   let order;
-  const load = async () => {
-    target.innerHTML = skeleton({ cards: 2, rows: 8, label: 'Atualizando detalhes da ordem' });
-    try { order = await api.request(orderDetailPath(role, id)); target.innerHTML = detailMarkup(order, role); }
-    catch (error) { target.innerHTML = statePanel({ kind: error?.status === 403 ? 'forbidden' : error?.status === 404 ? 'notFound' : 'error', title: error?.status === 403 ? 'Ordem fora do seu escopo' : error?.status === 404 ? 'Ordem não encontrada' : 'Não foi possível abrir a ordem', description: apiErrorMessage(error), actionLabel: error?.status >= 500 ? 'Tentar novamente' : 'Voltar às ordens', action: error?.status >= 500 ? 'order:retry' : 'order:back', correlationId: error?.correlationId }); }
+  let disposed = false;
+  let pollTimer = null;
+  let pollDeadline = null;
+  let loadVersion = 0;
+  const isActive = () => !disposed && target.isConnected !== false;
+  const stopPoll = () => {
+    if (pollTimer !== null) clearTimeout(pollTimer);
+    pollTimer = null;
+  };
+  const schedulePoll = () => {
+    if (!isActive() || !awaitingRegistration(order)) {
+      pollDeadline = null;
+      return;
+    }
+    pollDeadline ??= Date.now() + 60_000;
+    if (Date.now() + 1_000 > pollDeadline) return;
+    pollTimer = setTimeout(() => {
+      pollTimer = null;
+      void load({ background: true });
+    }, 1_000);
+  };
+  const load = async ({ background = false } = {}) => {
+    if (!isActive()) return;
+    stopPoll();
+    const version = ++loadVersion;
+    if (!background) target.innerHTML = skeleton({ cards: 2, rows: 8, label: 'Atualizando detalhes da ordem' });
+    try {
+      const snapshot = await api.request(orderDetailPath(role, id));
+      if (!isActive() || version !== loadVersion) return;
+      order = snapshot;
+      target.innerHTML = detailMarkup(order, role);
+      schedulePoll();
+    }
+    catch (error) {
+      if (!isActive() || version !== loadVersion) return;
+      pollDeadline = null;
+      target.innerHTML = statePanel({ kind: error?.status === 403 ? 'forbidden' : error?.status === 404 ? 'notFound' : 'error', title: error?.status === 403 ? 'Ordem fora do seu escopo' : error?.status === 404 ? 'Ordem não encontrada' : 'Não foi possível abrir a ordem', description: apiErrorMessage(error), actionLabel: error?.status >= 500 ? 'Tentar novamente' : 'Voltar às ordens', action: error?.status >= 500 ? 'order:retry' : 'order:back', correlationId: error?.correlationId });
+    }
   };
   const runAction = async (path, { method = 'PATCH', body, success }) => {
     try { await api.request(path, { method, body }); notify({ kind: 'success', title: success, message: 'Os dados foram sincronizados com a API.' }); await load(); }
     catch (error) { notify({ kind: 'error', title: 'A operação não foi concluída', message: apiErrorMessage(error) }); }
   };
-  root.addEventListener('click', async (event) => {
+  const onClick = async (event) => {
+    if (!isActive()) return;
     const trigger = event.target.closest('[data-action], [role="tab"]'); const action = trigger?.dataset.action;
     if (trigger?.matches('[role="tab"]')) {
       const list = trigger.closest('[role="tablist"]'); list.querySelectorAll('[role="tab"]').forEach((tab) => { const active = tab === trigger; tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; const panel = target.querySelector('#' + tab.getAttribute('aria-controls')); if (panel) panel.hidden = !active; });
       return;
     }
     if (!action) return;
-    if (action === 'order:retry') return load();
+    if (action === 'order:retry') { pollDeadline = null; return load(); }
     if (action === 'order:back') return navigate('/ordens');
     if (action === 'order:saga-retry') return runAction(`/ordens-servico/${encodeURIComponent(id)}/saga/retry`, { method: 'POST', success: 'Nova preparação solicitada' });
     if (action === 'order:pay') {
@@ -539,6 +581,7 @@ export async function mountOrderDetailView(root, { id, role, api, navigate, noti
       return;
     }
     if (action === 'order:assign') {
+      if (awaitingRegistration(order)) return;
       const modal = simpleFieldModal(
         'Atribuir mecânico',
         renderMechanicAssignmentField(),
@@ -606,6 +649,13 @@ export async function mountOrderDetailView(root, { id, role, api, navigate, noti
     };
     if (confirmations[action]) { const item = confirmations[action]; const confirmed = await confirmAction({ title: item.title, message: item.message, confirmLabel: item.label, tone: item.tone }); if (confirmed) await runAction(`/ordens-servico/${encodeURIComponent(id)}/${item.path}`, { success: item.success }); }
 
-  });
+  };
+  root.addEventListener('click', onClick);
   await load();
+  return () => {
+    disposed = true;
+    loadVersion += 1;
+    stopPoll();
+    root.removeEventListener('click', onClick);
+  };
 }

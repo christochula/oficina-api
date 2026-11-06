@@ -457,6 +457,50 @@ describe('DistributedOrders initial participant synchronization', () => {
     });
   });
 
+  it('keeps registration pending until the outbox ACK even when remote snapshots already exist', async () => {
+    const { service, store } = setup();
+    store.pendingRegistrations.mockResolvedValue(['production', 'billing']);
+    const http = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ({}),
+    } as Response);
+
+    await expect(service.read('os-test', admin)).resolves.toMatchObject({
+      sincronizacaoPendente: ['billing', 'production'],
+    });
+    await expect(
+      service.forward(
+        'os-test',
+        admin,
+        'Bearer test-token',
+        'production',
+        'assign',
+        { mecanicoId: 'mech-test' },
+      ),
+    ).rejects.toBeInstanceOf(ConflictException);
+    expect(http).toHaveBeenCalledTimes(2);
+
+    store.pendingRegistrations.mockResolvedValue([]);
+    await expect(service.read('os-test', admin)).resolves.toMatchObject({
+      sincronizacaoPendente: [],
+    });
+    await expect(
+      service.forward(
+        'os-test',
+        admin,
+        'Bearer test-token',
+        'production',
+        'assign',
+        { mecanicoId: 'mech-test' },
+      ),
+    ).resolves.toEqual({});
+    expect(http).toHaveBeenLastCalledWith(
+      'http://production/api/v1/production/orders/os-test/assign',
+      expect.objectContaining({ method: 'POST' }),
+    );
+  });
+
   it('keeps missing snapshots as errors once registration has been acknowledged', async () => {
     const { service, store } = setup();
     jest.spyOn(globalThis, 'fetch').mockResolvedValue({
@@ -528,6 +572,119 @@ describe('DistributedOrders initial participant synchronization', () => {
       service.read('os-test', { ...client, clienteId: 'another-client' }),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(store.pendingRegistrations).not.toHaveBeenCalled();
+  });
+});
+
+describe('DistributedOrders initial command readiness', () => {
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([[['billing']], [['production']], [['billing', 'production']]])(
+    'rejects commands before all initial registrations are acknowledged: %j',
+    async (pending) => {
+      const { service, store } = setup();
+      store.pendingRegistrations.mockResolvedValue(pending);
+      const remote = jest.spyOn(service, 'remote').mockResolvedValue({});
+      await expect(
+        service.forward(
+          'os-test',
+          admin,
+          'Bearer test-token',
+          'production',
+          'assign',
+          {
+            mecanicoId: 'mech-test',
+          },
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+      expect(store.pendingRegistrations).toHaveBeenCalledWith('os-test');
+      expect(remote).not.toHaveBeenCalled();
+      expect(store.create).not.toHaveBeenCalled();
+      expect(store.mutate).not.toHaveBeenCalled();
+    },
+  );
+
+  it('forwards the command normally after both registrations are acknowledged', async () => {
+    const { service, store } = setup();
+    const remote = jest.spyOn(service, 'remote').mockResolvedValue({});
+    await expect(
+      service.forward(
+        'os-test',
+        admin,
+        'Bearer test-token',
+        'production',
+        'assign',
+        {
+          mecanicoId: 'mech-test',
+        },
+      ),
+    ).resolves.toEqual({});
+    expect(store.pendingRegistrations).toHaveBeenCalledWith('os-test');
+    expect(remote).toHaveBeenCalledWith(
+      'production',
+      '/orders/os-test/assign',
+      'POST',
+      { mecanicoId: 'mech-test' },
+      'Bearer test-token',
+    );
+  });
+
+  it('checks ownership before querying registration readiness or forwarding credentials', async () => {
+    const { service, store } = setup();
+    const remote = jest.spyOn(service, 'remote').mockResolvedValue({});
+    await expect(
+      service.forward(
+        'os-test',
+        { ...client, clienteId: 'other-client' },
+        'Bearer test-token',
+        'production',
+        'assign',
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(store.pendingRegistrations).not.toHaveBeenCalled();
+    expect(remote).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['ATRIBUIDA', 'AWAITING_DIAGNOSIS'],
+    ['RECEBIDA', 'AWAITING_APPROVAL'],
+  ])(
+    'does not block an advanced order because of an old registration intent: %s/%s',
+    async (status, sagaState) => {
+      const { service, store, value } = setup();
+      value.status = status;
+      value.sagaState = sagaState;
+      store.pendingRegistrations.mockResolvedValue(['billing', 'production']);
+      const remote = jest.spyOn(service, 'remote').mockResolvedValue({});
+      await expect(
+        service.forward(
+          'os-test',
+          admin,
+          'Bearer test-token',
+          'production',
+          'diagnosis',
+          {
+            descricao: 'Diagnostico',
+          },
+        ),
+      ).resolves.toEqual({});
+      expect(store.pendingRegistrations).not.toHaveBeenCalled();
+      expect(remote).toHaveBeenCalledTimes(1);
+    },
+  );
+
+  it('preserves a genuine upstream failure after registration is acknowledged', async () => {
+    const { service } = setup();
+    const failure = new BadGatewayException('production indisponível (503)');
+    jest.spyOn(service, 'remote').mockRejectedValue(failure);
+    await expect(
+      service.forward(
+        'os-test',
+        admin,
+        'Bearer test-token',
+        'production',
+        'assign',
+      ),
+    ).rejects.toBe(failure);
   });
 });
 
