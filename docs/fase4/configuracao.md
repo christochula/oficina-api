@@ -34,10 +34,12 @@ O BDD cria dados fictícios pelas APIs dos serviços responsáveis. São Paulo (
 | Consulta interna AWS | Secrets Manager: `oficina/fase4/auth-client-lookup` | JSON `{"token":"valor aleatório com pelo menos 32 bytes"}`; o mesmo valor vira `AUTH_CLIENT_LOOKUP_TOKEN` dos backends |
 | Auth Lambda | GitHub Variables / Terraform | `JWT_SECRET_ARN`, `AUTH_CLIENT_LOOKUP_SECRET_ARN`; `OS_CLIENT_LOOKUP_URL` opcional, derivado do Gateway quando omitido |
 | Mercado Pago AWS | Secrets Manager: `oficina/fase4/billing/mercadopago` | Token privado e segredo do webhook; pipeline Billing carrega esses campos no Secret Kubernetes |
-| Datadog | Secrets Manager: `oficina/fase4/datadog` | JSON `{"api_key":"preencher","app_key":"preencher"}`; apontar `DATADOG_SECRET_ID` para esse segredo |
+| Datadog | Secrets Manager canônico: `oficina/datadog` | Secrets `DATADOG_API_KEY`/`DATADOG_APP_KEY` no Environment `homolog` de infra-kubernetes; bootstrap e sincronização por [GitHub Actions](https://github.com/christochula/oficina-infra-kubernetes/blob/feature/phase4-distributed/docs/datadog-actions.md), com `DATADOG_SECRET_ID=oficina/datadog`. Não criar/rotacionar manualmente nem colocar chaves em `TF_VAR`/state |
 | SonarQube Cloud | GitHub Secret `SONAR_TOKEN`, Variables por repositório | `SONAR_PROJECT_KEY`, `SONAR_ORGANIZATION` |
 
 Os pipelines dos serviços documentam seus nomes exatos de secret: `DATABASE_SECRET_ID` contém JSON `{ "url": "postgresql://..." }`, `JWT_SECRET_ID` contém o contrato acima, e o Secret de runtime contém o token interno e, no Billing, as configurações Mercado Pago. RDS gera as senhas e URLs no Terraform; não é necessário copiar uma senha de outro serviço.
+
+Ingestão Datadog dos três serviços verificada em 11/11/2026 00:17:54 UTC (10/11 21:17:54 em São Paulo), seguida do ensaio completo da OS #2 com sinais Saga/p95 e um trace com spans dos três serviços para parte do fluxo. O [registro sanitizado de resultados](../operacao/datadog.md#evidência-verificada) distingue esses sinais da indexação de todas as transições de uma Saga.
 
 ## AWS e ordem de provisionamento
 

@@ -8,6 +8,8 @@ O runtime distribuído usa este repositório como OS Service e orquestrador da S
 - [Resultados da validação local](docs/fase4/validacao-local.md)
 - [Fluxo completo pelo navegador local, com login e pagamento de demonstração](docs/fase4/teste-navegador-local.md)
 - [Repositórios publicados, PRs e proteções](docs/fase4/publicacao.md)
+- [Pronto para gravar: acessos, evidências e preparação](docs/entrega/pronto-para-gravar.md): OS #2 **ENTREGUE, R$175**, compensação e recuperação verificadas em 10/11/2026.
+- [Datadog Fase 4 por GitHub Actions](https://github.com/christochula/oficina-infra-kubernetes/blob/feature/phase4-distributed/docs/datadog-actions.md) e [contrato/evidência dos sinais](docs/operacao/datadog.md). Ingestão dos três serviços, métricas Saga/p95 e um trace com os três serviços verificados; esse trace cobre parte do fluxo.
 
 Quickstart: manter os três repositórios lado a lado, executar `docker compose -f compose.phase4.yml up -d --build`, `npm run test:bdd` e `npm run test:frontend:e2e`. `PHASE4_ENABLED=true` é o modo de entrega; `false` preserva a regressão histórica da Fase 3. Leia o guia antes de configurar AWS.
 
@@ -25,6 +27,18 @@ Snapshot de 06/11/2026, fonte implantada `3657c33`:
 Validação manual no portal em 06/11/2026: a OS de demonstração #1 passou por abertura, atribuição, diagnóstico, orçamento de R$175,00, aprovação, compensação por falta de estoque, reposição e nova Saga, execução, pagamento no Checkout Pro com contas de teste e entrega. O webhook assinado recebeu HTTP201; o estado final foi `ENTREGUE`, com pagamento `APPROVED` e `paymentConfirmed=true`.
 
 Os endpoints foram consultados com HTTP200 em 06/11/2026. A disponibilidade da homologação depende da sessão ativa do AWS Academy; renovar as credenciais temporárias e fazer rollout pelos workflows ao iniciar outra sessão.
+
+### Instrumentação e Datadog — 10/11/2026
+
+- [CI push aprovado](https://github.com/christochula/oficina-api/actions/runs/42928478487) e [CI do PR aprovado](https://github.com/christochula/oficina-api/actions/runs/42928486551), fonte `af93d839a46759f449b8be61ea5a73b8341deffa`; Quality, Integration, Sonar, Frontend, BDD e Container aprovados.
+- [Deploy OS aprovado](https://github.com/christochula/oficina-api/actions/runs/42929328275), fonte `af93d83`; [Billing](https://github.com/christochula/oficina-billing-service/actions/runs/42928569648), `2335`; [Production](https://github.com/christochula/oficina-production-service/actions/runs/42928627925), `7daa`.
+- [Apply Datadog aprovado](https://github.com/christochula/oficina-infra-kubernetes/actions/runs/42929602706), fonte `84c6494`, e [dashboard de homologação](https://app.datadoghq.com/dashboard/u6t-x9c-awx/oficina--operao-e-observabilidade--homolog).
+- [Apply dos percentis aprovado](https://github.com/christochula/oficina-infra-kubernetes/actions/runs/42932263134), fonte `917a94e`, após [plano revisado](https://github.com/christochula/oficina-infra-kubernetes/actions/runs/42931855935): nenhuma alteração AWS e duas configurações de métricas Datadog.
+- Ingestão inicial em **11/11/2026 00:17:54 UTC / 10/11 21:17:54 São Paulo**: spans APM e logs dos três serviços; 3 séries HTTP e 6 séries de fila, com 3 DLQs em zero. No ensaio seguinte, consultas retornaram 7 séries Saga e p95 HTTP dos três serviços com pontos reais. Detalhes e limites em [Datadog](docs/operacao/datadog.md#evidência-verificada).
+
+O ensaio de **10/11/2026 em São Paulo** concluiu a OS **#2**, `os06a521bf-0d80-49b5-8dd2-1a1c9c961588`, **ENTREGUE**, total **R$175**, pagamento **APPROVED** e `paymentConfirmed=true`. A Saga `57dccf1d-8f9d-4d2d-93ce-099c823d1264` foi compensada por falta de estoque; após reposição, a nova Saga `c5469a88-8b2b-4503-a146-e3db319485fd` completou a preparação, seguida de reparo, pagamento e entrega. O recurso canônico Mercado Pago confirmou valor/moeda e vendedor/comprador TEST esperados; o campo observado permaneceu `live_mode=true`.
+
+O trace `6af3b4f30000000061b75976960c6fe6` contém spans dos três serviços para parte desse fluxo. Logs também registraram compensação, recuperação e confirmação de pagamento por webhook. Não se afirma que toda transição esteja indexada nem que toda a Saga humana forme um único trace. O histórico da OS #1 de 06/11 permanece preservado; o [guia de gravação](docs/entrega/pronto-para-gravar.md) usa a OS #2 como evidência atual.
 
 ---
 
@@ -101,6 +115,8 @@ Tokens expirados, clientes/usuários inativos e assinatura, issuer ou audience i
 
 ## Observabilidade Datadog
 
+Para operar a **Fase 4**, seguir o [workflow da infraestrutura](https://github.com/christochula/oficina-infra-kubernetes/blob/feature/phase4-distributed/docs/datadog-actions.md), Environment `homolog`, secret `oficina/datadog` e Gateway HTTPS como `API_BASE_URL`. Abaixo permanece a referência histórica; o [registro atual](docs/operacao/datadog.md) comprova sinais dos três serviços, gauges SQS/DLQ, Saga/p95 e um trace com os três serviços em parte do ensaio da OS #2. A integração AWS cross-account não está disponível no Academy.
+
 O processo inicia o tracer antes do Nest (`node --require dd-trace/init`). Todos os logs são JSON e incluem `correlation_id`, `dd.trace_id` e `dd.span_id` quando houver span ativo. O header `X-Correlation-Id` é validado ou criado e devolvido ao chamador.
 
 Métricas DogStatsD emitidas:
@@ -110,7 +126,7 @@ Métricas DogStatsD emitidas:
 | `oficina.api.request.duration_ms` | Distribuição de latência HTTP |
 | `oficina.service_orders.created` | Volume de ordens abertas |
 | `oficina.service_orders.status_transition` | Transições por status |
-| `oficina.service_orders.status_duration_ms` | Tempo em diagnóstico, execução e finalização |
+| `oficina.service_orders.status_duration_ms` | Diagnóstico e execução na Fase 4; finalização é referência do fluxo legado |
 | `oficina.service_orders.processing_errors` | Falhas no processamento de ordens |
 | `oficina.integrations.errors` | Erros de webhook/integrações |
 

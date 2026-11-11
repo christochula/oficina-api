@@ -1,101 +1,29 @@
-# Datadog — o que fazer fora do código
+# Datadog na Fase 4 — preparação por GitHub Actions
 
-O que já está pronto no código está listado em `datadog.md`. Este documento é só
-a parte **manual** (não automatizável): criar a conta e as chaves.
+**Ingestão básica verificada em 11/11/2026 às 00:17:54 UTC (10/11 às 21:17:54 em São Paulo).** O ensaio posterior da OS #2 concluiu compensação, recuperação, pagamento e entrega; retornaram sinais Saga, p95 dos três serviços e um trace com os três serviços para parte do fluxo. Conferir horários e limites no [registro da evidência](datadog.md#evidência-verificada).
 
-Tempo: ~5 min. Fazer **antes** ou **durante** a sessão de deploy.
+O procedimento autoritativo de bootstrap, plano e apply está em [Datadog por GitHub Actions](https://github.com/christochula/oficina-infra-kubernetes/blob/feature/phase4-distributed/docs/datadog-actions.md), no repositório de infraestrutura. Não seguir os antigos comandos manuais de Secrets Manager ou aplicar Terraform localmente para esta entrega.
 
----
+## Configuração e custódia
 
-## 1. Conta
+- O titular prepara a conta/site e as chaves Datadog com permissões adequadas ao provider. Para US1: DD_SITE=datadoghq.com e DATADOG_API_URL=https://api.datadoghq.com/.
+- No **Environment homolog** de oficina-infra-kubernetes, configurar os Secrets DATADOG_API_KEY e DATADOG_APP_KEY, além das três credenciais temporárias AWS. Nunca guardar valores em GitHub Variables, VITE_*, tfvars ou arquivos versionados.
+- Usar **DATADOG_SECRET_ID=oficina/datadog** e DATADOG_ENABLED=true. O primeiro plano habilitado valida o par e inicializa esse secret por Actions, preservando valores existentes iguais; divergências exigem revisão, sem rotação automática.
+- O apply copia o par canônico para o Secret Kubernetes datadog/datadog-credentials. Helm recebe apenas nomes de Secrets existentes; as chaves do provider vêm de variáveis de ambiente. Não publicar JSON de segredo, state ou plano binário como artifact.
+- Variables de Environment prevalecem sobre as do repositório. Conferir o escopo homolog antes de solicitar qualquer operação.
 
-1. https://www.datadoghq.com/ → **Free Trial** (14 dias, sem cartão).
-   Cobre APM, logs, métricas, dashboards, monitores e Synthetics — suficiente
-   para a entrega (prazo dia 15).
-2. Escolha o site **US1** (`datadoghq.com`) — é o default do código.
-   Se escolher outro, ajuste depois `DATADOG_SITE` e `DATADOG_API_URL`.
-3. Pule os passos de instalação de Agent que a UI sugere (o Terraform faz).
+## Plano e implantação
 
-## 2. API key (ingestão)
+1. Usar o HEAD que passou no CI e o fluxo plan → revisão de texto/fingerprint → approved run → apply, conforme o guia de infraestrutura. A alternativa por tag está documentada no mesmo lugar. Não reaproveitar aprovação de plano com Datadog desabilitado ou de outro SHA.
+2. EKS base deve estar ACTIVE. A aplicação usa namespace **oficina-fase4**; o Agent usa **datadog**.
+3. Configurar API_BASE_URL com o **Gateway HTTPS** da gravação, sem barra final. Os healths dos três serviços usam essa mesma origem.
+4. No OS, DD_ENABLED=true habilita tracing/métricas no chart; manter DD_TRACE_ENABLED e DD_METRICS_ENABLED habilitados também em Billing e Production pelos seus workflows. Conferir DD_ENV=homolog e os três DD_SERVICE.
+5. Renovar sessões Academy e redeployar os aplicativos pelos workflows quando necessário para recarregar credenciais temporárias. Não criar Secrets Kubernetes manualmente para contornar o pipeline.
 
-*Organization Settings → API Keys → New Key* → nome `oficina-ingest`.
-Copie o valor.
+## Sinais disponíveis no Academy
 
-## 3. Application key (Terraform)
+O Agent Helm/DaemonSet e o Cluster Agent recebem APM TCP8126, DogStatsD UDP8125 e logs dos três serviços. O chart Datadog **3.270.0 também instalou um Deployment do Operator como dependência**; o Agent deste fluxo não é implantado por um recurso DatadogAgent e SSI não foi habilitado. A integração AWS cross-account permanece indisponível; não prometer métricas CloudWatch de RDS, Gateway/Lambda ou aws.sqs.* só pela instalação do Agent.
 
-*Organization Settings → Application Keys → New Key* → nome `oficina-terraform`.
+O OS exporta contagens aproximadas SQS/DLQ por GetQueueAttributes quando DD_METRICS_ENABLED=true. Essas métricas customizadas não dependem da integração AWS do Datadog. Ver contrato e consultas em [datadog.md](datadog.md).
 
-**Escopos** (Scopes) — marque no mínimo:
-`dashboards_write`, `monitors_write`, `synthetics_write`, `metrics_write`
-(inclui `metric_tags_write`). Se a UI da trial não permitir limitar escopo,
-uma key sem escopo também serve.
-Copie o valor.
-
-## 4. Guardar as chaves no AWS Secrets Manager
-
-Com as credenciais do lab ativas (`export AWS_PROFILE=academy`):
-
-```bash
-DD_API_KEY="<api key do passo 2>"
-DD_APP_KEY="<app key do passo 3>"
-
-aws secretsmanager restore-secret --secret-id oficina/datadog 2>/dev/null || true
-aws secretsmanager create-secret --name oficina/datadog \
-  --secret-string "{\"api_key\":\"$DD_API_KEY\",\"app_key\":\"$DD_APP_KEY\"}" \
-  2>/dev/null \
-|| aws secretsmanager put-secret-value --secret-id oficina/datadog \
-  --secret-string "{\"api_key\":\"$DD_API_KEY\",\"app_key\":\"$DD_APP_KEY\"}"
-```
-
-As chaves **nunca** vão para o Git, GitHub Secrets, tfvars ou Terraform state —
-os pipelines leem do Secrets Manager em runtime e mascaram com `::add-mask::`.
-
-## 5. Ligar nos pipelines
-
-```bash
-gh variable set DATADOG_ENABLED   -R christochula/oficina-infra-kubernetes -b "true"
-gh variable set DATADOG_SECRET_ID -R christochula/oficina-infra-kubernetes -b "oficina/datadog"
-gh variable set DD_ENABLED        -R christochula/oficina-api              -b "true"
-# opcional, se não for US1:
-# gh variable set DATADOG_SITE     -R christochula/oficina-infra-kubernetes -b "datadoghq.eu"
-# gh variable set DATADOG_API_URL  -R christochula/oficina-infra-kubernetes -b "https://api.datadoghq.eu/"
-```
-
-Com `DATADOG_ENABLED=true`, o deploy do `oficina-infra-kubernetes`:
-
-- instala o **Datadog Agent** (Helm, DaemonSet + Cluster Agent) no EKS —
-  logs, APM, DogStatsD, kube-state-metrics;
-- aplica o stack **`observability/`** — 1 dashboard (10 widgets), 5 monitores
-  de métrica + 1 Synthetic HTTP em `/api/health/ready`, e a config de tags das
-  métricas (percentis p95/p99).
-
-Com `DD_ENABLED=true`, o deploy do `oficina-api` injeta `DD_TRACE_ENABLED` /
-`DD_METRICS_ENABLED` / `DD_RUNTIME_METRICS_ENABLED` = `true` nos pods.
-
-## 6. Depois do deploy: apontar o Synthetic para a URL real
-
-```bash
-gh variable set API_BASE_URL -R christochula/oficina-infra-kubernetes -b "http://<elb-do-eks>"
-gh workflow run "Terraform deploy" -R christochula/oficina-infra-kubernetes --ref main
-```
-
-## 7. O que NÃO estamos usando (limitação do AWS Academy — registrar em ADR)
-
-- **Integração AWS↔Datadog** (métricas CloudWatch de API Gateway / Lambda / RDS):
-  exige criar uma IAM role cross-account, bloqueado no Learner Lab. A app e o
-  cluster continuam totalmente cobertos pelo Agent; API Gateway e Lambda têm
-  logs no CloudWatch e (se `datadog_enabled` nas Lambdas) APM próprio.
-- **Datadog Synthetic Private Location**: não é mais necessária — o ELB do EKS
-  é público, então uma location pública (`aws:us-east-1`) alcança
-  `/api/health/ready`.
-
-## 8. Validação (ver `datadog.md` seção "Validação pós-deploy")
-
-Resumo:
-
-```bash
-kubectl get pods -n datadog
-kubectl exec -n datadog daemonset/datadog -- agent status | grep -A3 'APM\|Logs\|DogStatsD'
-# Log Explorer:  service:oficina-api env:homolog @correlation_id:<id>
-# Metrics Explorer:  oficina.api.request.duration_ms, oficina.service_orders.created, ...
-```
+O [apply 42929602706](https://github.com/christochula/oficina-infra-kubernetes/actions/runs/42929602706) concluiu no SHA 84c6494. O [apply de percentis 42932263134](https://github.com/christochula/oficina-infra-kubernetes/actions/runs/42932263134), SHA 917a94e, configurou duas métricas após plano revisado, sem alterações AWS. A ingestão e os sinais do ensaio foram comprovados no [dashboard de homologação](https://app.datadoghq.com/dashboard/u6t-x9c-awx/oficina--operao-e-observabilidade--homolog). Em outra sessão, reconferir recursos, período e ingestão; presença anterior de sinais não garante disponibilidade atual ou indexação de todo span.

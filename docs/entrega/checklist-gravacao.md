@@ -1,16 +1,16 @@
 # Checklist de gravação — Fase 4
 
-Conferir na sessão da gravação. O snapshot de 06/11/2026 comprova uma execução anterior; não atesta a disponibilidade atual do Academy ou do Datadog. Nenhum item abaixo foi marcado como validado por este documento.
+O ensaio de **10/11/2026** concluiu a OS #2 **ENTREGUE, R$175, APPROVED/paymentConfirmed=true**, com compensação, recuperação e sinais reais no Datadog. O [guia pronto para gravar](pronto-para-gravar.md) reúne as provas e links. Os itens abaixo são conferências para a sessão da gravação; a execução anterior não garante disponibilidade futura.
 
 ## Ambiente e evidências
 
-- [ ] Sessão Academy ativa; eventuais renovações de credenciais e rollouts necessários concluídos pelos workflows GitHub Actions.
+- [ ] Sessão Academy ativa; a sessão iniciada em 10/11 às 20:44 termina em **11/11/2026 00:44:36 São Paulo**. Eventuais renovações/rollouts devem ser concluídos pelos workflows GitHub Actions.
 - [ ] Dois nós EKS Ready e workloads OS/Billing/Production disponíveis em oficina-fase4.
 - [ ] Portal HTTPS e assets carregam; healths HTTP200: /api/health/ready, /api/v1/billing/health e /api/v1/production/health.
 - [ ] Frontend usa a mesma origem para /auth/token; LOCAL_DEMO_MODE não participa da implantação cloud.
 - [ ] CI, cobertura, quality gates e deploy correspondem ao SHA demonstrado. Links dos três serviços preparados; nenhum gate removido para gravar.
-- [ ] Métricas, logs e traces dos três serviços chegaram ao Datadog; filtros/período conferidos com tráfego recente e uma correlação relevante já localizada.
-- [ ] OS #1 entregue e seu histórico preservados; capturas antigas identificadas como execução de 06/11.
+- [ ] Dashboard e trace preparados na janela do ensaio da OS #2; conferir Live/Indexed e retenção antes da captura. Há prova de um trace com os três serviços em parte do fluxo, sem garantia de toda transição indexada.
+- [ ] OS #2 e seu histórico de 10/11 preservados; OS #1 permanece como histórico separado de 06/11. Se houver nova OS, anotar seu ID e manter as execuções identificadas.
 
 ## Ensaio pela interface
 
@@ -18,9 +18,11 @@ Conferir na sessão da gravação. O snapshot de 06/11/2026 comprova uma execuç
 - [ ] Conferir cadastros, IDs e disponibilidade real das peças na filial-sp, conforme [nova OS](nova-os-demonstracao.md). Não resetar dados.
 - [ ] Anotar número/ID da nova OS após a criação. Se a resposta demorar, consultar a lista antes de criar novamente.
 - [ ] Esperar os dois participantes antes da atribuição; orçamento com três itens e total R$175.
+- [ ] Depois de atribuir, esperar o administrador mostrar ATRIBUIDA e o responsável correto antes de mudar para o mecânico. Um 403 durante a atualização assíncrona exige reconsulta, não nova atribuição ou mudança de autorização.
 - [ ] Falta de estoque produz compensação; reposição e retry concluem a preparação com nova Saga.
 - [ ] Mecânico registra execução/consumos; cobrança somente após reparo; entrega bloqueada até confirmação.
 - [ ] Comprador e vendedor Mercado Pago TEST distintos e do mesmo país; cartão TEST preparado. Verificações da conta real ficam com o titular e fora da gravação.
+- [ ] Refazer login do cliente antes do trecho de pagamento: o token dura 5 minutos. Conferir a sessão isolada do comprador TEST, sem mostrar credenciais ou documento.
 - [ ] Retorno do checkout preserva a OS; pagamento aprovado, confirmação e liberação da entrega aparecem na aplicação.
 - [ ] Anotar osId, Saga compensada, Saga de recuperação e correlações para o Datadog, sem copiar tokens/headers de autenticação.
 
