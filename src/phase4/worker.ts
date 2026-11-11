@@ -17,7 +17,10 @@ import { transition } from './saga';
 import { DistributedOrders } from './service';
 import { TelemetryService } from '../shared/observability/telemetry.service';
 import tracer from 'dd-trace';
-import { captureTraceparent } from '../shared/observability/trace-context';
+import {
+  captureTraceparent,
+  traceOutbox,
+} from '../shared/observability/trace-context';
 
 @Injectable()
 export class SagaWorker implements OnModuleInit, OnModuleDestroy {
@@ -67,28 +70,51 @@ export class SagaWorker implements OnModuleInit, OnModuleDestroy {
         for (const row of rows) {
           try {
             if (row.destination.startsWith('REGISTER_')) {
-              await this.orders.remote(
-                row.destination === 'REGISTER_BILLING'
-                  ? 'billing'
-                  : 'production',
-                '/internal/orders',
-                'POST',
-                row.message.payload,
+              await traceOutbox(
+                'oficina.order.register',
+                row.message,
+                async () => {
+                  await this.orders.remote(
+                    row.destination === 'REGISTER_BILLING'
+                      ? 'billing'
+                      : 'production',
+                    '/internal/orders',
+                    'POST',
+                    row.message.payload,
+                  );
+                },
+                'http',
               );
             } else {
               const queue = process.env[`${row.destination}_QUEUE_URL`];
               if (!queue) throw new Error('Fila não configurada');
-              await this.sqs.send(
-                new SendMessageCommand({
-                  QueueUrl: queue,
-                  MessageBody: JSON.stringify(row.message),
-                  ...(queue.endsWith('.fifo')
-                    ? {
-                        MessageGroupId: row.message.osId,
-                        MessageDeduplicationId: row.message.messageId,
-                      }
-                    : {}),
-                }),
+              await traceOutbox(
+                'oficina.outbox.publish',
+                row.message,
+                async (outgoing) => {
+                  await this.sqs.send(
+                    new SendMessageCommand({
+                      QueueUrl: queue,
+                      MessageBody: JSON.stringify(outgoing),
+                      ...(queue.endsWith('.fifo')
+                        ? {
+                            MessageGroupId: outgoing.osId,
+                            MessageDeduplicationId: outgoing.messageId,
+                          }
+                        : {}),
+                    }),
+                  );
+                  this.logger.log(
+                    JSON.stringify({
+                      event: 'outbox_published',
+                      type: outgoing.type,
+                      messageId: outgoing.messageId,
+                      osId: outgoing.osId,
+                      sagaId: outgoing.sagaId,
+                      correlationId: outgoing.correlationId,
+                    }),
+                  );
+                },
               );
             }
             await tx.$executeRaw`UPDATE phase4_outbox SET sent_at=now(),last_error=NULL WHERE id=${row.id}`;
@@ -141,28 +167,62 @@ export class SagaWorker implements OnModuleInit, OnModuleDestroy {
                 'os.id': event.osId,
                 'correlation.id': event.correlationId,
                 'message.type': event.type,
+                'span.kind': 'consumer',
+                'messaging.system': 'aws_sqs',
+                'messaging.message_id': event.messageId,
               },
             },
             async () => {
+              let previousSagaState: string | undefined;
+              let previousStatus: string | undefined;
+              let previousUpdatedAt: string | undefined;
               const result = await this.store.mutate(
                 event.osId,
                 (order) => {
+                  previousSagaState = order.sagaState;
+                  previousStatus = order.status;
+                  previousUpdatedAt = order.atualizadoEm;
                   order.traceparent =
                     captureTraceparent(event.traceparent) || order.traceparent;
                   return transition(order, event);
                 },
                 event.messageId,
               );
-              if (result)
+              const changed = result && result.sagaState !== previousSagaState;
+              if (changed)
                 this.telemetry.sagaTransition(event.type, result.sagaState);
+              if (
+                result &&
+                previousStatus &&
+                result.status !== previousStatus
+              ) {
+                this.telemetry.serviceOrderTransition(result.status);
+                const duration =
+                  Date.parse(result.atualizadoEm) -
+                  Date.parse(previousUpdatedAt || '');
+                if (Number.isFinite(duration) && duration >= 0)
+                  this.telemetry.serviceOrderStatusDuration(
+                    previousStatus,
+                    duration,
+                  );
+              }
               this.telemetry.messageProcessed();
               this.logger.log(
                 JSON.stringify({
                   event: 'saga_event',
                   type: event.type,
+                  messageId: event.messageId,
                   osId: event.osId,
                   sagaId: event.sagaId,
                   correlationId: event.correlationId,
+                  previousSagaState,
+                  sagaState: result?.sagaState,
+                  status: result?.status,
+                  outcome: result
+                    ? changed
+                      ? 'transitioned'
+                      : 'ignored'
+                    : 'duplicate',
                 }),
               );
             },

@@ -53,6 +53,8 @@ function setup() {
     sagaTransition: jest.fn(),
     messageProcessed: jest.fn(),
     sagaPendingAge: jest.fn(),
+    serviceOrderTransition: jest.fn(),
+    serviceOrderStatusDuration: jest.fn(),
   };
   const worker = new SagaWorker(
     db as unknown as PrismaService,
@@ -200,6 +202,72 @@ describe('SagaWorker durable messaging and retries', () => {
     await worker.tick();
     expect(telemetry.sagaTransition).toHaveBeenCalledTimes(1);
     expect(telemetry.messageProcessed).toHaveBeenCalledTimes(2);
+    worker.onModuleDestroy();
+  });
+
+  it('counts compensation only on the real state change and logs late messages as ignored', async () => {
+    const { worker, telemetry, value } = setup();
+    process.env.INBOX_QUEUE_URL = 'https://sqs.test/os-events';
+    value.sagaState = 'COMPENSATING';
+    value.status = 'APROVADA';
+    const released = command(value, 'BudgetReleased');
+    send
+      .mockResolvedValueOnce({
+        Messages: [{ Body: JSON.stringify(released), ReceiptHandle: 'first' }],
+      })
+      .mockResolvedValueOnce({});
+    await worker.tick();
+    expect(value.sagaState).toBe('COMPENSATED');
+    expect(telemetry.sagaTransition).toHaveBeenCalledWith(
+      'BudgetReleased',
+      'COMPENSATED',
+    );
+    const late = command(value, 'BudgetReleased');
+    send
+      .mockResolvedValueOnce({
+        Messages: [{ Body: JSON.stringify(late), ReceiptHandle: 'late' }],
+      })
+      .mockResolvedValueOnce({});
+    await worker.tick();
+    expect(telemetry.sagaTransition).toHaveBeenCalledTimes(1);
+    expect(telemetry.messageProcessed).toHaveBeenCalledTimes(2);
+    const log = JSON.parse(
+      (Logger.prototype.log as jest.Mock).mock.calls.at(-1)[0] as string,
+    ) as Record<string, unknown>;
+    expect(log).toMatchObject({
+      event: 'saga_event',
+      sagaState: 'COMPENSATED',
+      previousSagaState: 'COMPENSATED',
+      outcome: 'ignored',
+      messageId: late.messageId,
+    });
+    expect(log).not.toHaveProperty('payload');
+    worker.onModuleDestroy();
+  });
+
+  it('records completed physical execution duration from committed OS status changes', async () => {
+    const { worker, telemetry, value } = setup();
+    process.env.INBOX_QUEUE_URL = 'https://sqs.test/os-events';
+    value.status = 'EM_EXECUCAO';
+    value.sagaState = 'EXECUTING';
+    value.atualizadoEm = new Date(Date.now() - 2000).toISOString();
+    const event = command(value, 'ProductionCompleted');
+    send
+      .mockResolvedValueOnce({
+        Messages: [{ Body: JSON.stringify(event), ReceiptHandle: 'completed' }],
+      })
+      .mockResolvedValueOnce({});
+    await worker.tick();
+    expect(telemetry.serviceOrderTransition).toHaveBeenCalledWith(
+      'AGUARDANDO_PAGAMENTO',
+    );
+    expect(telemetry.serviceOrderStatusDuration).toHaveBeenCalledWith(
+      'EM_EXECUCAO',
+      expect.any(Number),
+    );
+    expect(
+      telemetry.serviceOrderStatusDuration.mock.calls[0][1],
+    ).toBeGreaterThanOrEqual(2000);
     worker.onModuleDestroy();
   });
 

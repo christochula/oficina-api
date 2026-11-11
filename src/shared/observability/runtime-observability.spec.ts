@@ -136,6 +136,37 @@ describe('business and operational telemetry', () => {
     await service.onModuleDestroy();
     expect(mockMetrics.close).toHaveBeenCalledTimes(1);
   });
+  it('isolates synchronous metric transport errors from committed business operations', () => {
+    const service = new TelemetryService(
+      logger as unknown as JsonLoggerService,
+    );
+    mockMetrics.increment.mockImplementationOnce(() => {
+      throw new Error('transport unavailable');
+    });
+    mockMetrics.distribution.mockImplementationOnce(() => {
+      throw new Error('transport unavailable');
+    });
+    mockMetrics.gauge.mockImplementationOnce(() => {
+      throw new Error('transport unavailable');
+    });
+    expect(() => service.serviceOrderCreated()).not.toThrow();
+    expect(() =>
+      service.serviceOrderStatusDuration('EM_EXECUCAO', 100),
+    ).not.toThrow();
+    expect(() =>
+      service.gauge('oficina.messaging.queue.visible', 5, {
+        queue: 'os-events',
+        role: 'inbox',
+      }),
+    ).not.toThrow();
+    service.gauge('oficina.messaging.queue.visible', 3);
+    expect(mockMetrics.gauge).toHaveBeenLastCalledWith(
+      'oficina.messaging.queue.visible',
+      3,
+      {},
+    );
+  });
+
   it('uses deploy tags and a configured agent without opening a real socket in tests', () => {
     process.env.DD_SERVICE = 'oficina-api';
     process.env.DD_ENV = 'homolog';

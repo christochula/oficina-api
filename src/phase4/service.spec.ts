@@ -11,6 +11,7 @@ import { TipoDocumento } from '../cliente/domain/cliente.entity';
 import { Order } from './contracts';
 import { OrderStore } from './store';
 import { DistributedOrders } from './service';
+import { TelemetryService } from '../shared/observability/telemetry.service';
 
 function fixture(): Order {
   return {
@@ -62,13 +63,16 @@ function setup(value = fixture()) {
       create: jest.fn().mockResolvedValue({ id: 'new-vehicle' }),
     },
   };
+  const telemetry = { serviceOrderCreated: jest.fn() };
   return {
     service: new DistributedOrders(
       store as unknown as OrderStore,
       prisma as unknown as PrismaService,
+      telemetry as unknown as TelemetryService,
     ),
     store,
     prisma,
+    telemetry,
     value,
   };
 }
@@ -109,7 +113,7 @@ describe('DistributedOrders authorization and lifecycle', () => {
   });
 
   it('opens an OS locally and registers both remote participants through its outbox', async () => {
-    const { service, store } = setup();
+    const { service, store, telemetry } = setup();
     const result = await service.open(
       {
         clienteId: 'cl-test',
@@ -126,12 +130,22 @@ describe('DistributedOrders authorization and lifecycle', () => {
       paymentConfirmed: false,
     });
     expect(result.historico).toHaveLength(1);
+    expect(telemetry.serviceOrderCreated).toHaveBeenCalledTimes(1);
     expect(store.create.mock.calls[0][1]).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ destination: 'REGISTER_BILLING' }),
         expect.objectContaining({ destination: 'REGISTER_PRODUCTION' }),
       ]),
     );
+  });
+
+  it('does not count an order whose durable transaction fails', async () => {
+    const { service, store, telemetry } = setup();
+    store.create.mockRejectedValueOnce(new Error('database unavailable'));
+    await expect(
+      service.open({ clienteId: 'cl-test', veiculoId: 've-test' }, admin),
+    ).rejects.toThrow('database unavailable');
+    expect(telemetry.serviceOrderCreated).not.toHaveBeenCalled();
   });
 
   it('validates customer and vehicle existence and active state', async () => {

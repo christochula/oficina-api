@@ -11,6 +11,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { Budget, command, history, Order } from './contracts';
 import { OrderStore } from './store';
 import { requestContext } from '../shared/observability/request-context';
+import { TelemetryService } from '../shared/observability/telemetry.service';
 import { PapelUsuario as Role } from '../usuario/domain/papel-usuario.enum';
 import { AbrirOrdemServicoInput } from '../ordem-servico/application/casos-de-uso/abrir-ordem-servico.usecase';
 export interface RemoteOrder {
@@ -33,6 +34,7 @@ export class DistributedOrders {
   constructor(
     private readonly store: OrderStore,
     private readonly prisma: PrismaService,
+    private readonly telemetry: TelemetryService,
   ) {}
   assertAccess(order: Order, user: JwtPayload) {
     const role = user.role ?? user.papel;
@@ -170,7 +172,7 @@ export class DistributedOrders {
       historico: [],
     };
     history(order, 'ORDEM_ABERTA');
-    return this.store.create(
+    const created = await this.store.create(
       order,
       ['BILLING', 'PRODUCTION'].map((destination) => ({
         destination: `REGISTER_${destination}` as
@@ -183,6 +185,8 @@ export class DistributedOrders {
         }),
       })),
     );
+    this.telemetry.serviceOrderCreated();
+    return created;
   }
   async read(id: string, user: JwtPayload) {
     const order = await this.store.get(id);

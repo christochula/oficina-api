@@ -1,5 +1,7 @@
 # Conteúdo-base do PDF final de entrega
 
+> **Modelo histórico da Fase 3.** O PDF da Fase 4 usa [entrega.json](../fase4/entrega.json) e o [processo de geração atual](../fase4/entrega.md). Matheus Chula e Karina Lage já estão identificados nessa fonte; RMs e vídeo permanecem pendentes. Não usar os quatro links/declarações deste modelo como conteúdo atual.
+
 > Este Markdown é o suporte solicitado para montar o PDF no portal. Substitua todos os marcadores e valide os links em janela anônima antes de exportar. Não transforme o arquivo em PDF até que o estado externo seja real.
 
 ## Identificação

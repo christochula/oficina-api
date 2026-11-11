@@ -1,115 +1,49 @@
-# Roteiro do vídeo final — duração-alvo 14min30s
+# Vídeo da Fase 4 — roteiro de 14min30s
 
-Limite do desafio: 15 minutos. Grave em 1080p, fonte grande, abas/terminais
-preparados. **Nunca** mostre CPF real, JWT completo, segredo, Terraform state,
-variáveis protegidas ou dados pessoais. A documentação **não** precisa aparecer.
+Limite: **15 minutos**. Participantes: **Matheus Chula** e **Karina Lage**. RMs e link do vídeo permanecem pendentes em [entrega.json](../fase4/entrega.json).
 
-## Antes de gravar
+Este roteiro substitui o da Fase 3: são **três microsserviços de negócio e seis repositórios**. Antes de gravar, use o [checklist](checklist-gravacao.md) e o [guia de nova OS](nova-os-demonstracao.md).
 
-- Execute o deploy completo pelo [runbook do Academy](../operacao/runbook-deploy-academy.md)
-  e a verificação da seção 7.
-- Rode o seed de demonstração (clientes com CPF: `732.145.980-23`, `418.729.650-67`, `963.852.740-47`).
-- Datadog fixado em `Past 15 Minutes`, `env:homolog`. Gere tráfego (repita a
-  seção 7 do runbook algumas vezes + avance uma OS) para as métricas aparecerem.
-- Abas prontas: 4 repositórios · GitHub Actions · Swagger (`$API_ENDPOINT/api/docs`) ·
-  Datadog (dashboard, monitor, Log Explorer, um trace).
-- Cronômetro visível.
+## Evidência preservada
+
+Em **06/11/2026**, a OS **#1**, ID **os9dbdff80-b24f-4805-9ccf-f432d84c4d7c**, completou abertura, diagnóstico, orçamento de **R$175**, aprovação, compensação por falta de estoque, reposição, nova Saga, reparo, Checkout Pro com contas TEST e entrega. O estado final registrado foi **ENTREGUE**, pagamento **APPROVED**, **paymentConfirmed=true**; o webhook assinado recebeu HTTP201. Os links de CI, Sonar e deploy desse snapshot estão no [README](../../README.md#homologação-e-evidências-da-fase-4).
+
+Preserve a OS #1. Identifique sua data ao mostrar histórico/capturas. Uma demonstração nova terá outro número: mantenha esse ID em todas as etapas, sem misturar telas de ordens diferentes.
+
+## Abas preparadas
+
+Portal com sessões separadas de administrador, mecânico e cliente; [arquitetura Fase 4](../fase4/arquitetura.md); seis repositórios; CI/deploy do SHA demonstrado; Datadog com filtros e período corretos. Comprador Mercado Pago TEST distinto do vendedor TEST, mesmo país, já validado em sessão isolada da conta real.
 
 ## Linha do tempo
 
-### 00:00–00:35 — Abertura
+| Tempo | Tela e ação | Evidência/fala principal |
+|---|---|---|
+| 00:00–00:40 | Apresentação e links | “Somos Matheus Chula e Karina Lage. Esta é a Fase 4 da Oficina: três microsserviços, Saga e deploy Kubernetes automatizado.” |
+| 00:40–01:40 | Diagrama | OS/orquestrador com PostgreSQL; Billing/orçamento e pagamento com outro PostgreSQL; Production/diagnóstico, estoque e execução com DynamoDB. SQS/DLQs; EKS compartilhado; nenhum banco acessado por outro serviço. |
+| 01:40–02:20 | OS #1 entregue e histórico | Mostrar R$175 e execução de 06/11. A nova demonstração preserva esse histórico. |
+| 02:20–03:30 | Admin: wizard e atribuição | Cliente/veículo existentes, filial-sp e problema fictício. Anotar a nova OS. Aguardar “Preparando atendimento” terminar antes de “Informar mecânico”. |
+| 03:30–04:45 | Mecânico: diagnóstico e orçamento | Serviço R$100 + filtro R$50 + junta R$25, quantidade 1 cada. Total R$175 e AGUARDANDO_APROVACAO. |
+| 04:45–06:15 | Cliente: aprovação; histórico/estoque | A peça de R$25 começa indisponível. Mostrar falha de preparação, Saga COMPENSATED e reservas liberadas. A OS permanece aprovada. |
+| 06:15–07:30 | Admin: reposição e retry | Entrada de 1 unidade da peça faltante, mesma filial. “Tentar preparação novamente”; outra sagaId, preparação COMPLETED e orçamento preservado. |
+| 07:30–08:45 | Mecânico: reparo | Iniciar execução, consumir 1 unidade de cada material e finalizar. AGUARDANDO_PAGAMENTO; entrega ainda bloqueada. |
+| 08:45–10:15 | Cliente: checkout; admin: entrega | “Pagar OS”, concluir com comprador/cartão TEST e voltar à mesma OS. Mostrar APPROVED, confirmação, PRONTA_PARA_ENTREGA e entrega → ENTREGUE. |
+| 10:15–11:55 | CI/Sonar/deploy/EKS | Testes unitários, BDD e Playwright, cobertura ≥80% por serviço e quality gate. Run concluído: build → ECR → Helm/migração → rollout; SHA/imagem, pods prontos e health. Pipelines independentes, PR/checks obrigatórios. |
+| 11:55–14:00 | Datadog | Correlacionar osId/sagaId/correlationId nos três serviços, chamadas HTTP e processamento de mensagens disponíveis nos traces. Mostrar logs da compensação e métricas de tráfego, latência/erros, Saga e filas/DLQ da janela escolhida. |
+| 14:00–14:30 | Encerramento | Retomar seis repositórios, arquitetura e fluxo entregue; PDF com participantes, links, vídeo e justificativa da Saga. |
 
-“Esta é a Fase 3 da Oficina: aplicação, autenticação serverless, Kubernetes e
-banco em **quatro repositórios** com CI/CD, rodando em **AWS Academy** com
-Terraform e observabilidade Datadog.” Mostrar os 4 links e o commit demonstrado.
+## Explicações curtas
 
-### 00:35–02:20 — Arquitetura
+- **Auth:** Lambda consulta a API OS por HTTPS com token interno para emitir JWT de cliente; não acessa banco. Gateway e backends aplicam autenticação e autorização/ownership. Lookup interno e webhook têm verificações próprias.
+- **Saga:** orquestração persistente no OS, inbox/outbox, deduplicação e compensações. Retry cria nova Saga e preserva o orçamento aprovado.
+- **Fronteira física:** antes do reparo, reservas podem ser desfeitas. Reparo concluído não é apagado por pagamento recusado; cobrança permanece pendente e entrega bloqueada.
+- **Pagamento:** Billing valida assinatura e consulta o recurso canônico no Mercado Pago, conferindo referência, valor e moeda. PaymentConfirmed libera a entrega; o redirect sozinho não basta.
 
-Abrir `docs/arquitetura/diagrama-cloud.md` (ou a versão em ícones AWS). Caminho:
+## Esperas e cortes
 
-1. Cliente → **API Gateway HTTP API**;
-2. **Lambda** valida CPF + cliente ativo (consulta o RDS via TLS) → **JWT curto**;
-3. **Lambda authorizer** protege `ANY /api/{proxy+}`;
-4. API Gateway faz **HTTP_PROXY** para o **ELB público** do `Service LoadBalancer`;
-5. Pods NestJS no **EKS** → **RDS PostgreSQL** (TLS forçado);
-6. Notificações **SQS → Lambda → SNS**;
-7. **Datadog Agent** (DaemonSet) coleta logs/APM/DogStatsD/kube-state.
+Ensaiar antes. Cortar apenas espera/digitação, preservando cronologia e ID. Identificar capturas históricas; não apresentar simulador local como Mercado Pago nem configuração Datadog como ingestão real. Mostrar somente traces/monitores efetivamente verificados.
 
-Mencionar: 4 repos com responsabilidades separadas; adaptações do Academy
-documentadas em ADR-005..009 (LabRole, ingress público, RDS público com TLS).
+O deploy pode ser um run anterior concluído, com testes e SHA correspondentes; não é necessário disparar outro só para preencher o vídeo. A disponibilidade do Academy deve ser reconferida na sessão da gravação.
 
-### 02:20–03:50 — CI/CD
+Na execução de 06/11, o provedor retornou **live_mode=true** entre contas TEST. Registrar esse fato sem afirmar live_mode=false ou concluir movimentação financeira apenas pela flag. O fluxo usa Preferences e init_point.
 
-- Um **Pull Request** de cada repo com **checks verdes** (`validate`/`plan` ou
-  `build`/`test`).
-- `main` protegida, PR obrigatório, force-push bloqueado (mostrar Settings → Rules).
-- Autenticação AWS por **credenciais de sessão** do lab (secrets do repo).
-- Mostrar um **run de deploy concluído** (Actions) de pelo menos um repo de infra
-  e do `oficina-api` (build → ECR → `helm upgrade`).
-
-Não abrir logs que revelem variáveis.
-
-### 03:50–05:30 — Autenticação por CPF
-
-Swagger ou `curl`: `POST $API_ENDPOINT/auth/token` com `{"cpf":"732.145.980-23"}`
-→ **200**, mostrar só `token_type`/`expires_in` (não o token inteiro).
-Depois `{"cpf":"111.111.111-11"}` → **401 genérico**.
-
-Explicar: checksum + normalização, consulta parametrizada ao RDS via TLS,
-só cliente ativo, CPF fora do token e dos logs, TTL de 5 min.
-
-### 05:30–06:50 — API protegida
-
-`GET $API_ENDPOINT/api/v1/ordens-servico/minhas/lista`:
-
-1. sem `Authorization` → **401**;
-2. com `Bearer <jwt>` → **200**, só recursos do próprio cliente;
-3. mostrar `X-Correlation-Id` no request e na resposta.
-
-### 06:50–09:00 — Fluxo da ordem de serviço
-
-Com requests preparados (Postman): abrir OS → Diagnóstico → aprovação →
-Execução → Finalização. Mostrar o histórico; explicar que a criação persiste o
-histórico na mesma transação.
-
-### 09:00–10:30 — Deploy e Kubernetes
-
-```bash
-kubectl get deploy,hpa,pdb,pods,svc -n oficina -o wide
-kubectl rollout status deployment/oficina-api -n oficina
-curl -s $API_ENDPOINT/api/health/ready   # {"status":"ok","database":"up"}
-```
-
-Apontar: 2 pods mínimos, **HPA 2–8**, probes HTTP, PDB, `Service LoadBalancer`,
-job de migration `Completed`, tag da imagem = SHA.
-
-### 10:30–12:50 — Dashboard Datadog ao vivo
-
-Atualizar o dashboard `Oficina | Operação e Observabilidade | homolog`:
-
-- volume diário de OS;
-- tempo médio + p95 em Diagnóstico / Execução / Finalização;
-- latência p50/p95/p99 da API;
-- CPU e memória por pod;
-- erros de integração e falhas de processamento de OS.
-
-Abrir um **monitor**; se houver evidência segura, mostrar um ciclo
-`OK → ALERT → OK` provocado em homolog (ex.: p95 de latência ou falha de OS).
-
-### 12:50–14:10 — Logs e traces correlacionados
-
-Log Explorer: `service:oficina-api env:homolog @correlation_id:<id da chamada>`.
-Abrir o evento JSON (`service/env/version`, `dd.trace_id`) e o **trace**
-conectado com spans (API + Prisma/PostgreSQL). Destacar: sem CPF, sem JWT.
-
-### 14:10–14:30 — Encerramento
-
-“Links dos 4 repositórios, documentação e evidências no PDF de entrega. O usuário
-`soat-architecture` foi adicionado aos 4 repositórios.” (só afirme depois de
-confirmar o acesso).
-
-## Plano de corte se ultrapassar o tempo
-
-Encurtar o fluxo de OS (06:50–09:00) e as explicações. **Não cortar:**
-autenticação CPF, API protegida, CI/CD + deploy, dashboard ao vivo, logs+traces,
-os 4 repositórios.
+Se ultrapassar 14min30s, reduzir abertura/digitação/leitura de tabelas. Preservar: três serviços, compensação e recuperação, pagamento após reparo, CI/deploy com testes e rastreamento real. Nunca exibir JWT, senhas, chaves, MFA, connection strings ou Terraform state.

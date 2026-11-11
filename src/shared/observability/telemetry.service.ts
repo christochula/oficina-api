@@ -76,7 +76,15 @@ export class TelemetryService implements OnModuleDestroy {
   }
 
   sagaPendingAge(seconds: number, step = 'unknown'): void {
-    this.client.gauge('oficina.saga.pending_age_seconds', seconds, { step });
+    this.gauge('oficina.saga.pending_age_seconds', seconds, { step });
+  }
+
+  gauge(metric: string, value: number, tags: Tags = {}): void {
+    try {
+      this.client.gauge(metric, value, tags);
+    } catch {
+      // Telemetry cannot fail a committed business operation.
+    }
   }
 
   async onModuleDestroy(): Promise<void> {
@@ -84,11 +92,19 @@ export class TelemetryService implements OnModuleDestroy {
   }
 
   private increment(metric: string, tags: Tags = {}): void {
-    this.client.increment(metric, 1, 1, tags);
+    try {
+      this.client.increment(metric, 1, 1, tags);
+    } catch {
+      // Telemetry cannot fail a committed business operation.
+    }
   }
 
   private distribution(metric: string, value: number, tags: Tags = {}): void {
-    this.client.distribution(metric, value, 1, tags);
+    try {
+      this.client.distribution(metric, value, 1, tags);
+    } catch {
+      // Telemetry cannot fail a committed business operation.
+    }
   }
 
   private dashboardStatus(status: string): string | null {
