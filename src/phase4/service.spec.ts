@@ -8,7 +8,7 @@ import { PrismaService } from '../shared/database/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PapelUsuario as Role } from '../usuario/domain/papel-usuario.enum';
 import { TipoDocumento } from '../cliente/domain/cliente.entity';
-import { Order } from './contracts';
+import { Delivery, Order } from './contracts';
 import { OrderStore } from './store';
 import { DistributedOrders } from './service';
 import { TelemetryService } from '../shared/observability/telemetry.service';
@@ -41,14 +41,15 @@ const client: JwtPayload = {
   clienteId: 'cl-test',
 };
 function setup(value = fixture()) {
+  const deliveries: Delivery[] = [];
   const store = {
     get: jest.fn().mockResolvedValue(value),
     list: jest.fn().mockResolvedValue([value]),
     pendingRegistrations: jest.fn().mockResolvedValue([]),
     create: jest.fn(async (created: Order) => created),
     mutate: jest.fn(
-      async (_id: string, change: (current: Order) => unknown) => {
-        change(value);
+      async (_id: string, change: (current: Order) => Delivery[]) => {
+        deliveries.push(...change(value));
         return value;
       },
     ),
@@ -74,6 +75,7 @@ function setup(value = fixture()) {
     prisma,
     telemetry,
     value,
+    deliveries,
   };
 }
 
@@ -394,6 +396,7 @@ describe('DistributedOrders authorization and lifecycle', () => {
       ConflictException,
     );
     value.sagaState = 'COMPENSATED';
+    value.status = 'APROVADA';
     const previousId = value.sagaId;
     await service.retry(value.id);
     expect(value).toMatchObject({
@@ -403,6 +406,152 @@ describe('DistributedOrders authorization and lifecycle', () => {
     expect(value.sagaId).not.toBe(previousId);
     expect(Date.parse(value.deadline!)).toBeGreaterThan(Date.now());
   });
+});
+
+describe('DistributedOrders administrative preparation reconciliation', () => {
+  function intervention() {
+    const value = fixture();
+    value.status = 'APROVADA';
+    value.sagaState = 'MANUAL_ATTENTION';
+    value.totalCents = 17500;
+    return setup(value);
+  }
+
+  it('persists recovery intent for the active Saga without changing approval or budget', async () => {
+    const { service, value, deliveries } = intervention();
+    const originalSaga = value.sagaId;
+    const originalOrder = value.id;
+
+    await expect(service.reconcile(value.id, originalSaga)).resolves.toBe(
+      value,
+    );
+
+    expect(value).toMatchObject({
+      id: originalOrder,
+      sagaId: originalSaga,
+      status: 'APROVADA',
+      sagaState: 'COMPENSATING',
+      totalCents: 17500,
+      paymentConfirmed: false,
+      reconciliation: {
+        id: expect.stringMatching(/^[0-9a-f-]{36}$/),
+        phase: 'CANCELLING',
+      },
+    });
+    expect(Date.parse(value.deadline!)).toBeGreaterThan(Date.now());
+    expect(value.historico).toEqual([
+      expect.objectContaining({
+        evento: 'RECONCILIACAO_SOLICITADA',
+        statusAnterior: 'APROVADA',
+        statusNovo: 'APROVADA',
+      }),
+    ]);
+    expect(deliveries).toEqual([
+      {
+        destination: 'PRODUCTION',
+        message: expect.objectContaining({
+          type: 'ReconcileExecutionReservation',
+          osId: originalOrder,
+          sagaId: originalSaga,
+          filialId: 'filial-sp',
+          payload: { reconciliationId: value.reconciliation!.id },
+        }),
+      },
+    ]);
+  });
+
+  it.each([
+    { expectedSagaId: '' },
+    { expectedSagaId: 'previous-saga' },
+    { status: 'RECEBIDA' },
+    { status: 'EM_EXECUCAO' },
+    { status: 'AGUARDANDO_PAGAMENTO' },
+    { status: 'PRONTA_PARA_ENTREGA' },
+    { status: 'ENTREGUE' },
+    { sagaState: 'COMPENSATED' },
+    { sagaState: 'PREPARING_BUDGET' },
+    { sagaState: 'COMPLETED' },
+    { paymentConfirmed: true },
+  ])(
+    'rejects unsafe or stale recovery without producing messages: %j',
+    async (change) => {
+      const { service, value, deliveries } = intervention();
+      const { expectedSagaId = value.sagaId, ...patch } = change;
+      Object.assign(value, patch);
+      const before = structuredClone(value);
+
+      await expect(
+        service.reconcile(value.id, expectedSagaId),
+      ).rejects.toBeInstanceOf(ConflictException);
+
+      expect(value).toEqual(before);
+      expect(deliveries).toEqual([]);
+    },
+  );
+
+  it('rejects a second request while recovery is pending without duplicating its outbox intent', async () => {
+    const { service, value, deliveries } = intervention();
+    const sagaId = value.sagaId;
+    await service.reconcile(value.id, sagaId);
+    const recovering = structuredClone(value);
+
+    await expect(service.reconcile(value.id, sagaId)).rejects.toBeInstanceOf(
+      ConflictException,
+    );
+
+    expect(value).toEqual(recovering);
+    expect(value.historico).toHaveLength(1);
+    expect(deliveries).toHaveLength(1);
+  });
+
+  it('clears an old recovery marker only when starting a new compensated attempt', async () => {
+    const { service, value, deliveries } = intervention();
+    value.sagaState = 'COMPENSATED';
+    value.reconciliation = {
+      id: 'previous-reconciliation',
+      phase: 'RELEASING_BUDGET',
+    };
+    const previousSaga = value.sagaId;
+
+    await service.retry(value.id);
+
+    expect(value.reconciliation).toBeUndefined();
+    expect(value.sagaId).not.toBe(previousSaga);
+    expect(value.sagaState).toBe('PREPARING_BUDGET');
+    expect(value.status).toBe('APROVADA');
+    expect(deliveries).toEqual([
+      {
+        destination: 'BILLING',
+        message: expect.objectContaining({
+          type: 'PrepareApprovedBudget',
+          sagaId: value.sagaId,
+        }),
+      },
+    ]);
+  });
+
+  it.each([
+    { status: 'EM_EXECUCAO' },
+    { status: 'AGUARDANDO_PAGAMENTO' },
+    { status: 'PRONTA_PARA_ENTREGA' },
+    { status: 'ENTREGUE' },
+    { status: 'APROVADA', paymentConfirmed: true },
+  ])(
+    'never retries physical or paid work even with a stale compensated marker: %j',
+    async (patch) => {
+      const { service, value, deliveries } = intervention();
+      value.sagaState = 'COMPENSATED';
+      Object.assign(value, patch);
+      const before = structuredClone(value);
+
+      await expect(service.retry(value.id)).rejects.toBeInstanceOf(
+        ConflictException,
+      );
+
+      expect(value).toEqual(before);
+      expect(deliveries).toEqual([]);
+    },
+  );
 });
 
 describe('DistributedOrders initial participant synchronization', () => {

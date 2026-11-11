@@ -26,6 +26,33 @@ export function transition(order: Order, event: Message): Delivery[] {
   ];
   if (!humanEvents.includes(event.type) && event.sagaId !== order.sagaId)
     return out;
+  const recovery = order.reconciliation;
+  if (recovery && order.sagaState === 'COMPENSATING') {
+    // Old replies from the failed cancellation cannot interrupt a new recovery.
+    if (
+      event.type === 'ExecutionCancelled' &&
+      (recovery.phase !== 'CANCELLING' ||
+        event.payload.reconciliationId !== recovery.id)
+    )
+      return out;
+    if (
+      event.type === 'BudgetReleased' &&
+      recovery.phase !== 'RELEASING_BUDGET'
+    )
+      return out;
+    if (event.type === 'CommandFailed') {
+      const expectedCommand =
+        recovery.phase === 'CANCELLING'
+          ? 'ReconcileExecutionReservation'
+          : 'ReleaseBudgetPreparation';
+      if (
+        event.payload.commandType !== expectedCommand ||
+        (recovery.phase === 'CANCELLING' &&
+          event.payload.reconciliationId !== recovery.id)
+      )
+        return out;
+    }
+  }
   switch (event.type) {
     case 'MechanicAssigned':
       if (['RECEBIDA', 'ATRIBUIDA'].includes(order.status)) {
@@ -127,6 +154,7 @@ export function transition(order: Order, event: Message): Delivery[] {
         break;
       }
       if (order.sagaState === 'COMPENSATING') {
+        order.failure = String(event.payload.reason || 'Falha na compensação');
         order.sagaState = 'MANUAL_ATTENTION';
         order.deadline = undefined;
         break;
@@ -145,12 +173,18 @@ export function transition(order: Order, event: Message): Delivery[] {
       }
       break;
     case 'ExecutionCancelled':
-      if (order.sagaState === 'COMPENSATING')
+      if (order.sagaState === 'COMPENSATING') {
+        if (recovery) {
+          recovery.phase = 'RELEASING_BUDGET';
+          step('COMPENSATING');
+        }
         send('BILLING', 'ReleaseBudgetPreparation');
+      }
       break;
     case 'BudgetReleased':
       if (order.sagaState === 'COMPENSATING') {
         order.sagaState = 'COMPENSATED';
+        order.reconciliation = undefined;
         order.deadline = undefined;
         history(order, 'SAGA_COMPENSADA', 'APROVADA');
       }

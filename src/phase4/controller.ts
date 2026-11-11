@@ -201,6 +201,11 @@ export class DistributedOrdersController {
   retry(@Param('id') id: string) {
     return this.service.retry(id);
   }
+  @Post(':id/saga/reconcile')
+  @Papeis(Role.ADMINISTRADOR)
+  reconcile(@Param('id') id: string, @Body() body: { expectedSagaId: string }) {
+    return this.service.reconcile(id, body?.expectedSagaId);
+  }
 }
 
 @Controller({ path: 'internal/auth', version: '1' })

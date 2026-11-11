@@ -189,3 +189,191 @@ describe('Saga distribuída de preparação e cobrança', () => {
     expect(order.sagaState).toBe('COMPENSATING');
   });
 });
+
+describe('Saga administrative reconciliation of failed compensation', () => {
+  function recovering(
+    phase: 'CANCELLING' | 'RELEASING_BUDGET' = 'CANCELLING',
+  ): Order {
+    return {
+      ...fixture(),
+      status: 'APROVADA',
+      sagaState: 'COMPENSATING',
+      totalCents: 17500,
+      deadline: new Date(Date.now() + 60000).toISOString(),
+      reconciliation: { id: 'current-recovery', phase },
+    };
+  }
+
+  it('requires this recovery cancellation before releasing Billing and preserving approval', () => {
+    const order = recovering();
+    const sagaId = order.sagaId;
+    const prematureRelease = command(order, 'BudgetReleased');
+    const before = structuredClone(order);
+
+    expect(transition(order, prematureRelease)).toEqual([]);
+    expect(order).toEqual(before);
+
+    const cancellation = command(order, 'ExecutionCancelled', {
+      reconciliationId: 'current-recovery',
+    });
+    expect(transition(order, cancellation)).toEqual([
+      {
+        destination: 'BILLING',
+        message: expect.objectContaining({
+          type: 'ReleaseBudgetPreparation',
+          osId: order.id,
+          sagaId,
+        }),
+      },
+    ]);
+    expect(order.reconciliation).toEqual({
+      id: 'current-recovery',
+      phase: 'RELEASING_BUDGET',
+    });
+    const releasing = structuredClone(order);
+    expect(transition(order, cancellation)).toEqual([]);
+    expect(order).toEqual(releasing);
+
+    // Billing replies without a recovery ID; its active prepared Saga is the fence.
+    expect(transition(order, command(order, 'BudgetReleased'))).toEqual([]);
+    expect(order).toMatchObject({
+      status: 'APROVADA',
+      sagaState: 'COMPENSATED',
+      sagaId,
+      totalCents: 17500,
+      paymentConfirmed: false,
+      reconciliation: undefined,
+      deadline: undefined,
+    });
+    expect(order.historico).toEqual([
+      expect.objectContaining({ evento: 'SAGA_COMPENSADA' }),
+    ]);
+    const compensated = structuredClone(order);
+    expect(transition(order, cancellation)).toEqual([]);
+    expect(transition(order, command(order, 'BudgetReleased'))).toEqual([]);
+    expect(order).toEqual(compensated);
+  });
+
+  it.each([{}, { reconciliationId: 'previous-recovery' }])(
+    'ignores an old cancellation acknowledgement while recovering: %j',
+    (payload) => {
+      const order = recovering();
+      const before = structuredClone(order);
+
+      expect(
+        transition(order, command(order, 'ExecutionCancelled', payload)),
+      ).toEqual([]);
+
+      expect(order).toEqual(before);
+    },
+  );
+
+  it.each([
+    { commandType: 'CancelExecutionReservation' },
+    { commandType: 'ReserveExecution' },
+    { commandType: 'ReleaseBudgetPreparation' },
+    { commandType: 'ReconcileExecutionReservation' },
+    {
+      commandType: 'ReconcileExecutionReservation',
+      reconciliationId: 'previous-recovery',
+    },
+  ])('ignores failures from previous compensation work: %j', (payload) => {
+    const order = recovering();
+    const before = structuredClone(order);
+
+    expect(transition(order, command(order, 'CommandFailed', payload))).toEqual(
+      [],
+    );
+
+    expect(order).toEqual(before);
+  });
+
+  it('returns to intervention when the current recovery cancellation fails', () => {
+    const order = recovering();
+
+    expect(
+      transition(
+        order,
+        command(order, 'CommandFailed', {
+          commandType: 'ReconcileExecutionReservation',
+          reconciliationId: 'current-recovery',
+          reason: 'Physical work cannot be compensated',
+        }),
+      ),
+    ).toEqual([]);
+
+    expect(order).toMatchObject({
+      status: 'APROVADA',
+      sagaState: 'MANUAL_ATTENTION',
+      failure: 'Physical work cannot be compensated',
+      deadline: undefined,
+      paymentConfirmed: false,
+    });
+  });
+
+  it('accepts only Billing failure while releasing its budget', () => {
+    const order = recovering('RELEASING_BUDGET');
+    const before = structuredClone(order);
+    for (const payload of [
+      { commandType: 'CancelExecutionReservation' },
+      {
+        commandType: 'ReconcileExecutionReservation',
+        reconciliationId: 'current-recovery',
+      },
+    ]) {
+      expect(
+        transition(order, command(order, 'CommandFailed', payload)),
+      ).toEqual([]);
+      expect(order).toEqual(before);
+    }
+
+    transition(
+      order,
+      command(order, 'CommandFailed', {
+        commandType: 'ReleaseBudgetPreparation',
+        reason: 'Saga divergente',
+      }),
+    );
+
+    expect(order.sagaState).toBe('MANUAL_ATTENTION');
+    expect(order.failure).toBe('Saga divergente');
+    expect(order.deadline).toBeUndefined();
+    expect(order.status).toBe('APROVADA');
+  });
+
+  it.each(['CANCELLING', 'RELEASING_BUDGET'] as const)(
+    'requires intervention on a technical timeout in phase %s',
+    (phase) => {
+      const order = recovering(phase);
+
+      expect(transition(order, command(order, 'StepTimedOut'))).toEqual([]);
+
+      expect(order).toMatchObject({
+        status: 'APROVADA',
+        sagaState: 'MANUAL_ATTENTION',
+        deadline: undefined,
+        paymentConfirmed: false,
+      });
+    },
+  );
+
+  it('does not release Billing or claim compensation after concurrent physical work starts', () => {
+    const order = recovering();
+
+    expect(transition(order, command(order, 'ExecutionStarted'))).toEqual([]);
+    expect(order.status).toBe('EM_EXECUCAO');
+    expect(order.sagaState).toBe('MANUAL_ATTENTION');
+    const physicalWork = structuredClone(order);
+
+    expect(
+      transition(
+        order,
+        command(order, 'ExecutionCancelled', {
+          reconciliationId: 'current-recovery',
+        }),
+      ),
+    ).toEqual([]);
+    expect(transition(order, command(order, 'BudgetReleased'))).toEqual([]);
+    expect(order).toEqual(physicalWork);
+  });
+});

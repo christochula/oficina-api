@@ -424,9 +424,35 @@ function awaitingRegistration(order) {
     order.sincronizacaoPendente.length > 0;
 }
 
+function canReconcilePreparation(order, role) {
+  return role === ROLES.ADMIN && order.status === 'APROVADA' &&
+    order.preparacao === 'MANUAL_ATTENTION' && !order.paymentConfirmed &&
+    typeof order.sagaId === 'string' &&
+    /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(order.sagaId);
+}
+
+function confirmPreparationReconciliation() {
+  return new Promise((resolve) => {
+    const modal = openModal({
+      title: 'Reconciliar a preparação?',
+      content: `<div class="confirmation-copy">${icon('help')}<div><p>Esta ação solicita o cancelamento da preparação antes do início do reparo. A ordem e o orçamento aprovado serão preservados.</p><small>A reconciliação não repõe o estoque. Aguarde a compensação terminar, corrija a falta de peças e só então tente preparar a execução novamente.</small></div></div>`,
+      actions: `${button({ label: 'Cancelar', variant: 'ghost', action: 'modal-cancel' })}${button({ label: 'Reconciliar preparação', iconName: 'check', variant: 'primary', action: 'modal-confirm' })}`,
+    });
+    if (!modal) return resolve(false);
+    modal.onClose(() => resolve(false));
+    modal.root.querySelector('[data-action="modal-cancel"]')?.addEventListener('click', modal.close);
+    modal.root.querySelector('[data-action="modal-confirm"]')?.addEventListener('click', () => {
+      resolve(true);
+      modal.close();
+    });
+  });
+}
+
 function nextAction(order, role) {
   const status = order.status;
   if (awaitingRegistration(order)) return { tone: 'neutral', icon: 'hourglass_top', title: 'Preparando atendimento', text: 'Estamos confirmando a abertura da ordem. A atribuição do mecânico será liberada em instantes.', actions: button({ label: 'Atualizar andamento', variant: 'secondary', action: 'order:retry' }) };
+  if (status === 'APROVADA' && order.preparacao === 'MANUAL_ATTENTION') return { tone: 'attention', icon: 'support_agent', title: 'Preparação exige intervenção', text: 'A equipe técnica precisa reconciliar a preparação antes de liberar a execução. O orçamento aprovado foi preservado.', actions: canReconcilePreparation(order, role) ? button({ label: 'Reconciliar preparação', variant: 'primary', action: 'order:saga-reconcile' }) : '' };
+  if (status === 'APROVADA' && order.preparacao === 'COMPENSATING' && order.reconciliation?.id) return { tone: 'neutral', icon: 'hourglass_top', title: 'Reconciliando preparação', text: 'A solicitação foi registrada. Aguardando a confirmação dos serviços para concluir a compensação.', actions: button({ label: 'Atualizar andamento', variant: 'secondary', action: 'order:retry' }) };
   if (status === 'AGUARDANDO_PAGAMENTO') return { tone: 'attention', icon: 'payments', title: 'Reparo concluído: aguardando pagamento', text: role === ROLES.CLIENT ? 'Pague com segurança no Mercado Pago para liberar a retirada do veículo.' : 'A entrega será liberada após a confirmação do pagamento.', actions: role === ROLES.CLIENT ? button({ label: 'Pagar OS', iconName: 'payments', variant: 'primary', action: 'order:pay' }) : '' };
   if (order.preparacao === 'COMPENSATED') return { tone: 'attention', icon: 'info', title: 'Preparação cancelada', text: 'As reservas foram desfeitas. A equipe pode tentar preparar a execução novamente.', actions: INTERNAL_ROLES.has(role) ? button({ label: 'Tentar preparação novamente', variant: 'primary', action: 'order:saga-retry' }) : '' };
   if (status === 'APROVADA' && order.preparacao && order.preparacao !== 'COMPLETED') return { tone: 'neutral', icon: 'hourglass_top', title: 'Preparando execução', text: 'A oficina está confirmando o orçamento e a disponibilidade das peças.', actions: button({ label: 'Atualizar andamento', variant: 'secondary', action: 'order:retry' }) };
@@ -517,6 +543,7 @@ export async function mountOrderDetailView(root, { id, role, api, navigate, noti
   let disposed = false;
   let pollTimer = null;
   let pollDeadline = null;
+  let reconcilingPreparation = false;
   let loadVersion = 0;
   const isActive = () => !disposed && target.isConnected !== false;
   const stopPoll = () => {
@@ -568,6 +595,19 @@ export async function mountOrderDetailView(root, { id, role, api, navigate, noti
     if (action === 'order:retry') { pollDeadline = null; return load(); }
     if (action === 'order:back') return navigate('/ordens');
     if (action === 'order:saga-retry') return runAction(`/ordens-servico/${encodeURIComponent(id)}/saga/retry`, { method: 'POST', success: 'Nova preparação solicitada' });
+    if (action === 'order:saga-reconcile') {
+      if (reconcilingPreparation || !canReconcilePreparation(order, role)) return;
+      reconcilingPreparation = true;
+      const expectedSagaId = order.sagaId;
+      try {
+        const confirmed = await confirmPreparationReconciliation();
+        if (!confirmed || !isActive() || !canReconcilePreparation(order, role) || order.sagaId !== expectedSagaId) return;
+        await runAction(`/ordens-servico/${encodeURIComponent(id)}/saga/reconcile`, {
+          method: 'POST', body: { expectedSagaId }, success: 'Reconciliação solicitada',
+        });
+      } finally { reconcilingPreparation = false; }
+      return;
+    }
     if (action === 'order:pay') {
       setButtonBusy(trigger, true);
       try {

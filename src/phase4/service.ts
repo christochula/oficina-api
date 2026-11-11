@@ -341,11 +341,43 @@ export class DistributedOrders {
       return [];
     });
   }
+  async reconcile(id: string, expectedSagaId: string) {
+    return this.store.mutate(id, (order) => {
+      if (
+        !expectedSagaId ||
+        order.sagaId !== expectedSagaId ||
+        order.status !== 'APROVADA' ||
+        order.sagaState !== 'MANUAL_ATTENTION' ||
+        order.paymentConfirmed
+      )
+        throw new ConflictException(
+          'Reconciliação exige a Saga atual em intervenção, antes do reparo',
+        );
+      const reconciliationId = randomUUID();
+      order.reconciliation = { id: reconciliationId, phase: 'CANCELLING' };
+      order.sagaState = 'COMPENSATING';
+      order.deadline = new Date(Date.now() + 60000).toISOString();
+      history(order, 'RECONCILIACAO_SOLICITADA');
+      return [
+        {
+          destination: 'PRODUCTION',
+          message: command(order, 'ReconcileExecutionReservation', {
+            reconciliationId,
+          }),
+        },
+      ];
+    });
+  }
   async retry(id: string) {
     return this.store.mutate(id, (order) => {
-      if (order.sagaState !== 'COMPENSATED')
+      if (
+        order.sagaState !== 'COMPENSATED' ||
+        order.status !== 'APROVADA' ||
+        order.paymentConfirmed
+      )
         throw new ConflictException('Saga não compensada');
       order.sagaId = randomUUID();
+      order.reconciliation = undefined;
       order.sagaState = 'PREPARING_BUDGET';
       order.failure = undefined;
       order.deadline = new Date(Date.now() + 60000).toISOString();

@@ -46,6 +46,10 @@ export interface Order {
   traceparent?: string;
   deadline?: string;
   failure?: string;
+  reconciliation?: {
+    id: string;
+    phase: 'CANCELLING' | 'RELEASING_BUDGET';
+  };
   paymentConfirmed: boolean;
   totalCents?: number;
   problemasRelatados: { descricao: string }[];

@@ -1,5 +1,6 @@
 import 'reflect-metadata';
-import { UnauthorizedException } from '@nestjs/common';
+import { RequestMethod, UnauthorizedException } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { PAPEIS_KEY } from '../auth/decorators/papeis.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PrismaService } from '../shared/database/prisma.service';
@@ -21,6 +22,7 @@ describe('DistributedOrders HTTP facade', () => {
     forward: jest.fn(),
     deliver: jest.fn(),
     retry: jest.fn(),
+    reconcile: jest.fn(),
   };
   const controller = new DistributedOrdersController(
     service as unknown as DistributedOrders,
@@ -93,6 +95,35 @@ describe('DistributedOrders HTTP facade', () => {
     void controller.mechanicRead('os', user);
     expect(service.read).toHaveBeenCalledTimes(3);
     expect(service.read).toHaveBeenLastCalledWith('os', user);
+  });
+
+  it('restricts preparation reconciliation to administrators and passes the expected active Saga', () => {
+    const handler = Object.getOwnPropertyDescriptor(
+      DistributedOrdersController.prototype,
+      'reconcile',
+    )!.value as object;
+    expect(Reflect.getMetadata(PAPEIS_KEY, handler)).toEqual([
+      Role.ADMINISTRADOR,
+    ]);
+    expect(Reflect.getMetadata(PATH_METADATA, handler)).toBe(
+      ':id/saga/reconcile',
+    );
+    expect(Reflect.getMetadata(METHOD_METADATA, handler)).toBe(
+      RequestMethod.POST,
+    );
+
+    void controller.reconcile('os', { expectedSagaId: 'active-saga' });
+
+    expect(service.reconcile).toHaveBeenCalledWith('os', 'active-saga');
+    expect(service.retry).not.toHaveBeenCalled();
+    expect(service.forward).not.toHaveBeenCalled();
+  });
+
+  it('does not substitute the active Saga when reconciliation omits its precondition', () => {
+    void controller.reconcile('os', {} as { expectedSagaId: string });
+
+    expect(service.reconcile).toHaveBeenCalledWith('os', undefined);
+    expect(service.retry).not.toHaveBeenCalled();
   });
 
   it('routes production commands to their owner with the original authorization', () => {
