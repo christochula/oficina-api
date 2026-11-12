@@ -45,6 +45,34 @@ Não usar `recover-nodes.yml`/`recover-empty-nodes.mjs` para bootstrap ou para a
 
 Login no console não autentica automaticamente Actions ou pods. Uma sessão temporária usa o trio `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_SESSION_TOKEN`. Atualizar o trio inteiro no Environment `homolog` dos cinco repos ativos, por canal seguro, sem colocá-lo no manifesto, logs, PRs ou chat.
 
+### Receber a sessão temporária depois da preparação
+
+Enquanto o acesso não chega, manter o manifesto local com conta/roles/versão ainda não confirmadas em `null`, os deploys suspensos e os PRs disponíveis para revisão. O comando abaixo descreve o contrato sem ler credenciais, escrever arquivos ou acessar AWS/GitHub:
+
+```powershell
+node scripts/prepare-isolated-aws-session.mjs --describe
+```
+
+Quando o titular do lab disponibilizar a sessão, salvar o bloco INI de **AWS Details** em um arquivo privado fora do workspace, sem colar seu conteúdo no terminal, no chat ou no repositório. O arquivo deve conter somente um perfil e o trio temporário completo. O helper confere proprietário/permissões e recusa acesso amplo ao arquivo; no Windows permite apenas o usuário atual, SYSTEM e administradores. Confirmar também o ID da conta, região, saldo e horário de expiração informado pelo lab. A expiração não pode ser deduzida apenas do token.
+
+O exemplo usa uma pasta nova por sessão e preserva os perfis existentes, inclusive `default`. Ajustar somente os caminhos privados; os valores das credenciais não são argumentos de linha de comando:
+
+```powershell
+$sessaoKarina = Join-Path $env:USERPROFILE '.aws\oficina-karina-sessao-01'
+$entradaKarina = Join-Path $env:USERPROFILE '.aws\incoming\karina-credentials.ini'
+node scripts/prepare-isolated-aws-session.mjs --import-file $entradaKarina --directory $sessaoKarina
+```
+
+A importação é offline e não autentica a conta. Ela cria arquivos separados com o perfil `karina-lab`, sem sobrescrever pastas existentes. Depois de preencher `scope.awsAccountId` com a conta confirmada, executar a leitura usando os arquivos isolados:
+
+```powershell
+node scripts/prepare-isolated-aws-session.mjs --preflight --directory $sessaoKarina --manifest output/video-readiness/deploy/karina-manifest.local.json
+```
+
+Esse modo remove as configurações AWS herdadas do processo filho, desabilita fallback de metadata e reutiliza a verificação de identidade do preflight antes das demais consultas. As roles e a versão EKS ainda podem estar pendentes; o resultado será uma avaliação parcial, nunca autorização automática para provisionar. Nenhum desses comandos altera GitHub, cria recursos ou renova credenciais nos pods.
+
+Após conferir a identidade, completar o manifesto com os metadados reais, verificar permissões/rede/quotas e atualizar as configurações e os três secrets temporários dos **cinco repos ativos**. Não usar `configure-repositories.mjs --apply` como importador de sessão: ele também altera proteções/configurações de repositórios e inclui o banco legado. Renovar o acesso repetindo a importação para uma pasta nova, sem publicar os arquivos privados. A remoção das cópias temporárias deve respeitar a política de guarda do titular do lab.
+
 `aws login` pode usar autenticação pelo navegador com CLI >=2.32 e permissão `SignInLocalDevelopmentAccess`; a existência desse recurso não garante que o Lab o permita e não configura o runner/pods. O perfil local deve permanecer separado da conta anterior.
 
 Os três serviços copiam as credenciais temporárias para Secrets Kubernetes. Quando a sessão expirar, renovar os secrets de GitHub e executar os deploys/rollouts de OS, Billing e Production para recarregar os processos. Renovar apenas a sessão do navegador não basta. Verificar novamente processamento SQS/DynamoDB depois da renovação. Lambdas usam sua execution role existente.
@@ -120,7 +148,8 @@ Após validar e preservar o vídeo, PDF e evidências, desmontar **somente os re
 
 - [AWS: requisitos de rede EKS](https://docs.aws.amazon.com/eks/latest/userguide/network-reqs.html) e [IDs físicos de AZ entre contas](https://docs.aws.amazon.com/global-infrastructure/latest/regions/az-ids.html).
 - [AWS: credenciais temporárias](https://docs.aws.amazon.com/IAM/latest/UserGuide/id_credentials_temp_use-resources.html) e [login CLI pelo navegador](https://docs.aws.amazon.com/signin/latest/userguide/command-line-sign-in.html).
+- [AWS CLI: arquivos e perfis](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-files.html) e [precedência das variáveis de ambiente](https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html).
 - [Preços EKS](https://aws.amazon.com/eks/pricing/) e [limites/custos de RDS parado](https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_StopInstance.html).
 - [Contrato oficial da action AWS v4](https://raw.githubusercontent.com/aws-actions/configure-aws-credentials/v4/action.yml).
 
-Os testes locais usam executores e providers simulados. Na plataforma, `terraform -chdir=aws test` verifica que `use1-az3` é excluída mesmo com outra letra, e que uma AZ chamada `us-east-1e` é aceita quando seu ID físico é suportado. `node --test scripts/*.test.mjs` cobre controles de plano e modo agent-only. Na API, a suíte do preflight verifica recusa de conta errada, ausência versus negação, states existentes, limites de leitura e ausência de vazamento de erros. Nenhum desses testes confirma disponibilidade ou autorização na conta real.
+Os testes locais usam executores e providers simulados. Na plataforma, `terraform -chdir=aws test` verifica que `use1-az3` é excluída mesmo com outra letra, e que uma AZ chamada `us-east-1e` é aceita quando seu ID físico é suportado. `node --test scripts/*.test.mjs` cobre controles de plano e modo agent-only. Na API, a suíte do preflight verifica recusa de conta errada, ausência versus negação, states existentes, limites de leitura e ausência de vazamento de erros. A suíte `prepare-isolated-aws-session.test.mjs` testa importação privada com dados fictícios, recusa de sobrescrita/permissões amplas/configuração executável, isolamento de variáveis e interrupção após STS de conta errada. Nenhum desses testes confirma disponibilidade ou autorização na conta real.
