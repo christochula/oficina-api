@@ -1,13 +1,19 @@
-// Deliberately fixed to the local Compose stack: never use these fixtures in AWS.
+// Restricted to the local Compose stack: never use these fixtures in AWS.
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
 const root = path.resolve(__dirname, '..');
 const adminPassword = 'Local-only-admin-password-2026';
 const mechanicEmail = 'mecanico.local@example.com';
 const mechanicPassword = 'Local-only-mechanic-password';
+const apiUrl = new URL(process.env.OS_TEST_URL || 'http://localhost:3000');
+if (apiUrl.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(apiUrl.hostname) || apiUrl.username || apiUrl.password || apiUrl.pathname !== '/' || apiUrl.search || apiUrl.hash) {
+  throw new Error('OS_TEST_URL must be an HTTP localhost origin.');
+}
+const project = process.env.PHASE4_COMPOSE_PROJECT || process.env.COMPOSE_PROJECT_NAME || 'oficina-phase4-demo';
+if (!/^oficina-phase4-(?:demo|test-[a-z0-9-]+|ci-[a-z0-9-]+)$/.test(project)) throw new Error('Use an isolated phase4 demo/test Compose project.');
 
 async function request(resource, token, body, method = 'GET', missing = false) {
-  const response = await fetch(`http://localhost:3000/api/v1${resource}`, {
+  const response = await fetch(`${apiUrl.origin}/api/v1${resource}`, {
     method,
     headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
     ...(body === undefined ? {} : { body: JSON.stringify(body) }),
@@ -22,7 +28,7 @@ const id = entity => typeof entity.id === 'string' ? entity.id : entity.id.valor
 const rows = value => Array.isArray(value) ? value : value.data ?? value.itens ?? [];
 
 async function main() {
-  execFileSync('docker', ['compose', '-f', 'compose.phase4.yml', 'exec', '-T', '-e', `ADMIN_SEED_PASSWORD=${adminPassword}`, 'os', 'npm', 'run', 'seed'], { cwd: root, stdio: 'pipe' });
+  execFileSync('docker', ['compose', '-p', project, '-f', 'compose.phase4.yml', 'exec', '-T', '-e', `ADMIN_SEED_PASSWORD=${adminPassword}`, 'os', 'npm', 'run', 'seed'], { cwd: root, stdio: 'pipe' });
   const admin = await request('/auth/login', null, { email: 'admin@oficina.com', senha: adminPassword }, 'POST');
   const token = admin.accessToken;
   const users = rows(await request(`/usuarios?busca=${encodeURIComponent(mechanicEmail)}`, token));

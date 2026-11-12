@@ -127,6 +127,9 @@ jobs:
             oficina-api/test-results/
             oficina-api/output/phase4-manual-e2e/
             oficina-api/output/phase4-manual-e2e-report.json
+            oficina-api/output/phase4-desktop/
+            oficina-api/output/phase4-desktop-report/
+            oficina-api/output/phase4-desktop-report.json
             oficina-api/phase4-compose.log
   container:
     name: Container

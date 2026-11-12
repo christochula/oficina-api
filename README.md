@@ -11,6 +11,8 @@ O runtime distribuído usa este repositório como OS Service e orquestrador da S
 - [Pronto para gravar: acessos, evidências e preparação](docs/entrega/pronto-para-gravar.md): OS #2 **ENTREGUE, R$175**, compensação e recuperação verificadas em 10/11/2026.
 - [Datadog Fase 4 por GitHub Actions](https://github.com/christochula/oficina-infra-kubernetes/blob/feature/phase4-distributed/docs/datadog-actions.md) e [contrato/evidência dos sinais](docs/operacao/datadog.md). Ingestão dos três serviços, métricas Saga/p95 e um trace com os três serviços verificados; esse trace cobre parte do fluxo.
 
+Revisão local do candidato em **12/11/2026**: API **672 testes**, Billing **92**, Production **112** e frontend **148** aprovados; cobertura dos três serviços acima de 80% nos quatro gates. O [registro de validação](docs/fase4/validacao-local.md) distingue os checks atuais da reauditoria integrada anterior e das evidências remotas históricas. [OpenAPI](docs/fase4/openapi.json) e [Postman](docs/fase4/oficina-fase4.postman_collection.json) revisados incluem busca global, peças solicitadas, grupos/notas, privacidade e consumo idempotente. Esta revisão não declara CI ou implantação remota do candidato.
+
 Quickstart: manter os três repositórios lado a lado, executar `docker compose -f compose.phase4.yml up -d --build`, `npm run test:bdd` e `npm run test:frontend:e2e`. `PHASE4_ENABLED=true` é o modo de entrega; `false` preserva a regressão histórica da Fase 3. Leia o guia antes de configurar AWS.
 
 ## Homologação e evidências da Fase 4

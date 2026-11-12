@@ -6,11 +6,14 @@ import './app-overrides.css';
 
 import { loginClient, loginOperator, logoutCurrentSession } from './api/auth.js';
 import { sessionStore } from './core/session.js';
-import { createHashRouter } from './core/router.js';
+import { createHashRouter, parseHashLocation } from './core/router.js';
+import { clearReturnRoute, rememberReturnRoute, takeReturnRoute } from './core/return-route.js';
+import { clearDraftScope } from './core/draft-store.js';
 import { ROLES } from './core/permissions.js';
 import { domainApi } from './services/domain-api.js';
 import {
   installRipple,
+  closeActiveModal,
   installTabs,
   showToast,
   statePanel,
@@ -43,6 +46,7 @@ let cleanupFunctions = [];
 let router;
 
 function cleanupCurrentView() {
+  closeActiveModal();
   cleanupFunctions.forEach((cleanup) => {
     try { cleanup?.(); } catch { /* A desmontagem nunca deve bloquear a navegação. */ }
   });
@@ -68,7 +72,7 @@ function currentSession() {
 
 function guardAuthenticated({ path }) {
   const session = currentSession();
-  if (!session) return '/login';
+  if (!session) { rememberReturnRoute(path); return '/login'; }
   if (!ALL_ROLES.has(session.role)) return '/acesso-negado';
   if (path === '/login') return session.role === ROLES.MECHANIC ? '/meu-trabalho' : '/inicio';
   return true;
@@ -90,7 +94,11 @@ function shellUser(session) {
 async function logout() {
   const button = document.querySelector('[data-action="logout"]');
   button?.setAttribute('aria-busy', 'true');
+  const scope = currentSession();
+  cleanupCurrentView();
+  clearDraftScope(scope);
   await logoutCurrentSession();
+  clearReturnRoute();
   router.navigate('/login', { replace: true });
 }
 
@@ -118,7 +126,7 @@ async function loginHandler() {
   document.title = 'Entrar · AutoGestão Pro';
   registerCleanup(mountLoginView(appRoot, {
     auth: { loginOperator, loginClient },
-    navigate: (path) => router.navigate(path, { replace: true }),
+    navigate: (path) => router.navigate(takeReturnRoute(path), { replace: true }),
     notify,
   }));
 }
@@ -137,7 +145,7 @@ async function dashboardHandler(context) {
 async function ordersHandler(context) {
   const session = currentSession();
   renderProtected(renderOrdersListView({ role: session.role }), context.path);
-  registerCleanup(await mountOrdersListView(appRoot.querySelector('#main-content'), { role: session.role, api: domainApi, notify }));
+  registerCleanup(await mountOrdersListView(appRoot.querySelector('#main-content'), { role: session.role, subject: session.subject, api: domainApi, notify }));
 }
 
 async function newOrderHandler(context) {
@@ -145,6 +153,7 @@ async function newOrderHandler(context) {
   renderProtected(renderNewOrderView({ role: session.role }), context.path);
   registerCleanup(await mountNewOrderView(appRoot.querySelector('#main-content'), {
     role: session.role,
+    subject: session.subject,
     api: domainApi,
     navigate: (path) => router.navigate(path),
     notify,
@@ -157,6 +166,7 @@ async function orderDetailHandler(context) {
   registerCleanup(await mountOrderDetailView(appRoot.querySelector('#main-content'), {
     id: context.params.id,
     role: session.role,
+    subject: session.subject,
     api: domainApi,
     navigate: (path) => router.navigate(path),
     notify,
@@ -240,6 +250,7 @@ installRipple(document);
 installTabs(document);
 
 window.addEventListener('oficina:session-expired', () => {
+  rememberReturnRoute(parseHashLocation(window.location.hash).path);
   notify({ kind: 'warning', title: 'Sessão expirada', message: currentSession()?.role === ROLES.CLIENT ? 'Informe seu CPF novamente para continuar.' : 'Entre novamente para continuar.' });
   sessionStore.clear('expired');
   router.navigate('/login', { replace: true });

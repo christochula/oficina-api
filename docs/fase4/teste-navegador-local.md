@@ -7,15 +7,13 @@ Este ambiente usa os três serviços reais, PostgreSQL, DynamoDB e SQS em LocalS
 Pré-requisitos: Docker Desktop em execução, Node.js 22+ e os repositórios `oficina-api`, `oficina-billing-service` e `oficina-production-service` lado a lado. No PowerShell, dentro de `oficina-api`:
 
 ```powershell
-docker compose -f compose.phase4.yml up -d --build
 npm.cmd ci
 npm.cmd ci --prefix frontend
-node scripts/seed-local-demo.cjs
-$env:LOCAL_DEMO_MODE = 'true'
-npm.cmd run dev --prefix frontend -- --host 127.0.0.1
+npm.cmd run local:up
+npm.cmd run local:dev
 ```
 
-Aguarde a saúde dos três serviços antes do seed: OS `http://localhost:3000/api/health/ready`, Billing `http://localhost:3001/api/v1/billing/health` e Produção `http://localhost:3002/api/v1/production/health`.
+O runner espera a saúde dos três serviços e do checkout antes do seed: OS `http://localhost:3000/api/health/ready`, Billing `http://localhost:3001/api/v1/billing/health` e Produção `http://localhost:3002/api/v1/production/health`. Consulte [ambientes, portas e testes isolados](../phase4-local.md).
 
 Abra **http://localhost:5173**. O aviso de demonstração confirma que o adaptador local está ativo. `LOCAL_DEMO_MODE` é lido somente pelo servidor de desenvolvimento; não é incluído no build de produção. Se o Vite já estava aberto, reinicie-o com essa variável. O seed pode ser repetido: não redefine senhas, não reinicia OS e não repõe saldos consumidos.
 
@@ -39,28 +37,20 @@ Use três abas para manter os perfis abertos ao mesmo tempo, ou saia e entre nov
 6. **Cliente:** atualize a OS e clique em **Pagar OS**. No checkout local, simule uma recusa para conferir que a entrega continua bloqueada; depois abra **Pagar OS** novamente e simule a aprovação. O checkout retorna automaticamente à OS quando o Billing recebe a notificação; o link de retorno também fica disponível.
 7. **Administrador:** atualize a OS. Com pagamento confirmado, registre a entrega. O estado final será `ENTREGUE`.
 
-As mudanças entre serviços são assíncronas e podem levar alguns segundos. O checkout simulado grava preferências, pagamentos e identificação das notificações em `.tmp/mercadopago-demo/state.json`, montado no contêiner. Reiniciar ou recriar somente o simulador preserva os links. Essa pasta é ignorada pelo Git; preserve-a durante os testes.
+As mudanças entre serviços são assíncronas e podem levar alguns segundos. O checkout simulado grava preferências, pagamentos e notificações no volume nomeado `oficina-phase4-demo_mercadopago-data`, em `/data/state.json`. Reiniciar ou recriar somente o simulador preserva os links. Os testes têm outro projeto e outro volume.
 
-Se você utilizou a versão antiga, que guardava preferências somente em memória, recupere os links existentes **antes** de recriar o simulador. Com a pilha antiga ainda em execução:
-
-```powershell
-node scripts/bootstrap-local-checkouts.cjs
-node scripts/bootstrap-local-checkouts.cjs --write
-docker compose -f compose.phase4.yml up -d --no-deps --force-recreate mercadopago
-```
-
-O primeiro comando só apresenta o diagnóstico; o segundo inicializa o arquivo se ele ainda não existir. A recuperação consulta as APIs dos donos dos dados e mantém ID, referência e valor de cada preferência. Ela não altera OS/Billing, não aprova pagamentos e não envia webhooks. Um arquivo já existente nunca é sobrescrito pelo script. Cobranças sem ID de preferência continuam aguardando reconciliação, sem criar outra cobrança automaticamente.
+A pilha anterior `oficina-phase4` e o arquivo `.tmp/mercadopago-demo/state.json`, se existirem, são preservados. O novo projeto de demonstração usa dados próprios; não copia automaticamente OS ou pagamentos antigos. Não remova esses recursos caso precise recuperar um ensaio anterior.
 
 ## Verificação automatizada
 
-Com o ambiente e o portal em modo demonstração já iniciados:
+Para executar a suíte completa sem misturar dados com a demonstração:
 
 ```powershell
-npm.cmd exec -- playwright test -c test/phase4/manual-playwright.config.cjs
+npm.cmd run test:local
 ```
 
-Esse teste usa os formulários de login, abre e processa uma OS pelo portal, interage com o checkout simulado e confirma o bloqueio/liberação da entrega. Os testes BDD continuam disponíveis em `npm.cmd run test:bdd`.
+Essa suíte usa um projeto descartável, portas próprias e os formulários de login. Ela abre e processa OS pelo portal, testa retentativas sem estoque, interage com o checkout simulado e confirma o bloqueio/liberação da entrega. Inclui BDD, resoluções desktop e resiliência; instruções para executar uma suíte individual estão no [guia local](../phase4-local.md).
 
 ## Parar
 
-Encerre o Vite com Ctrl+C e execute `docker compose -f compose.phase4.yml stop`. Para voltar, use `up -d` e inicie o Vite novamente. Evite `down -v`: ele remove os bancos locais. Nenhum acesso AWS, Datadog, Sonar ou Mercado Pago real é validado por este roteiro.
+Encerre o Vite com Ctrl+C e execute `npm.cmd run local:stop`. O runner mantém o LocalStack ativo para preservar mensagens SQS, pois a imagem usada não as preserva ao reiniciar. Para voltar, use `npm.cmd run local:up` e `npm.cmd run local:dev`. Não use `down -v` na demonstração. Nenhum acesso AWS, Datadog, Sonar ou Mercado Pago real é validado por este roteiro.

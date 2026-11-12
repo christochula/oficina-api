@@ -1,4 +1,5 @@
 {
+  "exclude": ["node_modules", "dist", "output"],
   "compilerOptions": {
     "ignoreDeprecations": "5.0",
     "module": "nodenext",

@@ -33,7 +33,7 @@ O BDD cria dados fictícios pelas APIs dos serviços responsáveis. São Paulo (
 | JWT AWS | Secrets Manager: `oficina/fase4/jwt` | JSON `{"secret":"chave de acesso com pelo menos 32 bytes","refreshSecret":"outra chave exclusiva do OS"}` |
 | Consulta interna AWS | Secrets Manager: `oficina/fase4/auth-client-lookup` | JSON `{"token":"valor aleatório com pelo menos 32 bytes"}`; o mesmo valor vira `AUTH_CLIENT_LOOKUP_TOKEN` dos backends |
 | Auth Lambda | GitHub Variables / Terraform | `JWT_SECRET_ARN`, `AUTH_CLIENT_LOOKUP_SECRET_ARN`; `OS_CLIENT_LOOKUP_URL` opcional, derivado do Gateway quando omitido |
-| Mercado Pago AWS | Secrets Manager: `oficina/fase4/billing/mercadopago` | Token privado e segredo do webhook; pipeline Billing carrega esses campos no Secret Kubernetes |
+| Mercado Pago AWS | Secrets Manager: `oficina/homolog/billing/runtime` | `MP_ACCESS_TOKEN` e `MP_WEBHOOK_SECRET`, acrescentados pelo deploy final ao token interno criado no bootstrap |
 | Datadog | Secrets Manager canônico: `oficina/datadog` | Secrets `DATADOG_API_KEY`/`DATADOG_APP_KEY` no Environment `homolog` de infra-kubernetes; bootstrap e sincronização por [GitHub Actions](https://github.com/christochula/oficina-infra-kubernetes/blob/feature/phase4-distributed/docs/datadog-actions.md), com `DATADOG_SECRET_ID=oficina/datadog`. Não criar/rotacionar manualmente nem colocar chaves em `TF_VAR`/state |
 | SonarQube Cloud | GitHub Secret `SONAR_TOKEN`, Variables por repositório | `SONAR_PROJECT_KEY`, `SONAR_ORGANIZATION` |
 
@@ -42,6 +42,8 @@ Os pipelines dos serviços documentam seus nomes exatos de secret: `DATABASE_SEC
 Ingestão Datadog dos três serviços verificada em 11/11/2026 00:17:54 UTC (10/11 21:17:54 em São Paulo), seguida do ensaio completo da OS #2 com sinais Saga/p95 e um trace com spans dos três serviços para parte do fluxo. O [registro sanitizado de resultados](../operacao/datadog.md#evidência-verificada) distingue esses sinais da indexação de todas as transições de uma Saga.
 
 ## AWS e ordem de provisionamento
+
+Para outra conta AWS, seguir o [runbook de nova conta](../operacao/deploy-fase4-nova-conta.md) e seu [manifesto sem segredos](deploy-manifest.example.json). Ele detalha os guards de conta, secrets gerados automaticamente, Billing bootstrap antes do Gateway, Billing final depois do HTTPS e Datadog agent-only sem duplicar o state externo. O RDS legado nao participa desse fluxo.
 
 1. Validar conta/sessão, crédito, quotas e permissões de RDS, EKS, ECR, DynamoDB, SQS e Secrets Manager. O script `scripts/preflight-aws.ps1` executa apenas consultas de acesso. Na Academy, reutilizar `LabRole` e testar SDK dentro do pod; não pressupor criação de roles ou IRSA.
 2. Preparar os secrets e os projetos Sonar. Preencher GitHub Environment `homolog` em todos os repositórios.

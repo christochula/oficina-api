@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../shared/database/prisma.service';
 import { Veiculo } from '../../domain/veiculo.entity';
 import { VeiculoId } from '../../domain/veiculo-id.value-object';
-import { VeiculoRepository } from '../../domain/veiculo.repository';
+import {
+  VeiculoRepository,
+  VeiculoListFilters,
+} from '../../domain/veiculo.repository';
+import type { Veiculo as VeiculoRecord } from '@prisma/client';
+import { catalogSearchPattern } from '../../../shared/database/catalog-search';
 
 /**
  * Implementação do VeiculoRepository utilizando Prisma como ORM.
@@ -79,14 +84,39 @@ export class PrismaVeiculoRepository implements VeiculoRepository {
   async listar(
     pagina: number,
     porPagina: number,
+    filtros: VeiculoListFilters = {},
   ): Promise<{ itens: Veiculo[]; total: number }> {
+    if (filtros.busca?.trim()) {
+      const term = catalogSearchPattern(filtros.busca),
+        active = filtros.ativo ?? null;
+      const [registros, totals] = await Promise.all([
+        this.prisma.$queryRaw<VeiculoRecord[]>`SELECT * FROM veiculos
+          WHERE (${active}::boolean IS NULL OR ativo = ${active}) AND
+          translate(lower(concat_ws(' ', placa, marca, modelo, cor)), 'áàâãäéèêëíìîïóòôõöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') LIKE ${term}
+          ORDER BY placa ASC, id ASC LIMIT ${porPagina} OFFSET ${(pagina - 1) * porPagina}`,
+        this.prisma.$queryRaw<
+          { total: bigint }[]
+        >`SELECT count(*) AS total FROM veiculos
+          WHERE (${active}::boolean IS NULL OR ativo = ${active}) AND
+          translate(lower(concat_ws(' ', placa, marca, modelo, cor)), 'áàâãäéèêëíìîïóòôõöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') LIKE ${term}`,
+      ]);
+      return {
+        itens: registros.map((record) => this.mapear(record)),
+        total: Number(totals[0]?.total ?? 0),
+      };
+    }
+    const where =
+      filtros.ativo === undefined ? undefined : { ativo: filtros.ativo };
     const [registros, total] = await Promise.all([
       this.prisma.veiculo.findMany({
+        ...(where ? { where } : {}),
         orderBy: { placa: 'asc' },
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
-      this.prisma.veiculo.count(),
+      where
+        ? this.prisma.veiculo.count({ where })
+        : this.prisma.veiculo.count(),
     ]);
     return { itens: registros.map((r) => this.mapear(r)), total };
   }

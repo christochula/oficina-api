@@ -1,7 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Veiculo } from '../../domain/veiculo.entity';
 import { VEICULO_REPOSITORY } from '../../domain/veiculo.repository';
-import type { VeiculoRepository } from '../../domain/veiculo.repository';
+import type {
+  VeiculoRepository,
+  VeiculoListFilters,
+} from '../../domain/veiculo.repository';
 
 /** Resultado paginado da listagem de veículos. */
 export interface ListarVeiculosOutput {
@@ -23,7 +26,10 @@ export class ListarVeiculosUseCase {
   async executar(
     pagina: number,
     porPagina: number,
+    filtros?: VeiculoListFilters,
   ): Promise<ListarVeiculosOutput> {
-    return this.veiculoRepository.listar(pagina, porPagina);
+    return filtros
+      ? this.veiculoRepository.listar(pagina, porPagina, filtros)
+      : this.veiculoRepository.listar(pagina, porPagina);
   }
 }

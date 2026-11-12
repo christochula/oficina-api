@@ -85,4 +85,26 @@ describe('PrismaVeiculoRepository persistence contract', () => {
     model.upsert.mockRejectedValue(new Error('connection unavailable'));
     await expect(repository.salvar(veiculo)).rejects.toThrow('unavailable');
   });
+  it('searches before paging with normalized literal text and consistent count', async () => {
+    const queryRaw = jest
+      .fn()
+      .mockResolvedValueOnce([record])
+      .mockResolvedValueOnce([{ total: 121n }]);
+    const searched = new PrismaVeiculoRepository({
+      $queryRaw: queryRaw,
+    } as never);
+    const result = await searched.listar(6, 20, {
+      busca: ' Última_100% ',
+      ativo: false,
+    });
+    expect(result.total).toBe(121);
+    expect(result.itens[0]).toBeInstanceOf(Veiculo);
+    const [pageQuery, countQuery] = queryRaw.mock.calls;
+    expect(pageQuery[0].join('?')).toMatch(/translate\(lower/);
+    expect(pageQuery[0].join('?')).toMatch(/ORDER BY.*id ASC LIMIT/s);
+    expect(pageQuery.slice(-2)).toEqual([20, 100]);
+    expect(pageQuery.slice(1)).toContain('%ultima\\_100\\%%');
+    expect(countQuery.slice(1)).toContain('%ultima\\_100\\%%');
+    expect(countQuery[0].join('?')).not.toContain('LIMIT');
+  });
 });

@@ -1,4 +1,4 @@
-name: oficina-phase4
+name: ${COMPOSE_PROJECT_NAME:-oficina-phase4-demo}
 x-runtime: &runtime
   NODE_ENV: development
   JWT_SECRET: local-only-access-secret-32-bytes-minimum
@@ -15,26 +15,38 @@ x-runtime: &runtime
 services:
   os-db:
     image: postgres:16-alpine
+    volumes: ["os-data:/var/lib/postgresql/data"]
     environment: { POSTGRES_USER: os, POSTGRES_PASSWORD: local-os-only, POSTGRES_DB: oficina_os }
     healthcheck: { test: [CMD-SHELL, "pg_isready -U os -d oficina_os"], interval: 2s, timeout: 3s, retries: 30 }
   billing-db:
     image: postgres:16-alpine
+    volumes: ["billing-data:/var/lib/postgresql/data"]
     environment: { POSTGRES_USER: billing, POSTGRES_PASSWORD: local-billing-only, POSTGRES_DB: oficina_billing }
     healthcheck: { test: [CMD-SHELL, "pg_isready -U billing -d oficina_billing"], interval: 2s, timeout: 3s, retries: 30 }
   localstack:
     image: localstack/localstack:4.10
-    environment: { SERVICES: "sqs,dynamodb", AWS_DEFAULT_REGION: us-east-1, SQS_ENDPOINT_STRATEGY: path }
-    ports: ["4566:4566"]
-    volumes: ["./test/phase4/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro"]
-    healthcheck: { test: [CMD-SHELL, "test -f /tmp/phase4-ready || awslocal dynamodb describe-table --table-name oficina-production >/dev/null"], interval: 3s, timeout: 5s, retries: 40 }
+    environment:
+      SERVICES: "sqs,dynamodb"
+      AWS_DEFAULT_REGION: us-east-1
+      SQS_ENDPOINT_STRATEGY: path
+      PERSISTENCE: "1"
+      SNAPSHOT_SAVE_STRATEGY: ON_REQUEST
+    ports: ["127.0.0.1:${PHASE4_LOCALSTACK_PORT:-4566}:4566"]
+    volumes:
+      - ./test/phase4/localstack-init.sh:/etc/localstack/init/ready.d/init.sh:ro
+      - localstack-data:/var/lib/localstack
+    healthcheck: { test: [CMD-SHELL, "awslocal dynamodb describe-table --table-name oficina-production >/dev/null && awslocal sqs get-queue-url --queue-name os-events >/dev/null"], interval: 3s, timeout: 5s, retries: 40 }
   mercadopago:
     image: node:22-alpine
     command: [node, /stub.cjs]
-    environment: { DEMO_STATE_FILE: /data/state.json }
+    environment:
+      DEMO_STATE_FILE: /data/state.json
+      MP_PUBLIC_BASE_URL: http://localhost:${PHASE4_MP_PORT:-8088}
+      MP_PORTAL_BASE_URL: http://localhost:${PHASE4_PORTAL_PORT:-5173}
     volumes:
       - ./test/phase4/mercadopago-stub.cjs:/stub.cjs:ro
-      - ./.tmp/mercadopago-demo:/data
-    ports: ["8088:8088"]
+      - mercadopago-data:/data
+    ports: ["127.0.0.1:${PHASE4_MP_PORT:-8088}:8088"]
   billing:
     build: ../oficina-billing-service
     environment:
@@ -48,8 +60,8 @@ services:
       MP_WEBHOOK_SECRET: local-only-webhook-secret
       MP_API_BASE_URL: http://mercadopago:8088
       MP_NOTIFICATION_URL: http://billing:3001/api/v1/billing/webhooks/mercadopago
-      MP_BACK_URL: http://localhost:5173/#/ordens
-    ports: ["3001:3001"]
+      MP_BACK_URL: http://localhost:${PHASE4_PORTAL_PORT:-5173}/#/ordens
+    ports: ["127.0.0.1:${PHASE4_BILLING_PORT:-3001}:3001"]
     depends_on: { billing-db: { condition: service_healthy }, localstack: { condition: service_healthy } }
   production:
     build: ../oficina-production-service
@@ -60,7 +72,7 @@ services:
       INBOX_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/production-commands
       OS_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/os-events
       ENABLE_DEMO_FAILURES: "true"
-    ports: ["3002:3002"]
+    ports: ["127.0.0.1:${PHASE4_PRODUCTION_PORT:-3002}:3002"]
     depends_on: { localstack: { condition: service_healthy } }
   os:
     build: .
@@ -76,5 +88,11 @@ services:
       BILLING_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/billing-commands
       PRODUCTION_QUEUE_URL: http://localstack:4566/queue/us-east-1/000000000000/production-commands
       SAGA_TIMEOUT_MS: 60000
-    ports: ["3000:3000"]
+    ports: ["127.0.0.1:${PHASE4_OS_PORT:-3000}:3000"]
     depends_on: { os-db: { condition: service_healthy }, localstack: { condition: service_healthy } }
+
+volumes:
+  os-data:
+  billing-data:
+  localstack-data:
+  mercadopago-data:

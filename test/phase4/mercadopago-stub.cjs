@@ -7,7 +7,7 @@ const path = require('node:path');
 const MAX_BODY_BYTES = 64 * 1024;
 const MAX_STATE_BYTES = 8 * 1024 * 1024;
 const emptySnapshot = () => ({ version: 1, preferences: [], payments: [], preferenceKeys: [], byPreferenceStatus: [], latest: [], delivered: [] });
-function validateStateSnapshot(snapshot) {
+function validateStateSnapshot(snapshot, publicBaseUrl = 'http://localhost:8088') {
   const fail = message => { throw new Error(`Snapshot inválido: ${message}.`); };
   const idValid = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,200}$/.test(value);
   const referenceValid = value => typeof value === 'string' && value.length > 0 && value.length <= 200;
@@ -19,7 +19,7 @@ function validateStateSnapshot(snapshot) {
     let total;
     try { total = preferenceTotal(preference.items); } catch { fail('itens de preferência'); }
     if (preference.totalCents !== total || preference.metadata?.os_id !== undefined && (typeof preference.metadata.os_id !== 'string' || preference.metadata.os_id.length > 200)) fail('total ou OS da preferência');
-    const checkout = `http://localhost:8088/checkout/${preference.id}`;
+    const checkout = `${publicBaseUrl}/checkout/${preference.id}`;
     if (preference.init_point !== undefined && preference.init_point !== checkout || preference.sandbox_init_point !== undefined && preference.sandbox_init_point !== checkout) fail('URL de checkout');
     const restored = { ...preference, init_point: checkout, sandbox_init_point: checkout };
     preferences.set(restored.id, restored); result.preferences.push(restored);
@@ -100,16 +100,21 @@ function preferenceTotal(items) {
   if (!Number.isSafeInteger(cents) || cents <= 0) throw new HttpError(400, 'Total inválido.');
   return cents;
 }
-function portalReturn(preference, status) {
-  let origin = 'http://localhost:5173';
+function localOrigin(value, name) {
+  const url = new URL(value);
+  if (url.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(url.hostname) || url.username || url.password || url.pathname !== '/' || url.search || url.hash) throw new Error(`${name} deve ser uma origem HTTP local.`);
+  return url.origin;
+}
+function portalReturn(preference, status, portalOrigin = 'http://localhost:5173') {
+  let origin = portalOrigin;
   try {
     const target = new URL(preference.back_urls?.[status === 'rejected' ? 'failure' : 'success']);
-    if (target.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(target.hostname) && target.port === '5173' && !target.username && !target.password) origin = target.origin;
+    if (target.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(target.hostname) && target.port === new URL(portalOrigin).port && !target.username && !target.password) origin = target.origin;
   } catch { /* An untrusted return URL is replaced with the local portal. */ }
   const id = preference.metadata?.os_id;
   return `${origin}/#/ordens${typeof id === 'string' && id ? `/${encodeURIComponent(id)}` : ''}`;
 }
-function checkoutHtml(preference, current, delivered, failed = false) {
+function checkoutHtml(preference, current, delivered, failed = false, portalOrigin) {
   const title = current?.status === 'approved' ? 'Pagamento de demonstração aprovado' : current?.status === 'rejected' ? 'Pagamento de demonstração recusado' : 'Pagamento de demonstração';
   const status = failed
     ? 'Não foi possível enviar a confirmação ao Billing. O pagamento de demonstração foi preservado; tente enviar novamente, sem criar outro pagamento.'
@@ -123,12 +128,14 @@ function checkoutHtml(preference, current, delivered, failed = false) {
   const reject = `<form method="post" action="${action('reject')}"><button class="secondary" type="submit">Recusar pagamento de demonstração</button></form>`;
   const retry = failed ? `<form method="post" action="${action(current.status === 'approved' ? 'approve' : 'reject')}"><button type="submit">Reenviar confirmação ao Billing</button></form>` : '';
   const amount = new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(preference.totalCents / 100);
-  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Demonstração local de pagamento</title><style>body{font:17px/1.6 system-ui,sans-serif;background:#eef2f6;color:#17324d;margin:0;padding:32px 16px}main{max-width:660px;margin:auto;background:white;padding:32px;border-radius:18px;box-shadow:0 8px 30px #17324d12}h1{line-height:1.25}strong.notice{display:block;background:#fff0c2;padding:12px;border-radius:8px}dl{display:grid;grid-template-columns:110px 1fr;gap:8px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}.amount{font-size:30px;font-weight:bold}button{font:inherit;background:#1d4ed8;color:white;border:0;border-radius:8px;padding:12px 18px;cursor:pointer}.secondary{background:#7f1d1d}form{display:inline-block;margin:8px 8px 8px 0}a{color:#1d4ed8}p[role=alert]{background:#fff0c2;padding:12px}li{overflow-wrap:anywhere}</style></head><body><main><strong class="notice">Demonstração local / sem cobrança real</strong><h1>${escapeHtml(title)}</h1><dl><dt>OS</dt><dd>${escapeHtml(preference.metadata?.os_id ?? preference.external_reference)}</dd><dt>Referência</dt><dd>${escapeHtml(preference.external_reference)}</dd></dl><p class="amount">${escapeHtml(amount)}</p><ul>${preference.items.map(item => `<li>${escapeHtml(item.title ?? 'Serviço da oficina')} — ${escapeHtml(item.quantity)} unidade(s)</li>`).join('')}</ul><p${failed ? ' role="alert"' : ''}>${escapeHtml(status)}</p>${retry}${current?.status === 'approved' ? '' : approve + reject}<p><a href="${escapeHtml(portalReturn(preference, current?.status))}">Voltar à OS no portal</a></p>${current ? `<small>ID do pagamento de demonstração: ${escapeHtml(current.id)}</small>` : ''}</main></body></html>`;
+  return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Demonstração local de pagamento</title><style>body{font:17px/1.6 system-ui,sans-serif;background:#eef2f6;color:#17324d;margin:0;padding:32px 16px}main{max-width:660px;margin:auto;background:white;padding:32px;border-radius:18px;box-shadow:0 8px 30px #17324d12}h1{line-height:1.25}strong.notice{display:block;background:#fff0c2;padding:12px;border-radius:8px}dl{display:grid;grid-template-columns:110px 1fr;gap:8px}dt{font-weight:bold}dd{margin:0;overflow-wrap:anywhere}.amount{font-size:30px;font-weight:bold}button{font:inherit;background:#1d4ed8;color:white;border:0;border-radius:8px;padding:12px 18px;cursor:pointer}.secondary{background:#7f1d1d}form{display:inline-block;margin:8px 8px 8px 0}a{color:#1d4ed8}p[role=alert]{background:#fff0c2;padding:12px}li{overflow-wrap:anywhere}</style></head><body><main><strong class="notice">Demonstração local / sem cobrança real</strong><h1>${escapeHtml(title)}</h1><dl><dt>OS</dt><dd>${escapeHtml(preference.metadata?.os_id ?? preference.external_reference)}</dd><dt>Referência</dt><dd>${escapeHtml(preference.external_reference)}</dd></dl><p class="amount">${escapeHtml(amount)}</p><ul>${preference.items.map(item => `<li>${escapeHtml(item.title ?? 'Serviço da oficina')} — ${escapeHtml(item.quantity)} unidade(s)</li>`).join('')}</ul><p${failed ? ' role="alert"' : ''}>${escapeHtml(status)}</p>${retry}${current?.status === 'approved' ? '' : approve + reject}<p><a href="${escapeHtml(portalReturn(preference, current?.status, portalOrigin))}">Voltar à OS no portal</a></p>${current ? `<small>ID do pagamento de demonstração: ${escapeHtml(current.id)}</small>` : ''}</main></body></html>`;
 }
 
 function createServer(options = {}) {
   const env = options.env ?? process.env;
   const httpFetch = options.fetch ?? globalThis.fetch;
+  const publicBaseUrl = localOrigin(env.MP_PUBLIC_BASE_URL || 'http://localhost:8088', 'MP_PUBLIC_BASE_URL');
+  const portalOrigin = localOrigin(env.MP_PORTAL_BASE_URL || 'http://localhost:5173', 'MP_PORTAL_BASE_URL');
   const webhook = new URL(env.BILLING_WEBHOOK_URL ?? 'http://billing:3001/api/v1/billing/webhooks/mercadopago');
   if (webhook.protocol !== 'http:' || !['billing', 'localhost', '127.0.0.1'].includes(webhook.hostname) || webhook.username || webhook.password) throw new Error('BILLING_WEBHOOK_URL deve apontar para o Billing local.');
   const webhookSecret = env.BILLING_WEBHOOK_SECRET ?? 'local-only-webhook-secret';
@@ -139,7 +146,7 @@ function createServer(options = {}) {
     try {
       const stat = fs.lstatSync(stateFile);
       if (!stat.isFile() || stat.isSymbolicLink() || stat.size > MAX_STATE_BYTES) throw new Error('Arquivo inválido');
-      snapshot = validateStateSnapshot(JSON.parse(fs.readFileSync(stateFile, 'utf8')));
+      snapshot = validateStateSnapshot(JSON.parse(fs.readFileSync(stateFile, 'utf8')), publicBaseUrl);
     } catch (error) {
       if (error.code !== 'ENOENT') throw new Error('Não foi possível carregar DEMO_STATE_FILE: arquivo inválido ou ilegível; conteúdo preservado.');
     }
@@ -187,8 +194,8 @@ function createServer(options = {}) {
     try { return await pending; } finally { deliveries.delete(payment.id); }
   }
   function render(res, preference, payment, failed = false) {
-    res.writeHead(failed ? 502 : 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': "default-src 'none'; style-src 'unsafe-inline'; form-action 'self' http://localhost:5173 http://127.0.0.1:5173; base-uri 'none'; frame-ancestors 'none'" });
-    res.end(checkoutHtml(preference, payment, payment && delivered.has(payment.id), failed));
+    res.writeHead(failed ? 502 : 200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff', 'Content-Security-Policy': `default-src 'none'; style-src 'unsafe-inline'; form-action 'self' ${portalOrigin} ${portalOrigin.replace('localhost', '127.0.0.1')}; base-uri 'none'; frame-ancestors 'none'` });
+    res.end(checkoutHtml(preference, payment, payment && delivered.has(payment.id), failed, portalOrigin));
   }
   const server = http.createServer(async (req, res) => {
     try {
@@ -207,7 +214,7 @@ function createServer(options = {}) {
           if (existing.external_reference !== body.external_reference || existing.totalCents !== totalCents) throw new HttpError(409, 'Chave idempotente usada para outra preferência.');
           return json(res, 200, existing);
         }
-        const id = randomUUID(); const checkout = `http://localhost:8088/checkout/${id}`;
+        const id = randomUUID(); const checkout = `${publicBaseUrl}/checkout/${id}`;
         const preference = { id, external_reference: body.external_reference, items: body.items, metadata: body.metadata ?? {}, back_urls: body.back_urls ?? {}, totalCents, init_point: checkout, sandbox_init_point: checkout };
         preferences.set(id, preference); if (typeof key === 'string') preferenceKeys.set(key, id);
         await persist();
@@ -255,7 +262,7 @@ function createServer(options = {}) {
         await persist();
         const confirmed = await notify(payment);
         if (confirmed) {
-          res.writeHead(303, { Location: portalReturn(preference, payment.status), 'Cache-Control': 'no-store' });
+          res.writeHead(303, { Location: portalReturn(preference, payment.status, portalOrigin), 'Cache-Control': 'no-store' });
           return res.end();
         }
         return render(res, preference, payment, !confirmed);

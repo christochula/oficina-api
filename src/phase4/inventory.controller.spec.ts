@@ -23,12 +23,15 @@ describe('Inventory compatibility facade', () => {
       await controller.list('Bearer token', {
         pagina: '1',
         porPagina: '20',
+        busca: 'óleo & filtro',
+        ativo: 'true',
+        filialId: 'filial-sp',
         ignored: 'secret',
       }),
     ).toMatchObject({ meta: { total: 1 } });
     const call = fetcher.mock.calls[0];
     expect(call[0]).toBe(
-      'http://production:3002/api/v1/production/inventory?pagina=1&porPagina=20',
+      'http://production:3002/api/v1/production/inventory?pagina=1&porPagina=20&busca=%C3%B3leo+%26+filtro&ativo=true&filialId=filial-sp',
     );
     expect(call[1].headers.Authorization).toBe('Bearer token');
     await controller.get('Bearer token', 'pc/1', { filialId: 'sp' });

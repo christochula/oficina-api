@@ -8,6 +8,11 @@ import { VeiculoId } from './veiculo-id.value-object';
  */
 export const VEICULO_REPOSITORY = 'VEICULO_REPOSITORY';
 
+export interface VeiculoListFilters {
+  busca?: string;
+  ativo?: boolean;
+}
+
 /**
  * Interface do repositório de veículos — contrato da camada de domínio.
  * Define as operações de persistência necessárias sem depender de tecnologia específica.
@@ -44,5 +49,6 @@ export interface VeiculoRepository {
   listar(
     pagina: number,
     porPagina: number,
+    filtros?: VeiculoListFilters,
   ): Promise<{ itens: Veiculo[]; total: number }>;
 }

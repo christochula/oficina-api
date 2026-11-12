@@ -11,6 +11,61 @@ import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 import { PapelUsuario as Role } from '../../usuario/domain/papel-usuario.enum';
 
 describe('error and response boundaries', () => {
+  it('exposes only validated reservation rejection details and preserves the standard envelope', () => {
+    const json = jest.fn();
+    const host = {
+      switchToHttp: () => ({
+        getResponse: () => ({ status: () => ({ json }) }),
+        getRequest: () => ({
+          method: 'PATCH',
+          path: '/api/v1/ordens-servico/os/consumir',
+        }),
+      }),
+    } as unknown as ArgumentsHost;
+    const filter = new ExcecaoHttpFilter({
+      warn: jest.fn(),
+      error: jest.fn(),
+    } as unknown as JsonLoggerService);
+    const body = {
+      message: 'Restam 1 unidade(s)',
+      code: 'QUANTITY_EXCEEDS_RESERVATION',
+      definitive: true,
+      pecaId: 'oil',
+      filialId: 'filial-sp',
+      quantidadeSolicitada: 2,
+      quantidadeReservada: 2,
+      quantidadeConsumida: 1,
+      quantidadeRestante: 1,
+      secret: 'hidden',
+      stack: 'hidden-stack',
+    };
+    filter.catch(new HttpException(body, 400), host);
+    expect(json).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        statusCode: 400,
+        mensagem: body.message,
+        code: body.code,
+        definitive: true,
+        quantidadeRestante: 1,
+        pecaId: 'oil',
+      }),
+    );
+    expect(json.mock.calls[0][0]).not.toHaveProperty('secret');
+    expect(json.mock.calls[0][0]).not.toHaveProperty('stack');
+    for (const invalid of [
+      { ...body, code: 'INTERNAL' },
+      { ...body, definitive: false },
+      { ...body, quantidadeRestante: -1 },
+    ]) {
+      filter.catch(new HttpException(invalid, 400), host);
+      expect(json.mock.calls.at(-1)![0]).not.toHaveProperty('code');
+      expect(json.mock.calls.at(-1)![0]).not.toHaveProperty(
+        'quantidadeRestante',
+      );
+    }
+    filter.catch(new HttpException(body, 500), host);
+    expect(json.mock.calls.at(-1)![0]).not.toHaveProperty('code');
+  });
   it.each([
     ['plain failure', 422, 'plain failure'],
     [{ message: 'specific failure' }, 400, 'specific failure'],

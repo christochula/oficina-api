@@ -4,6 +4,11 @@ import { ServicoOficinaId } from './servico-oficina-id.value-object';
 /** Token de injeção para o repositório de ServicoOficina. */
 export const SERVICO_OFICINA_REPOSITORY = 'SERVICO_OFICINA_REPOSITORY';
 
+export interface ServicoListFilters {
+  busca?: string;
+  ativo?: boolean;
+}
+
 /**
  * Interface do repositório de ServicoOficina.
  * Define o contrato de persistência sem acoplamento à implementação concreta.
@@ -19,5 +24,6 @@ export interface ServicoOficinaRepository {
   listar(
     pagina: number,
     porPagina: number,
+    filtros?: ServicoListFilters,
   ): Promise<{ itens: ServicoOficina[]; total: number }>;
 }

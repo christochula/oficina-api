@@ -13,3 +13,11 @@ Funcionalidade: Ordem de serviço distribuída com pagamento após reparo
     Dado uma OS cujo orçamento exige mais peças que o estoque
     Quando o cliente aprova o orçamento
     Então a Saga libera as reservas e preserva a aprovação
+
+  Cenário: Repetir preparação sem repor a peça não bloqueia a OS
+    Dado uma OS cujo orçamento exige mais peças que o estoque
+    Quando o cliente aprova o orçamento
+    E o administrador tenta preparar novamente três vezes sem repor estoque
+    Então todas as tentativas são compensadas sem perder a aprovação
+    Quando o administrador repõe a peça faltante e tenta novamente
+    Então a mesma OS libera a execução em uma nova Saga

@@ -1,15 +1,40 @@
 import { randomUUID } from 'node:crypto';
 
+export interface BudgetItem {
+  description: string;
+  quantity: number;
+  unitPriceCents: number;
+  pecaId?: string;
+  codigo?: string;
+  nome?: string;
+  filialId?: string;
+}
 export interface Budget {
-  items: {
-    description: string;
-    quantity: number;
-    unitPriceCents: number;
-    pecaId?: string;
-  }[];
+  items: BudgetItem[];
+  groups?: { title: string; items: BudgetItem[] }[];
+  notasCliente?: string;
+  notasInternas?: string;
   totalCents: number;
   version: number;
   approved?: boolean;
+}
+export interface RequestedPart {
+  pecaId: string;
+  quantidade: number;
+  nome: string;
+  codigo: string;
+  descricao?: string | null;
+  filialId: string;
+}
+export interface StockShortage {
+  pecaId: string;
+  nome: string;
+  codigo?: string;
+  filialId: string;
+  quantidadeNecessaria: number;
+  quantidadeDisponivel?: number;
+  quantidadeFaltante: number;
+  motivo: string;
 }
 export interface Payload {
   budget?: Budget;
@@ -17,6 +42,7 @@ export interface Payload {
   descricao?: string;
   amountCents?: number;
   reason?: string;
+  faltasEstoque?: StockShortage[];
   [key: string]: unknown;
 }
 
@@ -37,8 +63,13 @@ export interface Order {
   numero: number;
   filialId: string;
   clienteId: string;
+  clienteNome?: string;
   veiculoId: string;
+  veiculoPlaca?: string;
+  veiculoMarca?: string;
+  veiculoModelo?: string;
   mecanicoResponsavelId?: string;
+  mecanicoNome?: string;
   status: string;
   sagaId: string;
   sagaState: string;
@@ -46,6 +77,7 @@ export interface Order {
   traceparent?: string;
   deadline?: string;
   failure?: string;
+  faltasEstoque?: StockShortage[];
   reconciliation?: {
     id: string;
     phase: 'CANCELLING' | 'RELEASING_BUDGET';
@@ -53,7 +85,12 @@ export interface Order {
   paymentConfirmed: boolean;
   totalCents?: number;
   problemasRelatados: { descricao: string }[];
-  servicosSolicitados: unknown[];
+  servicosSolicitados: {
+    servicoId: string;
+    nomeServico?: string;
+    observacao?: string;
+  }[];
+  pecasSolicitadas?: RequestedPart[];
   notasInternas?: string;
   notasCliente?: string;
   criadoEm: string;

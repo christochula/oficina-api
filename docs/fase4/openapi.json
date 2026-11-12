@@ -1,1 +1,4250 @@
-{"openapi":"3.0.0","paths":{"/api/health/live":{"get":{"operationId":"HealthController_live","parameters":[],"responses":{"200":{"description":""}},"summary":"Liveness da API","tags":["Health"]}},"/api/health/ready":{"get":{"operationId":"HealthController_ready","parameters":[],"responses":{"200":{"description":""}},"summary":"Readiness da API e do PostgreSQL","tags":["Health"]}},"/api/v1/auth/login":{"post":{"operationId":"AuthController_login_v1","parameters":[],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/LoginDto"}}}},"responses":{"200":{"description":""}},"summary":"Login — retorna access e refresh token","tags":["Auth"]}},"/api/v1/auth/refresh":{"post":{"operationId":"AuthController_refresh_v1","parameters":[],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Renovar access token usando refresh token","tags":["Auth"]}},"/api/v1/auth/logout":{"post":{"operationId":"AuthController_logout_v1","parameters":[],"responses":{"204":{"description":""}},"security":[{"bearer":[]}],"summary":"Logout — invalida o refresh token","tags":["Auth"]}},"/api/v1/usuarios":{"post":{"operationId":"UsuarioController_criar_v1","parameters":[],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CriarUsuarioDto"}}}},"responses":{"201":{"description":""}},"security":[{"bearer":[]}],"summary":"Criar usuário","tags":["Usuários"]},"get":{"operationId":"UsuarioController_listar_v1","parameters":[{"name":"pagina","required":false,"in":"query","schema":{"minimum":1,"default":1,"type":"number"}},{"name":"porPagina","required":false,"in":"query","schema":{"minimum":1,"maximum":100,"default":20,"type":"number"}},{"name":"busca","required":false,"in":"query","description":"Trecho do nome, e-mail ou ID do usuário.","schema":{"maxLength":120,"type":"string"}},{"name":"papel","required":false,"in":"query","schema":{"type":"string","enum":["ADMINISTRADOR","CONSULTOR_TECNICO","MECANICO"]}},{"name":"ativo","required":false,"in":"query","description":"Filtra usuários pelo estado ativo ou inativo.","schema":{"type":"boolean"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Listar usuários internos (paginado)","tags":["Usuários"]}},"/api/v1/usuarios/mecanicos":{"get":{"operationId":"UsuarioController_listarMecanicosDisponiveis_v1","parameters":[{"name":"pagina","required":false,"in":"query","schema":{"minimum":1,"default":1,"type":"number"}},{"name":"porPagina","required":false,"in":"query","schema":{"minimum":1,"maximum":100,"default":20,"type":"number"}},{"name":"busca","required":false,"in":"query","description":"Trecho do nome, e-mail ou ID do mecânico.","schema":{"maxLength":120,"type":"string"}},{"name":"ativo","required":false,"in":"query","description":"Filtra mecânicos pelo estado ativo ou inativo.","schema":{"type":"boolean"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Listar mecânicos (paginado)","tags":["Usuários"]}},"/api/v1/usuarios/{id}/ativar":{"patch":{"operationId":"UsuarioController_ativar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Ativar usuário interno","tags":["Usuários"]}},"/api/v1/usuarios/{id}/desativar":{"patch":{"operationId":"UsuarioController_desativar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Desativar usuário interno","tags":["Usuários"]}},"/api/v1/usuarios/{id}":{"patch":{"operationId":"UsuarioController_atualizar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/AtualizarUsuarioDto"}}}},"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Atualizar usuário interno","tags":["Usuários"]},"get":{"operationId":"UsuarioController_buscar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Buscar usuário por ID","tags":["Usuários"]}},"/api/v1/clientes":{"post":{"operationId":"ClienteController_criar_v1","parameters":[],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CriarClienteDto"}}}},"responses":{"201":{"description":""}},"security":[{"bearer":[]}],"summary":"Criar cliente (CPF ou CNPJ)","tags":["Clientes"]},"get":{"operationId":"ClienteController_listar_v1","parameters":[{"name":"pagina","required":false,"in":"query","schema":{"minimum":1,"default":1,"type":"number"}},{"name":"porPagina","required":false,"in":"query","schema":{"minimum":1,"maximum":100,"default":20,"type":"number"}},{"name":"busca","required":false,"in":"query","description":"Trecho do nome, e-mail, CPF/CNPJ ou telefone do cliente.","schema":{"maxLength":120,"type":"string"}},{"name":"ativo","required":false,"in":"query","description":"Filtra clientes pelo estado ativo ou inativo.","schema":{"type":"boolean"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Listar clientes (paginado)","tags":["Clientes"]}},"/api/v1/clientes/documento/{numeroDoc}":{"get":{"operationId":"ClienteController_buscarPorDoc_v1","parameters":[{"name":"numeroDoc","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Buscar cliente por CPF ou CNPJ","tags":["Clientes"]}},"/api/v1/clientes/{id}":{"patch":{"operationId":"ClienteController_atualizar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/AtualizarClienteDto"}}}},"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Atualizar dados do cliente (exceto tipoDoc e numeroDoc)","tags":["Clientes"]}},"/api/v1/clientes/{id}/desativar":{"patch":{"operationId":"ClienteController_desativar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Desativar cliente","tags":["Clientes"]}},"/api/v1/clientes/{id}/ativar":{"patch":{"operationId":"ClienteController_ativar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Ativar cliente","tags":["Clientes"]}},"/api/v1/veiculos":{"get":{"operationId":"VeiculoController_listar_v1","parameters":[{"name":"pagina","required":false,"in":"query","schema":{"minimum":1,"default":1,"type":"number"}},{"name":"porPagina","required":false,"in":"query","schema":{"minimum":1,"maximum":100,"default":20,"type":"number"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Listar veículos (paginado)","tags":["Veículos"]},"post":{"operationId":"VeiculoController_criar_v1","parameters":[],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/CriarVeiculoDto"}}}},"responses":{"201":{"description":""}},"security":[{"bearer":[]}],"summary":"Registrar veículo","tags":["Veículos"]}},"/api/v1/veiculos/placa/{placa}":{"get":{"operationId":"VeiculoController_buscarPorPlaca_v1","parameters":[{"name":"placa","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Buscar veículo por placa","tags":["Veículos"]}},"/api/v1/veiculos/{id}":{"patch":{"operationId":"VeiculoController_atualizar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/AtualizarVeiculoDto"}}}},"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Atualizar cor e/ou quilometragem do veículo","tags":["Veículos"]}},"/api/v1/veiculos/{id}/desativar":{"patch":{"operationId":"VeiculoController_desativar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Desativar veículo","tags":["Veículos"]}},"/api/v1/veiculos/{id}/ativar":{"patch":{"operationId":"VeiculoController_ativar_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Ativar veículo","tags":["Veículos"]}},"/api/v1/servicos-oficina":{"post":{"operationId":"ServicoOficinaController_registrarServico_v1","parameters":[],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/RegistrarServicoOficinaDto"}}}},"responses":{"201":{"description":""}},"security":[{"bearer":[]}],"summary":"Registrar serviço no catálogo","tags":["Catálogo de Serviços"]},"get":{"operationId":"ServicoOficinaController_listarServicos_v1","parameters":[{"name":"pagina","required":false,"in":"query","schema":{"minimum":1,"default":1,"type":"number"}},{"name":"porPagina","required":false,"in":"query","schema":{"minimum":1,"maximum":100,"default":20,"type":"number"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Listar serviços do catálogo (paginado)","tags":["Catálogo de Serviços"]}},"/api/v1/servicos-oficina/{id}":{"get":{"operationId":"ServicoOficinaController_buscarServico_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Buscar serviço por ID","tags":["Catálogo de Serviços"]},"patch":{"operationId":"ServicoOficinaController_atualizarServico_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/AtualizarServicoOficinaDto"}}}},"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Atualizar serviço do catálogo","tags":["Catálogo de Serviços"]}},"/api/v1/servicos-oficina/{id}/desativar":{"patch":{"operationId":"ServicoOficinaController_desativarServico_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Desativar serviço do catálogo","tags":["Catálogo de Serviços"]}},"/api/v1/servicos-oficina/{id}/ativar":{"patch":{"operationId":"ServicoOficinaController_ativarServico_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"summary":"Reativar serviço do catálogo","tags":["Catálogo de Serviços"]}},"/api/v1/ordens-servico/relatorio/kpis":{"get":{"operationId":"ReportsController_kpis_v1","parameters":[],"responses":{"200":{"description":""}},"tags":["Reports"]}},"/api/v1/ordens-servico/relatorio/lead-time":{"get":{"operationId":"ReportsController_lead_v1","parameters":[],"responses":{"200":{"description":""}},"tags":["Reports"]}},"/api/v1/ordens-servico/relatorio/tempo-ciclo":{"get":{"operationId":"ReportsController_cycle_v1","parameters":[],"responses":{"200":{"description":""}},"tags":["Reports"]}},"/api/v1/estoque":{"get":{"operationId":"DistributedInventoryController_list_v1","parameters":[{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["Estoque distribuído"]}},"/api/v1/estoque/pecas/{id}":{"get":{"operationId":"DistributedInventoryController_get_v1","parameters":[{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}},{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["Estoque distribuído"]},"patch":{"operationId":"DistributedInventoryController_update_v1","parameters":[{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}},{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["Estoque distribuído"]}},"/api/v1/estoque/pecas":{"post":{"operationId":"DistributedInventoryController_create_v1","parameters":[{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"201":{"description":""}},"security":[{"bearer":[]}],"tags":["Estoque distribuído"]}},"/api/v1/estoque/pecas/{id}/entrada":{"patch":{"operationId":"DistributedInventoryController_entry_v1","parameters":[{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}},{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["Estoque distribuído"]}},"/api/v1/estoque/pecas/{id}/ativar":{"patch":{"operationId":"DistributedInventoryController_activate_v1","parameters":[{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}},{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["Estoque distribuído"]}},"/api/v1/estoque/pecas/{id}/desativar":{"patch":{"operationId":"DistributedInventoryController_deactivate_v1","parameters":[{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}},{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["Estoque distribuído"]}},"/api/v1/ordens-servico":{"post":{"operationId":"DistributedOrdersController_open_v1","parameters":[],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/AbrirOrdemServicoDto"}}}},"responses":{"201":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]},"get":{"operationId":"DistributedOrdersController_list_v1","parameters":[],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/fila":{"get":{"operationId":"DistributedOrdersController_queue_v1","parameters":[],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/minhas/lista":{"get":{"operationId":"DistributedOrdersController_mine_v1","parameters":[],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/mecanico/minhas-ordens":{"get":{"operationId":"DistributedOrdersController_mechanic_v1","parameters":[],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/minhas/{id}":{"get":{"operationId":"DistributedOrdersController_clientRead_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/mecanico/{id}":{"get":{"operationId":"DistributedOrdersController_mechanicRead_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}":{"get":{"operationId":"DistributedOrdersController_read_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/atribuir/{mecanicoId}":{"patch":{"operationId":"DistributedOrdersController_assign_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"mecanicoId","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/diagnostico":{"patch":{"operationId":"DistributedOrdersController_diagnosis_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/orcamento":{"patch":{"operationId":"DistributedOrdersController_budget_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"requestBody":{"required":true,"content":{"application/json":{"schema":{"$ref":"#/components/schemas/GerarOrcamentoDto"}}}},"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/aprovar":{"patch":{"operationId":"DistributedOrdersController_approve_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/rejeitar":{"patch":{"operationId":"DistributedOrdersController_reject_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/iniciar-execucao":{"patch":{"operationId":"DistributedOrdersController_start_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/consumo-peca":{"patch":{"operationId":"DistributedOrdersController_consume_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/finalizar":{"patch":{"operationId":"DistributedOrdersController_complete_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/checkout":{"post":{"operationId":"DistributedOrdersController_checkout_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}},{"name":"authorization","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"201":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/entregar":{"patch":{"operationId":"DistributedOrdersController_deliver_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"200":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/ordens-servico/{id}/saga/retry":{"post":{"operationId":"DistributedOrdersController_retry_v1","parameters":[{"name":"id","required":true,"in":"path","schema":{"type":"string"}}],"responses":{"201":{"description":""}},"security":[{"bearer":[]}],"tags":["OS distribuída"]}},"/api/v1/internal/auth/cliente":{"post":{"operationId":"ClientLookupController_lookup_v1","parameters":[{"name":"x-internal-token","required":true,"in":"header","schema":{"type":"string"}}],"responses":{"201":{"description":""}},"tags":["ClientLookup"]}}},"info":{"title":"Oficina API","description":"API de gestão de oficina mecânica","version":"1.0","contact":{}},"tags":[],"servers":[],"components":{"securitySchemes":{"bearer":{"scheme":"bearer","bearerFormat":"JWT","type":"http"}},"schemas":{"LoginDto":{"type":"object","properties":{"email":{"type":"string"},"senha":{"type":"string"}},"required":["email","senha"]},"CriarUsuarioDto":{"type":"object","properties":{"nome":{"type":"string","minLength":2,"maxLength":120},"email":{"type":"string","maxLength":254},"senha":{"type":"string","minLength":6,"maxLength":72},"papel":{"type":"string","enum":["ADMINISTRADOR","CONSULTOR_TECNICO","MECANICO","CLIENTE"]}},"required":["nome","email","senha","papel"]},"AtualizarUsuarioDto":{"type":"object","properties":{"nome":{"type":"string","minLength":2,"maxLength":120},"email":{"type":"string","maxLength":254},"papel":{"type":"string","enum":["ADMINISTRADOR","CONSULTOR_TECNICO","MECANICO"]},"senha":{"type":"string","description":"Nova senha; será armazenada somente como hash bcrypt.","minLength":6,"maxLength":72}}},"EnderecoDto":{"type":"object","properties":{"logradouro":{"type":"string"},"numero":{"type":"string"},"complemento":{"type":"string"},"bairro":{"type":"string"},"cidade":{"type":"string"},"estado":{"type":"string"},"cep":{"type":"string"}}},"CriarClienteDto":{"type":"object","properties":{"tipoDoc":{"type":"string","enum":["CPF","CNPJ"]},"numeroDoc":{"type":"string","description":"CPF ou CNPJ sem formatação"},"nome":{"type":"string"},"email":{"type":"string"},"telefone":{"type":"string"},"usuarioId":{"type":"string","description":"ID do usuario CLIENTE a ser vinculado ao cadastro (prefixo us)"},"endereco":{"$ref":"#/components/schemas/EnderecoDto"}},"required":["tipoDoc","numeroDoc","nome","email","telefone"]},"AtualizarClienteDto":{"type":"object","properties":{"nome":{"type":"string"},"email":{"type":"string"},"telefone":{"type":"string"},"usuarioId":{"type":"object","description":"ID do usuario CLIENTE vinculado. Envie null para remover o vinculo."},"endereco":{"$ref":"#/components/schemas/EnderecoDto"}}},"CriarVeiculoDto":{"type":"object","properties":{"placa":{"type":"string"},"renavam":{"type":"string"},"chassi":{"type":"string"},"marca":{"type":"string"},"modelo":{"type":"string"},"ano":{"type":"number"},"cor":{"type":"string"},"quilometragem":{"type":"number"}},"required":["placa","renavam","chassi","marca","modelo","ano","cor"]},"AtualizarVeiculoDto":{"type":"object","properties":{"cor":{"type":"string"},"quilometragem":{"type":"number"}}},"RegistrarServicoOficinaDto":{"type":"object","properties":{"nome":{"type":"string","description":"Nome do serviço (ex: \"Troca de Óleo\", \"Alinhamento\")"},"descricao":{"type":"string","description":"Descrição detalhada do serviço"},"categoria":{"type":"string","description":"Categoria do serviço (ex: \"Manutenção Preventiva\", \"Diagnóstico\")"}},"required":["nome"]},"AtualizarServicoOficinaDto":{"type":"object","properties":{"nome":{"type":"string","description":"Novo nome do serviço"},"descricao":{"type":"object","description":"Nova descrição (null para remover)"},"categoria":{"type":"object","description":"Nova categoria (null para remover)"}}},"EnderecoClienteAberturaDto":{"type":"object","properties":{"logradouro":{"type":"string"},"numero":{"type":"string"},"complemento":{"type":"string"},"bairro":{"type":"string"},"cidade":{"type":"string"},"estado":{"type":"string"},"cep":{"type":"string"}}},"ClienteAberturaDto":{"type":"object","properties":{"tipoDoc":{"type":"string","enum":["CPF","CNPJ"]},"numeroDoc":{"type":"string","description":"CPF ou CNPJ do cliente"},"nome":{"type":"string"},"email":{"type":"string"},"telefone":{"type":"string"},"endereco":{"$ref":"#/components/schemas/EnderecoClienteAberturaDto"}},"required":["tipoDoc","numeroDoc","nome","email","telefone"]},"VeiculoAberturaDto":{"type":"object","properties":{"placa":{"type":"string"},"renavam":{"type":"string"},"chassi":{"type":"string"},"marca":{"type":"string"},"modelo":{"type":"string"},"ano":{"type":"number"},"cor":{"type":"string"},"quilometragem":{"type":"number"}},"required":["placa","renavam","chassi","marca","modelo","ano","cor"]},"ProblemaRelatadoDto":{"type":"object","properties":{"descricao":{"type":"string","description":"Descrição do problema ou sintoma em texto livre"}},"required":["descricao"]},"ServicoSolicitadoDto":{"type":"object","properties":{"servicoId":{"type":"string","description":"ID do serviço no catálogo da oficina"},"observacao":{"type":"string","description":"Contexto adicional do cliente (ex: \"última troca há 10.000 km\")"}},"required":["servicoId"]},"PecaSolicitadaDto":{"type":"object","properties":{"pecaId":{"type":"string","description":"ID da peça no estoque"},"quantidade":{"type":"number","description":"Quantidade solicitada da peça"}},"required":["pecaId","quantidade"]},"AbrirOrdemServicoDto":{"type":"object","properties":{"filialId":{"type":"string"},"clienteId":{"type":"string","description":"ID do cliente que solicita o atendimento"},"veiculoId":{"type":"string","description":"ID do veículo a ser atendido"},"cliente":{"description":"Dados do cliente para abertura direta da OS quando clienteId não for informado","allOf":[{"$ref":"#/components/schemas/ClienteAberturaDto"}]},"veiculo":{"description":"Dados do veículo para abertura direta da OS quando veiculoId não for informado","allOf":[{"$ref":"#/components/schemas/VeiculoAberturaDto"}]},"problemasRelatados":{"description":"Problemas relatados em texto livre (ao menos um entre este e servicosSolicitados)","type":"array","items":{"$ref":"#/components/schemas/ProblemaRelatadoDto"}},"servicosSolicitados":{"description":"Serviços do catálogo solicitados pelo cliente (ao menos um entre este e problemasRelatados)","type":"array","items":{"$ref":"#/components/schemas/ServicoSolicitadoDto"}},"notasInternas":{"type":"string","description":"Notas internas da oficina (não visíveis ao cliente)"},"pecasSolicitadas":{"description":"Peças mencionadas já na abertura da OS","type":"array","items":{"$ref":"#/components/schemas/PecaSolicitadaDto"}},"notasCliente":{"type":"string","description":"Notas visíveis ao cliente"}}},"LinhaServicoDto":{"type":"object","properties":{"tipo":{"type":"string","enum":["MATERIAL","SERVICO"],"description":"MATERIAL (peça) ou SERVICO (mão de obra)"},"descricao":{"type":"string","description":"Descrição do serviço ou material"},"quantidade":{"type":"number","description":"Quantidade de unidades (deve ser positiva)"},"valorUnitario":{"type":"number","description":"Valor unitário em reais (zero ou positivo)"},"pecaId":{"type":"string","description":"ID da peça do estoque (apenas para linhas MATERIAL)"}},"required":["tipo","descricao","quantidade","valorUnitario"]},"GrupoOrcamentoDto":{"type":"object","properties":{"titulo":{"type":"string","description":"Título descritivo do grupo (ex: \"Retífica do Motor\")"},"linhas":{"description":"Linhas de serviço do grupo (ao menos uma)","type":"array","items":{"$ref":"#/components/schemas/LinhaServicoDto"}}},"required":["titulo","linhas"]},"GerarOrcamentoDto":{"type":"object","properties":{"grupos":{"description":"Grupos de itens do orçamento (ao menos um grupo com ao menos uma linha)","type":"array","items":{"$ref":"#/components/schemas/GrupoOrcamentoDto"}},"notasInternas":{"type":"string","description":"Notas internas da equipe da oficina (não visíveis ao cliente)"},"notasCliente":{"type":"string","description":"Notas enviadas ao cliente junto com o orçamento"}},"required":["grupos"]}}}}
+{
+  "openapi": "3.0.0",
+  "paths": {
+    "/api/health/live": {
+      "get": {
+        "operationId": "HealthController_live",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Liveness da API",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/health/ready": {
+      "get": {
+        "operationId": "HealthController_ready",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Readiness da API e do PostgreSQL",
+        "tags": [
+          "Health"
+        ]
+      }
+    },
+    "/api/v1/auth/login": {
+      "post": {
+        "operationId": "AuthController_login_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/LoginDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "summary": "Login — retorna access e refresh token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/refresh": {
+      "post": {
+        "operationId": "AuthController_refresh_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Renovar access token usando refresh token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "operationId": "AuthController_logout_v1",
+        "parameters": [],
+        "responses": {
+          "204": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Logout — invalida o refresh token",
+        "tags": [
+          "Auth"
+        ]
+      }
+    },
+    "/api/v1/usuarios": {
+      "post": {
+        "operationId": "UsuarioController_criar_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarUsuarioDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Criar usuário",
+        "tags": [
+          "Usuários"
+        ]
+      },
+      "get": {
+        "operationId": "UsuarioController_listar_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "porPagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "busca",
+            "required": false,
+            "in": "query",
+            "description": "Trecho do nome, e-mail ou ID do usuário.",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "papel",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "ADMINISTRADOR",
+                "CONSULTOR_TECNICO",
+                "MECANICO"
+              ]
+            }
+          },
+          {
+            "name": "ativo",
+            "required": false,
+            "in": "query",
+            "description": "Filtra usuários pelo estado ativo ou inativo.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar usuários internos (paginado)",
+        "tags": [
+          "Usuários"
+        ]
+      }
+    },
+    "/api/v1/usuarios/mecanicos": {
+      "get": {
+        "operationId": "UsuarioController_listarMecanicosDisponiveis_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "porPagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "busca",
+            "required": false,
+            "in": "query",
+            "description": "Trecho do nome, e-mail ou ID do mecânico.",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "ativo",
+            "required": false,
+            "in": "query",
+            "description": "Filtra mecânicos pelo estado ativo ou inativo.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar mecânicos (paginado)",
+        "tags": [
+          "Usuários"
+        ]
+      }
+    },
+    "/api/v1/usuarios/{id}/ativar": {
+      "patch": {
+        "operationId": "UsuarioController_ativar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ativar usuário interno",
+        "tags": [
+          "Usuários"
+        ]
+      }
+    },
+    "/api/v1/usuarios/{id}/desativar": {
+      "patch": {
+        "operationId": "UsuarioController_desativar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Desativar usuário interno",
+        "tags": [
+          "Usuários"
+        ]
+      }
+    },
+    "/api/v1/usuarios/{id}": {
+      "patch": {
+        "operationId": "UsuarioController_atualizar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarUsuarioDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Atualizar usuário interno",
+        "tags": [
+          "Usuários"
+        ]
+      },
+      "get": {
+        "operationId": "UsuarioController_buscar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Buscar usuário por ID",
+        "tags": [
+          "Usuários"
+        ]
+      }
+    },
+    "/api/v1/clientes": {
+      "post": {
+        "operationId": "ClienteController_criar_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarClienteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Criar cliente (CPF ou CNPJ)",
+        "tags": [
+          "Clientes"
+        ]
+      },
+      "get": {
+        "operationId": "ClienteController_listar_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "porPagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "busca",
+            "required": false,
+            "in": "query",
+            "description": "Trecho do nome, e-mail, CPF/CNPJ ou telefone do cliente.",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "ativo",
+            "required": false,
+            "in": "query",
+            "description": "Filtra clientes pelo estado ativo ou inativo.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar clientes (paginado)",
+        "tags": [
+          "Clientes"
+        ]
+      }
+    },
+    "/api/v1/clientes/documento/{numeroDoc}": {
+      "get": {
+        "operationId": "ClienteController_buscarPorDoc_v1",
+        "parameters": [
+          {
+            "name": "numeroDoc",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Buscar cliente por CPF ou CNPJ",
+        "tags": [
+          "Clientes"
+        ]
+      }
+    },
+    "/api/v1/clientes/{id}": {
+      "patch": {
+        "operationId": "ClienteController_atualizar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarClienteDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Atualizar dados do cliente (exceto tipoDoc e numeroDoc)",
+        "tags": [
+          "Clientes"
+        ]
+      }
+    },
+    "/api/v1/clientes/{id}/desativar": {
+      "patch": {
+        "operationId": "ClienteController_desativar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Desativar cliente",
+        "tags": [
+          "Clientes"
+        ]
+      }
+    },
+    "/api/v1/clientes/{id}/ativar": {
+      "patch": {
+        "operationId": "ClienteController_ativar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ativar cliente",
+        "tags": [
+          "Clientes"
+        ]
+      }
+    },
+    "/api/v1/veiculos": {
+      "get": {
+        "operationId": "VeiculoController_listar_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "porPagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "busca",
+            "required": false,
+            "in": "query",
+            "description": "Busca global por identificação e descrição, sem distinguir caixa ou acentos.",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "ativo",
+            "required": false,
+            "in": "query",
+            "description": "Filtra cadastros ativos ou inativos.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar veículos (paginado)",
+        "tags": [
+          "Veículos"
+        ]
+      },
+      "post": {
+        "operationId": "VeiculoController_criar_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CriarVeiculoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registrar veículo",
+        "tags": [
+          "Veículos"
+        ]
+      }
+    },
+    "/api/v1/veiculos/placa/{placa}": {
+      "get": {
+        "operationId": "VeiculoController_buscarPorPlaca_v1",
+        "parameters": [
+          {
+            "name": "placa",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Buscar veículo por placa",
+        "tags": [
+          "Veículos"
+        ]
+      }
+    },
+    "/api/v1/veiculos/{id}": {
+      "patch": {
+        "operationId": "VeiculoController_atualizar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarVeiculoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Atualizar cor e/ou quilometragem do veículo",
+        "tags": [
+          "Veículos"
+        ]
+      }
+    },
+    "/api/v1/veiculos/{id}/desativar": {
+      "patch": {
+        "operationId": "VeiculoController_desativar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Desativar veículo",
+        "tags": [
+          "Veículos"
+        ]
+      }
+    },
+    "/api/v1/veiculos/{id}/ativar": {
+      "patch": {
+        "operationId": "VeiculoController_ativar_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Ativar veículo",
+        "tags": [
+          "Veículos"
+        ]
+      }
+    },
+    "/api/v1/servicos-oficina": {
+      "post": {
+        "operationId": "ServicoOficinaController_registrarServico_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RegistrarServicoOficinaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Registrar serviço no catálogo",
+        "tags": [
+          "Catálogo de Serviços"
+        ]
+      },
+      "get": {
+        "operationId": "ServicoOficinaController_listarServicos_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "default": 1,
+              "type": "number"
+            }
+          },
+          {
+            "name": "porPagina",
+            "required": false,
+            "in": "query",
+            "schema": {
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20,
+              "type": "number"
+            }
+          },
+          {
+            "name": "busca",
+            "required": false,
+            "in": "query",
+            "description": "Busca global por identificação e descrição, sem distinguir caixa ou acentos.",
+            "schema": {
+              "maxLength": 120,
+              "type": "string"
+            }
+          },
+          {
+            "name": "ativo",
+            "required": false,
+            "in": "query",
+            "description": "Filtra cadastros ativos ou inativos.",
+            "schema": {
+              "type": "boolean"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Listar serviços do catálogo (paginado)",
+        "tags": [
+          "Catálogo de Serviços"
+        ]
+      }
+    },
+    "/api/v1/servicos-oficina/{id}": {
+      "get": {
+        "operationId": "ServicoOficinaController_buscarServico_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Buscar serviço por ID",
+        "tags": [
+          "Catálogo de Serviços"
+        ]
+      },
+      "patch": {
+        "operationId": "ServicoOficinaController_atualizarServico_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AtualizarServicoOficinaDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Atualizar serviço do catálogo",
+        "tags": [
+          "Catálogo de Serviços"
+        ]
+      }
+    },
+    "/api/v1/servicos-oficina/{id}/desativar": {
+      "patch": {
+        "operationId": "ServicoOficinaController_desativarServico_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Desativar serviço do catálogo",
+        "tags": [
+          "Catálogo de Serviços"
+        ]
+      }
+    },
+    "/api/v1/servicos-oficina/{id}/ativar": {
+      "patch": {
+        "operationId": "ServicoOficinaController_ativarServico_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Reativar serviço do catálogo",
+        "tags": [
+          "Catálogo de Serviços"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/relatorio/kpis": {
+      "get": {
+        "operationId": "ReportsController_kpis_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/relatorio/lead-time": {
+      "get": {
+        "operationId": "ReportsController_lead_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/relatorio/tempo-ciclo": {
+      "get": {
+        "operationId": "ReportsController_cycle_v1",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "Reports"
+        ]
+      }
+    },
+    "/api/v1/estoque": {
+      "get": {
+        "operationId": "DistributedInventoryController_list_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Página de resultados."
+          },
+          {
+            "name": "porPagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Tamanho da página."
+          },
+          {
+            "name": "filialId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 100
+            },
+            "description": "Filial; informe para desambiguar o código."
+          },
+          {
+            "name": "busca",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            },
+            "description": "Código/nome/descrição em toda a base, ignorando caixa e acentos, antes de paginar."
+          },
+          {
+            "name": "ativo",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            },
+            "description": "Ausente inclui ativos e inativos. Saldo zero não significa inativo."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Itens após filtros globais.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/InventoryItem"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Estoque distribuído"
+        ],
+        "description": "ADMINISTRADOR ou MECANICO. CONSULTOR_TECNICO e CLIENTE não recebem acesso ao estoque. Production é o dono dos dados."
+      }
+    },
+    "/api/v1/estoque/pecas/{id}": {
+      "get": {
+        "operationId": "DistributedInventoryController_get_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Identificador interno; obtenha-o pela busca contextual."
+            }
+          },
+          {
+            "name": "filialId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Informe a filial. Se o mesmo ID existir em mais de uma filial, ausência resulta em conflito."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Cadastro e saldo da filial.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/InventoryItem"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Estoque distribuído"
+        ],
+        "description": "ADMINISTRADOR ou MECANICO; consulta pode retornar peça inativa para leitura histórica."
+      },
+      "patch": {
+        "operationId": "DistributedInventoryController_update_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Estoque distribuído"
+        ]
+      }
+    },
+    "/api/v1/estoque/pecas": {
+      "post": {
+        "operationId": "DistributedInventoryController_create_v1",
+        "parameters": [],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Estoque distribuído"
+        ]
+      }
+    },
+    "/api/v1/estoque/pecas/{id}/entrada": {
+      "patch": {
+        "operationId": "DistributedInventoryController_entry_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Estoque distribuído"
+        ]
+      }
+    },
+    "/api/v1/estoque/pecas/{id}/ativar": {
+      "patch": {
+        "operationId": "DistributedInventoryController_activate_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Estoque distribuído"
+        ]
+      }
+    },
+    "/api/v1/estoque/pecas/{id}/desativar": {
+      "patch": {
+        "operationId": "DistributedInventoryController_deactivate_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "Estoque distribuído"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico": {
+      "post": {
+        "operationId": "DistributedOrdersController_open_v1",
+        "parameters": [],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AbrirOrdemServicoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "OS criada; aguarde sincronização antes de atribuir.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderResponse"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "description": "ADMINISTRADOR ou CONSULTOR_TECNICO. Somente ADMINISTRADOR pode enviar peças solicitadas não vazias. Quantidades inteiras positivas; duplicatas são somadas; servidor valida peça ativa da filial e grava snapshots. Nenhum estoque é reservado na abertura. Contratos legados sem peças continuam aceitos."
+      },
+      "get": {
+        "operationId": "DistributedOrdersController_list_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Página de resultados."
+          },
+          {
+            "name": "porPagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Tamanho da página."
+          },
+          {
+            "name": "filialId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filial exata, dentro do conjunto autorizado."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Status exato da OS."
+          },
+          {
+            "name": "busca",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Número exato (25, #25 ou OS 25), ou trecho de cliente/placa/marca/modelo/mecânico/status. Ignora caixa e acentos; aplicado antes da paginação. Não pesquisa UUID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página após autorização, filtros e busca.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderResponse"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "summary": "Listar OS autorizadas com busca global",
+        "description": "ADMINISTRADOR ou CONSULTOR_TECNICO. A lista preserva a projeção OS; detalhes agregados são obtidos na rota de leitura."
+      }
+    },
+    "/api/v1/ordens-servico/fila": {
+      "get": {
+        "operationId": "DistributedOrdersController_queue_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Página de resultados."
+          },
+          {
+            "name": "porPagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Tamanho da página."
+          },
+          {
+            "name": "filialId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filial exata, dentro do conjunto autorizado."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Status exato da OS."
+          },
+          {
+            "name": "busca",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Número exato (25, #25 ou OS 25), ou trecho de cliente/placa/marca/modelo/mecânico/status. Ignora caixa e acentos; aplicado antes da paginação. Não pesquisa UUID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página após autorização, filtros e busca.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderResponse"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "summary": "Listar OS autorizadas com busca global",
+        "description": "ADMINISTRADOR ou CONSULTOR_TECNICO. A lista preserva a projeção OS; detalhes agregados são obtidos na rota de leitura."
+      }
+    },
+    "/api/v1/ordens-servico/minhas/lista": {
+      "get": {
+        "operationId": "DistributedOrdersController_mine_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Página de resultados."
+          },
+          {
+            "name": "porPagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Tamanho da página."
+          },
+          {
+            "name": "filialId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filial exata, dentro do conjunto autorizado."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Status exato da OS."
+          },
+          {
+            "name": "busca",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Número exato (25, #25 ou OS 25), ou trecho de cliente/placa/marca/modelo/mecânico/status. Ignora caixa e acentos; aplicado antes da paginação. Não pesquisa UUID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página após autorização, filtros e busca.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderClientResponse"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "summary": "Listar OS autorizadas com busca global",
+        "description": "CLIENTE titular. A lista preserva a projeção OS; detalhes agregados são obtidos na rota de leitura."
+      }
+    },
+    "/api/v1/ordens-servico/mecanico/minhas-ordens": {
+      "get": {
+        "operationId": "DistributedOrdersController_mechanic_v1",
+        "parameters": [
+          {
+            "name": "pagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1
+            },
+            "description": "Página de resultados."
+          },
+          {
+            "name": "porPagina",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 20
+            },
+            "description": "Tamanho da página."
+          },
+          {
+            "name": "filialId",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Filial exata, dentro do conjunto autorizado."
+          },
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Status exato da OS."
+          },
+          {
+            "name": "busca",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Número exato (25, #25 ou OS 25), ou trecho de cliente/placa/marca/modelo/mecânico/status. Ignora caixa e acentos; aplicado antes da paginação. Não pesquisa UUID."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Página após autorização, filtros e busca.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/OrderResponse"
+                      }
+                    },
+                    "meta": {
+                      "$ref": "#/components/schemas/PaginationMeta"
+                    }
+                  },
+                  "required": [
+                    "data",
+                    "meta"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "summary": "Listar OS autorizadas com busca global",
+        "description": "MECANICO responsável. A lista preserva a projeção OS; detalhes agregados são obtidos na rota de leitura."
+      }
+    },
+    "/api/v1/ordens-servico/minhas/{id}": {
+      "get": {
+        "operationId": "DistributedOrdersController_clientRead_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Identificador interno; obtenha-o pela busca contextual."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OS e projeções dos participantes, com privacidade por perfil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderClientResponse"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "description": "CLIENTE titular."
+      }
+    },
+    "/api/v1/ordens-servico/mecanico/{id}": {
+      "get": {
+        "operationId": "DistributedOrdersController_mechanicRead_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Identificador interno; obtenha-o pela busca contextual."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OS e projeções dos participantes, com privacidade por perfil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderResponse"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "description": "MECANICO responsável."
+      }
+    },
+    "/api/v1/ordens-servico/{id}": {
+      "get": {
+        "operationId": "DistributedOrdersController_read_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Identificador interno; obtenha-o pela busca contextual."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OS e projeções dos participantes, com privacidade por perfil.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/OrderResponse"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "description": "ADMINISTRADOR ou CONSULTOR_TECNICO; consultor não recebe saldo disponível nas faltas."
+      }
+    },
+    "/api/v1/ordens-servico/{id}/atribuir/{mecanicoId}": {
+      "patch": {
+        "operationId": "DistributedOrdersController_assign_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "mecanicoId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/diagnostico": {
+      "patch": {
+        "operationId": "DistributedOrdersController_diagnosis_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/orcamento": {
+      "patch": {
+        "operationId": "DistributedOrdersController_budget_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GerarOrcamentoDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Estado Billing atualizado; valores do participante em centavos.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "description": "MECANICO responsável. Títulos, grupos e notas persistem na versão Billing. IDs de materiais são validados em Production na filial da OS; servidor adiciona nome/código/filial. Notas internas não são retornadas ao cliente. Consultar GET da OS após a projeção."
+      }
+    },
+    "/api/v1/ordens-servico/{id}/aprovar": {
+      "patch": {
+        "operationId": "DistributedOrdersController_approve_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/rejeitar": {
+      "patch": {
+        "operationId": "DistributedOrdersController_reject_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/iniciar-execucao": {
+      "patch": {
+        "operationId": "DistributedOrdersController_start_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/consumo-peca": {
+      "patch": {
+        "operationId": "DistributedOrdersController_consume_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Identificador interno; obtenha-o pela busca contextual."
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Operação aplicada ou replay sem duplicar consumo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "data": {
+                      "$ref": "#/components/schemas/ProductionOrderResponse"
+                    }
+                  },
+                  "required": [
+                    "data"
+                  ]
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Entrada inválida ou quantidade maior que restante. O excesso inclui code, definitive e quatro quantidades.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "anyOf": [
+                    {
+                      "$ref": "#/components/schemas/ConsumptionExcessError"
+                    },
+                    {
+                      "$ref": "#/components/schemas/ApiError"
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "JWT ausente/inválido/expirado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Perfil ou vínculo com a OS não autorizado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Recurso não encontrado.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Estado incompatível ou conflito; consulte o recurso antes de nova intenção.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiError"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ],
+        "description": "MECANICO responsável. Consome somente a reserva da própria OS/filial. Reuse operationId e payload para resolver resultado incerto; não gere outro ID para uma repetição. HTTP400 estruturado é rejeição definitiva; erro de rede/5xx exige consultar/repetir a mesma intenção.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ConsumeRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ordens-servico/{id}/finalizar": {
+      "patch": {
+        "operationId": "DistributedOrdersController_complete_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/checkout": {
+      "post": {
+        "operationId": "DistributedOrdersController_checkout_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/entregar": {
+      "patch": {
+        "operationId": "DistributedOrdersController_deliver_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/saga/retry": {
+      "post": {
+        "operationId": "DistributedOrdersController_retry_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/ordens-servico/{id}/saga/reconcile": {
+      "post": {
+        "operationId": "DistributedOrdersController_reconcile_v1",
+        "parameters": [
+          {
+            "name": "id",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "tags": [
+          "OS distribuída"
+        ]
+      }
+    },
+    "/api/v1/internal/auth/cliente": {
+      "post": {
+        "operationId": "ClientLookupController_lookup_v1",
+        "parameters": [
+          {
+            "name": "x-internal-token",
+            "required": true,
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": ""
+          }
+        },
+        "tags": [
+          "ClientLookup"
+        ]
+      }
+    }
+  },
+  "info": {
+    "title": "Oficina API",
+    "description": "OS Service da Fase 4. Respostas de sucesso usam {data}, ou {data,meta} nas listas. Valores de orçamento nesta fachada são reais; Billing usa centavos. JWT, perfil e vínculo da OS continuam obrigatórios. Snapshot de /api/docs-json do runtime local distribuído, complementado pela revisão de src/phase4/{controller,service,contracts}.ts, filtro HTTP e contratos Production. Os DTOs geram parâmetros de catálogos; respostas agregadas e assinaturas inline exigem este complemento editorial. Não comprova deploy ou CI remoto.",
+    "version": "4.0-local-2026-11-12",
+    "contact": {}
+  },
+  "tags": [],
+  "servers": [
+    {
+      "url": "http://localhost:3100",
+      "description": "Serviço local isolado; ajuste a origem conforme o ambiente autorizado."
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearer": {
+        "scheme": "bearer",
+        "bearerFormat": "JWT",
+        "type": "http"
+      }
+    },
+    "schemas": {
+      "LoginDto": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string"
+          },
+          "senha": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "email",
+          "senha"
+        ]
+      },
+      "CriarUsuarioDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254
+          },
+          "senha": {
+            "type": "string",
+            "minLength": 6,
+            "maxLength": 72
+          },
+          "papel": {
+            "type": "string",
+            "enum": [
+              "ADMINISTRADOR",
+              "CONSULTOR_TECNICO",
+              "MECANICO",
+              "CLIENTE"
+            ]
+          }
+        },
+        "required": [
+          "nome",
+          "email",
+          "senha",
+          "papel"
+        ]
+      },
+      "AtualizarUsuarioDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 120
+          },
+          "email": {
+            "type": "string",
+            "maxLength": 254
+          },
+          "papel": {
+            "type": "string",
+            "enum": [
+              "ADMINISTRADOR",
+              "CONSULTOR_TECNICO",
+              "MECANICO"
+            ]
+          },
+          "senha": {
+            "type": "string",
+            "description": "Nova senha; será armazenada somente como hash bcrypt.",
+            "minLength": 6,
+            "maxLength": 72
+          }
+        }
+      },
+      "EnderecoDto": {
+        "type": "object",
+        "properties": {
+          "logradouro": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "complemento": {
+            "type": "string"
+          },
+          "bairro": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "estado": {
+            "type": "string"
+          },
+          "cep": {
+            "type": "string"
+          }
+        }
+      },
+      "CriarClienteDto": {
+        "type": "object",
+        "properties": {
+          "tipoDoc": {
+            "type": "string",
+            "enum": [
+              "CPF",
+              "CNPJ"
+            ]
+          },
+          "numeroDoc": {
+            "type": "string",
+            "description": "CPF ou CNPJ sem formatação"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telefone": {
+            "type": "string"
+          },
+          "usuarioId": {
+            "type": "string",
+            "description": "ID do usuario CLIENTE a ser vinculado ao cadastro (prefixo us)"
+          },
+          "endereco": {
+            "$ref": "#/components/schemas/EnderecoDto"
+          }
+        },
+        "required": [
+          "tipoDoc",
+          "numeroDoc",
+          "nome",
+          "email",
+          "telefone"
+        ]
+      },
+      "AtualizarClienteDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telefone": {
+            "type": "string"
+          },
+          "usuarioId": {
+            "type": "object",
+            "description": "ID do usuario CLIENTE vinculado. Envie null para remover o vinculo."
+          },
+          "endereco": {
+            "$ref": "#/components/schemas/EnderecoDto"
+          }
+        }
+      },
+      "CriarVeiculoDto": {
+        "type": "object",
+        "properties": {
+          "placa": {
+            "type": "string"
+          },
+          "renavam": {
+            "type": "string"
+          },
+          "chassi": {
+            "type": "string"
+          },
+          "marca": {
+            "type": "string"
+          },
+          "modelo": {
+            "type": "string"
+          },
+          "ano": {
+            "type": "number"
+          },
+          "cor": {
+            "type": "string"
+          },
+          "quilometragem": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "placa",
+          "renavam",
+          "chassi",
+          "marca",
+          "modelo",
+          "ano",
+          "cor"
+        ]
+      },
+      "AtualizarVeiculoDto": {
+        "type": "object",
+        "properties": {
+          "cor": {
+            "type": "string"
+          },
+          "quilometragem": {
+            "type": "number"
+          }
+        }
+      },
+      "RegistrarServicoOficinaDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Nome do serviço (ex: \"Troca de Óleo\", \"Alinhamento\")"
+          },
+          "descricao": {
+            "type": "string",
+            "description": "Descrição detalhada do serviço"
+          },
+          "categoria": {
+            "type": "string",
+            "description": "Categoria do serviço (ex: \"Manutenção Preventiva\", \"Diagnóstico\")"
+          }
+        },
+        "required": [
+          "nome"
+        ]
+      },
+      "AtualizarServicoOficinaDto": {
+        "type": "object",
+        "properties": {
+          "nome": {
+            "type": "string",
+            "description": "Novo nome do serviço"
+          },
+          "descricao": {
+            "type": "object",
+            "description": "Nova descrição (null para remover)"
+          },
+          "categoria": {
+            "type": "object",
+            "description": "Nova categoria (null para remover)"
+          }
+        }
+      },
+      "EnderecoClienteAberturaDto": {
+        "type": "object",
+        "properties": {
+          "logradouro": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "string"
+          },
+          "complemento": {
+            "type": "string"
+          },
+          "bairro": {
+            "type": "string"
+          },
+          "cidade": {
+            "type": "string"
+          },
+          "estado": {
+            "type": "string"
+          },
+          "cep": {
+            "type": "string"
+          }
+        }
+      },
+      "ClienteAberturaDto": {
+        "type": "object",
+        "properties": {
+          "tipoDoc": {
+            "type": "string",
+            "enum": [
+              "CPF",
+              "CNPJ"
+            ]
+          },
+          "numeroDoc": {
+            "type": "string",
+            "description": "CPF ou CNPJ do cliente"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "telefone": {
+            "type": "string"
+          },
+          "endereco": {
+            "$ref": "#/components/schemas/EnderecoClienteAberturaDto"
+          }
+        },
+        "required": [
+          "tipoDoc",
+          "numeroDoc",
+          "nome",
+          "email",
+          "telefone"
+        ]
+      },
+      "VeiculoAberturaDto": {
+        "type": "object",
+        "properties": {
+          "placa": {
+            "type": "string"
+          },
+          "renavam": {
+            "type": "string"
+          },
+          "chassi": {
+            "type": "string"
+          },
+          "marca": {
+            "type": "string"
+          },
+          "modelo": {
+            "type": "string"
+          },
+          "ano": {
+            "type": "number"
+          },
+          "cor": {
+            "type": "string"
+          },
+          "quilometragem": {
+            "type": "number"
+          }
+        },
+        "required": [
+          "placa",
+          "renavam",
+          "chassi",
+          "marca",
+          "modelo",
+          "ano",
+          "cor"
+        ]
+      },
+      "ProblemaRelatadoDto": {
+        "type": "object",
+        "properties": {
+          "descricao": {
+            "type": "string",
+            "description": "Descrição do problema ou sintoma em texto livre"
+          }
+        },
+        "required": [
+          "descricao"
+        ]
+      },
+      "ServicoSolicitadoDto": {
+        "type": "object",
+        "properties": {
+          "servicoId": {
+            "type": "string",
+            "description": "ID do serviço no catálogo da oficina"
+          },
+          "observacao": {
+            "type": "string",
+            "description": "Contexto adicional do cliente (ex: \"última troca há 10.000 km\")"
+          }
+        },
+        "required": [
+          "servicoId"
+        ]
+      },
+      "PecaSolicitadaDto": {
+        "type": "object",
+        "properties": {
+          "pecaId": {
+            "type": "string",
+            "description": "ID da peça no estoque"
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Quantidade solicitada, sem reserva de estoque."
+          }
+        },
+        "required": [
+          "pecaId",
+          "quantidade"
+        ]
+      },
+      "AbrirOrdemServicoDto": {
+        "type": "object",
+        "properties": {
+          "filialId": {
+            "type": "string"
+          },
+          "clienteId": {
+            "type": "string",
+            "description": "ID do cliente que solicita o atendimento"
+          },
+          "veiculoId": {
+            "type": "string",
+            "description": "ID do veículo a ser atendido"
+          },
+          "cliente": {
+            "description": "Dados do cliente para abertura direta da OS quando clienteId não for informado",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ClienteAberturaDto"
+              }
+            ]
+          },
+          "veiculo": {
+            "description": "Dados do veículo para abertura direta da OS quando veiculoId não for informado",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/VeiculoAberturaDto"
+              }
+            ]
+          },
+          "problemasRelatados": {
+            "description": "Problemas relatados em texto livre (ao menos um entre este e servicosSolicitados)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProblemaRelatadoDto"
+            }
+          },
+          "servicosSolicitados": {
+            "description": "Serviços do catálogo solicitados pelo cliente (ao menos um entre este e problemasRelatados)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ServicoSolicitadoDto"
+            }
+          },
+          "notasInternas": {
+            "type": "string",
+            "description": "Notas internas da oficina (não visíveis ao cliente)"
+          },
+          "pecasSolicitadas": {
+            "description": "Somente ADMINISTRADOR. Validação da identidade ativa na filial; duplicatas somadas; snapshots retornados pelo servidor.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PecaSolicitadaDto"
+            },
+            "maxItems": 100
+          },
+          "notasCliente": {
+            "type": "string",
+            "description": "Notas visíveis ao cliente"
+          }
+        }
+      },
+      "LinhaServicoDto": {
+        "type": "object",
+        "properties": {
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "MATERIAL",
+              "SERVICO"
+            ],
+            "description": "MATERIAL (peça) ou SERVICO (mão de obra)"
+          },
+          "descricao": {
+            "type": "string",
+            "description": "Descrição do serviço ou material"
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "Billing aceita quantidade inteira positiva; valores monetários são convertidos de reais para centavos."
+          },
+          "valorUnitario": {
+            "type": "number",
+            "description": "Valor unitário em reais (zero ou positivo)"
+          },
+          "pecaId": {
+            "type": "string",
+            "description": "ID da peça do estoque (apenas para linhas MATERIAL)"
+          }
+        },
+        "required": [
+          "tipo",
+          "descricao",
+          "quantidade",
+          "valorUnitario"
+        ]
+      },
+      "GrupoOrcamentoDto": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string",
+            "description": "Título descritivo do grupo (ex: \"Retífica do Motor\")"
+          },
+          "linhas": {
+            "description": "Linhas de serviço do grupo (ao menos uma)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/LinhaServicoDto"
+            }
+          }
+        },
+        "required": [
+          "titulo",
+          "linhas"
+        ]
+      },
+      "GerarOrcamentoDto": {
+        "type": "object",
+        "properties": {
+          "grupos": {
+            "description": "Grupos de itens do orçamento (ao menos um grupo com ao menos uma linha)",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/GrupoOrcamentoDto"
+            }
+          },
+          "notasInternas": {
+            "type": "string",
+            "description": "Notas internas da equipe da oficina (não visíveis ao cliente)"
+          },
+          "notasCliente": {
+            "type": "string",
+            "description": "Notas enviadas ao cliente junto com o orçamento"
+          }
+        },
+        "required": [
+          "grupos"
+        ]
+      },
+      "PaginationMeta": {
+        "type": "object",
+        "properties": {
+          "pagina": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "porPagina": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "totalPaginas": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "pagina",
+          "porPagina",
+          "total",
+          "totalPaginas"
+        ]
+      },
+      "RequestedPartSnapshot": {
+        "type": "object",
+        "properties": {
+          "pecaId": {
+            "type": "string"
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "filialId": {
+            "type": "string"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "descricao": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "pecaId",
+          "quantidade",
+          "filialId",
+          "nome",
+          "codigo"
+        ],
+        "description": "Identidade validada no servidor, ativa e da filial da OS. Solicitação não reserva estoque. Campo ausente em OS legada não equivale a solicitação vazia."
+      },
+      "StockShortage": {
+        "type": "object",
+        "properties": {
+          "pecaId": {
+            "type": "string"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "filialId": {
+            "type": "string"
+          },
+          "quantidadeNecessaria": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quantidadeDisponivel": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Omitida para CONSULTOR_TECNICO."
+          },
+          "quantidadeFaltante": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "motivo": {
+            "type": "string",
+            "enum": [
+              "ESTOQUE_INSUFICIENTE",
+              "PECA_INATIVA",
+              "PECA_NAO_ENCONTRADA_NA_FILIAL"
+            ]
+          }
+        },
+        "required": [
+          "pecaId",
+          "nome",
+          "filialId",
+          "quantidadeNecessaria",
+          "quantidadeFaltante",
+          "motivo"
+        ],
+        "description": "Faltas da preparação compensada; campo inteiro omitido para CLIENTE. Nova preparação concluída limpa a falta."
+      },
+      "OrderPartBalance": {
+        "type": "object",
+        "properties": {
+          "pecaId": {
+            "type": "string"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "filialId": {
+            "type": "string"
+          },
+          "quantidadeReservada": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quantidadeConsumida": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quantidadeRestante": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "pecaId",
+          "nome",
+          "filialId",
+          "quantidadeReservada",
+          "quantidadeConsumida",
+          "quantidadeRestante"
+        ],
+        "description": "Reservada é a quantidade original reservada nesta OS. Restante=max(0,reservada-consumida). Não representa saldo global da filial. CLIENTE não recebe este campo."
+      },
+      "BudgetLineResponse": {
+        "type": "object",
+        "properties": {
+          "descricao": {
+            "type": "string"
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "valorUnitario": {
+            "type": "number",
+            "minimum": 0
+          },
+          "subtotal": {
+            "type": "number",
+            "minimum": 0
+          },
+          "tipo": {
+            "type": "string",
+            "enum": [
+              "SERVICO",
+              "MATERIAL"
+            ]
+          },
+          "pecaId": {
+            "type": "string"
+          },
+          "nome": {
+            "type": "string"
+          },
+          "codigo": {
+            "type": "string"
+          },
+          "filialId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "descricao",
+          "quantidade",
+          "valorUnitario",
+          "subtotal",
+          "tipo"
+        ]
+      },
+      "BudgetGroupResponse": {
+        "type": "object",
+        "properties": {
+          "titulo": {
+            "type": "string"
+          },
+          "ordem": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0
+          },
+          "linhasServico": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BudgetLineResponse"
+            }
+          }
+        },
+        "required": [
+          "titulo",
+          "ordem",
+          "total",
+          "linhasServico"
+        ]
+      },
+      "BudgetResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "total": {
+            "type": "number",
+            "minimum": 0
+          },
+          "aprovadoEm": {
+            "type": "string",
+            "nullable": true
+          },
+          "grupos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BudgetGroupResponse"
+            }
+          },
+          "notasCliente": {
+            "type": "string"
+          },
+          "notasInternas": {
+            "type": "string",
+            "description": "Somente equipe autorizada; omitida de todas as respostas do cliente."
+          }
+        },
+        "required": [
+          "id",
+          "version",
+          "total",
+          "aprovadoEm",
+          "grupos"
+        ],
+        "description": "Grupos e notas pertencem à versão. Orçamentos antigos sem groups são apresentados no grupo Orçamento. Valores desta fachada em reais."
+      },
+      "OrderResponse": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "numero": {
+            "type": "integer"
+          },
+          "filialId": {
+            "type": "string"
+          },
+          "clienteId": {
+            "type": "string"
+          },
+          "clienteNome": {
+            "type": "string"
+          },
+          "veiculoId": {
+            "type": "string"
+          },
+          "veiculoPlaca": {
+            "type": "string"
+          },
+          "veiculoMarca": {
+            "type": "string"
+          },
+          "veiculoModelo": {
+            "type": "string"
+          },
+          "mecanicoResponsavelId": {
+            "type": "string"
+          },
+          "mecanicoNome": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "sagaId": {
+            "type": "string"
+          },
+          "sagaState": {
+            "type": "string"
+          },
+          "preparacao": {
+            "type": "string",
+            "description": "String do estado da Saga, não objeto."
+          },
+          "correlationId": {
+            "type": "string"
+          },
+          "paymentConfirmed": {
+            "type": "boolean"
+          },
+          "totalCents": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pecasSolicitadas": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RequestedPartSnapshot"
+            }
+          },
+          "servicosSolicitados": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "servicoId": {
+                  "type": "string"
+                },
+                "nomeServico": {
+                  "type": "string"
+                },
+                "observacao": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "servicoId"
+              ]
+            }
+          },
+          "problemasRelatados": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "descricao": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "descricao"
+              ]
+            }
+          },
+          "notasCliente": {
+            "type": "string"
+          },
+          "notasInternas": {
+            "type": "string",
+            "description": "Omitida para CLIENTE."
+          },
+          "faltasEstoque": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StockShortage"
+            }
+          },
+          "consumosPeca": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrderPartBalance"
+            }
+          },
+          "orcamento": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/BudgetResponse"
+              },
+              {
+                "type": "object",
+                "nullable": true,
+                "enum": [
+                  null
+                ]
+              }
+            ]
+          },
+          "diagnostico": {
+            "type": "object",
+            "nullable": true,
+            "properties": {
+              "descricao": {
+                "type": "string"
+              }
+            }
+          },
+          "pagamento": {
+            "type": "object",
+            "properties": {
+              "status": {
+                "type": "string"
+              },
+              "checkoutUrl": {
+                "type": "string"
+              },
+              "amountCents": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "description": "Pode estar ausente ou em preparação. AGUARDANDO_PAGAMENTO não garante checkoutUrl disponível; consulte novamente antes de iniciar checkout."
+          },
+          "sincronizacaoPendente": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "billing",
+                "production"
+              ]
+            }
+          },
+          "criadoEm": {
+            "type": "string"
+          },
+          "atualizadoEm": {
+            "type": "string"
+          },
+          "historico": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "numero",
+          "filialId",
+          "clienteId",
+          "veiculoId",
+          "status",
+          "sagaId",
+          "sagaState",
+          "paymentConfirmed"
+        ],
+        "description": "Leitura autorizada agregada. Listas/abertura trazem a projeção OS sem necessariamente orcamento, pagamento ou consumo. Ownership é filtrado antes da busca e paginação. Campos históricos opcionais permanecem opcionais."
+      },
+      "OrderClientResponse": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/OrderResponse"
+          },
+          {
+            "not": {
+              "anyOf": [
+                {
+                  "required": [
+                    "notasInternas"
+                  ]
+                },
+                {
+                  "required": [
+                    "faltasEstoque"
+                  ]
+                },
+                {
+                  "required": [
+                    "consumosPeca"
+                  ]
+                },
+                {
+                  "required": [
+                    "failure"
+                  ]
+                }
+              ]
+            },
+            "properties": {
+              "orcamento": {
+                "oneOf": [
+                  {
+                    "allOf": [
+                      {
+                        "$ref": "#/components/schemas/BudgetResponse"
+                      },
+                      {
+                        "not": {
+                          "required": [
+                            "notasInternas"
+                          ]
+                        }
+                      }
+                    ]
+                  },
+                  {
+                    "type": "object",
+                    "nullable": true,
+                    "enum": [
+                      null
+                    ]
+                  }
+                ]
+              }
+            }
+          }
+        ],
+        "description": "Somente CLIENTE titular. Notas internas, falha técnica, faltas de estoque e consumo operacional são omitidos, inclusive notas internas do orçamento."
+      },
+      "InventoryItem": {
+        "type": "object",
+        "properties": {
+          "filialId": {
+            "type": "string"
+          },
+          "peca": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "nome": {
+                "type": "string"
+              },
+              "codigo": {
+                "type": "string",
+                "description": "Único por filial, não global."
+              },
+              "descricao": {
+                "type": "string",
+                "nullable": true
+              },
+              "precoVenda": {
+                "type": "number",
+                "minimum": 0
+              },
+              "ativo": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "id",
+              "nome",
+              "codigo",
+              "precoVenda",
+              "ativo"
+            ]
+          },
+          "quantidadeDisponivel": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quantidadeReservada": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quantidadeConsumida": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "quantidadeMinima": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "required": [
+          "filialId",
+          "peca",
+          "quantidadeDisponivel",
+          "quantidadeReservada",
+          "quantidadeConsumida",
+          "quantidadeMinima"
+        ]
+      },
+      "ApiError": {
+        "type": "object",
+        "properties": {
+          "erro": {
+            "type": "string"
+          },
+          "mensagem": {
+            "oneOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            ]
+          },
+          "statusCode": {
+            "type": "integer"
+          },
+          "caminho": {
+            "type": "string"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "correlationId": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "erro",
+          "mensagem",
+          "statusCode",
+          "caminho",
+          "timestamp"
+        ]
+      },
+      "ConsumptionExcessError": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ApiError"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "QUANTITY_EXCEEDS_RESERVATION"
+                ]
+              },
+              "definitive": {
+                "type": "boolean",
+                "enum": [
+                  true
+                ]
+              },
+              "pecaId": {
+                "type": "string"
+              },
+              "filialId": {
+                "type": "string"
+              },
+              "quantidadeSolicitada": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "quantidadeReservada": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "quantidadeConsumida": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "quantidadeRestante": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "code",
+              "definitive",
+              "quantidadeSolicitada",
+              "quantidadeReservada",
+              "quantidadeConsumida",
+              "quantidadeRestante"
+            ]
+          }
+        ],
+        "description": "HTTP400 definitivo: nenhum consumo foi aplicado. A mesma resposta não deve ser tratada como resultado incerto de rede."
+      },
+      "ConsumeRequest": {
+        "type": "object",
+        "properties": {
+          "pecaId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 100
+          },
+          "quantidade": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "operationId": {
+            "type": "string",
+            "format": "uuid",
+            "description": "Opcional por compatibilidade. Para operação segura, gere um UUID por intenção; repita o mesmo ID e payload após resposta perdida. Novo consumo usa novo ID. Mesmo ID com payload diferente retorna conflito."
+          }
+        },
+        "required": [
+          "pecaId",
+          "quantidade"
+        ]
+      },
+      "ProductionOrderResponse": {
+        "type": "object",
+        "properties": {
+          "osId": {
+            "type": "string"
+          },
+          "filialId": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "revision": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "parts": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "pecaId": {
+                  "type": "string"
+                },
+                "description": {
+                  "type": "string"
+                },
+                "nome": {
+                  "type": "string"
+                },
+                "codigo": {
+                  "type": "string"
+                },
+                "filialId": {
+                  "type": "string"
+                },
+                "quantity": {
+                  "type": "integer",
+                  "minimum": 0
+                },
+                "consumedQuantity": {
+                  "type": "integer",
+                  "minimum": 0
+                }
+              },
+              "required": [
+                "pecaId",
+                "quantity"
+              ]
+            }
+          }
+        },
+        "description": "Resposta do participante Production envolvida em data pela fachada. O replay da mesma operação preserva efeitos/revisão; GET da OS traduz parts para consumosPeca."
+      }
+    }
+  },
+  "x-documentation-source": {
+    "reviewedAt": "2026-11-12",
+    "mode": "PHASE4_ENABLED=true",
+    "generatedBase": "/api/docs-json",
+    "source": "Snapshot de /api/docs-json do runtime local distribuído, complementado pela revisão de src/phase4/{controller,service,contracts}.ts, filtro HTTP e contratos Production. Os DTOs geram parâmetros de catálogos; respostas agregadas e assinaturas inline exigem este complemento editorial. Não comprova deploy ou CI remoto.",
+    "verification": "docs/fase4/validacao-local.md"
+  }
+}

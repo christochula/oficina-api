@@ -340,7 +340,7 @@ test('gestão de recursos respeita gating de papéis', () => {
 
 test('dashboard e relatórios deixam claro que usam dados reais/visíveis', () => {
   assert.match(renderDashboardView({ role: ROLES.ADMIN }), /fila visível/i);
-  assert.match(renderDashboardView({ role: ROLES.CLIENT }), /lista visível/i);
+  assert.match(renderDashboardView({ role: ROLES.CLIENT }), /ordens desta lista/i);
   assert.match(renderReportsView({ role: ROLES.ADMIN }), /Relatórios/i);
   assert.match(renderReportsView({ role: ROLES.MECHANIC }), /Relatórios restritos/i);
 });

@@ -1,38 +1,46 @@
-# Checklist de gravação — Fase 4
+# Checklist da nova gravação — Fase 4
 
-O ensaio de **10/11/2026** concluiu a OS #2 **ENTREGUE, R$175, APPROVED/paymentConfirmed=true**, com compensação, recuperação e sinais reais no Datadog. O [guia pronto para gravar](pronto-para-gravar.md) reúne as provas e links. Os itens abaixo são conferências para a sessão da gravação; a execução anterior não garante disponibilidade futura.
+Usar o [roteiro canônico](roteiro-video.md). Referências históricas não comprovam a disponibilidade ou a versão atual.
 
-## Ambiente e evidências
+## Antes do merge e do deploy
 
-- [ ] Sessão Academy ativa; a sessão iniciada em 10/11 às 20:44 termina em **11/11/2026 00:44:36 São Paulo**. Eventuais renovações/rollouts devem ser concluídos pelos workflows GitHub Actions.
-- [ ] Dois nós EKS Ready e workloads OS/Billing/Production disponíveis em oficina-fase4.
-- [ ] Portal HTTPS e assets carregam; healths HTTP200: /api/health/ready, /api/v1/billing/health e /api/v1/production/health.
-- [ ] Frontend usa a mesma origem para /auth/token; LOCAL_DEMO_MODE não participa da implantação cloud.
-- [ ] CI, cobertura, quality gates e deploy correspondem ao SHA demonstrado. Links dos três serviços preparados; nenhum gate removido para gravar.
-- [ ] Dashboard e trace preparados na janela do ensaio da OS #2; conferir Live/Indexed e retenção antes da captura. Há prova de um trace com os três serviços em parte do fluxo, sem garantia de toda transição indexada.
-- [ ] OS #2 e seu histórico de 10/11 preservados; OS #1 permanece como histórico separado de 06/11. Se houver nova OS, anotar seu ID e manter as execuções identificadas.
+- [ ] [Ensaio local](ensaio-local-fase4.md) completo em5273, sem gravação; mesma OS de R$175, quatro perfis e compensação/recuperação.
+- [ ] Fontes da versão candidata identificados; testes locais e contratos/documentação atualizados.
+- [ ] CI testa commits correspondentes de OS, Billing e Production; nenhum gate removido.
+- [ ] Deploy automático suspenso antes dos merges para não publicar na conta antiga.
+- [ ] Conta/lab da Karina, saldo e permissões conferidos; planos de nova conta revisados.
+- [ ] Manifesto do deploy preenchido sem segredos; bucket/keys próprios e nenhuma aplicação dos states AWS antigos.
 
-## Ensaio pela interface
+## Antes da captura AWS
 
-- [ ] Admin, mecânico e cliente em sessões separadas e com o perfil correto. Confirmar o acesso antes do cronômetro.
-- [ ] Conferir cadastros, IDs e disponibilidade real das peças na filial-sp, conforme [nova OS](nova-os-demonstracao.md). Não resetar dados.
-- [ ] Anotar número/ID da nova OS após a criação. Se a resposta demorar, consultar a lista antes de criar novamente.
-- [ ] Esperar os dois participantes antes da atribuição; orçamento com três itens e total R$175.
-- [ ] Depois de atribuir, esperar o administrador mostrar ATRIBUIDA e o responsável correto antes de mudar para o mecânico. Um 403 durante a atualização assíncrona exige reconsulta, não nova atribuição ou mudança de autorização.
-- [ ] Falta de estoque produz compensação; reposição e retry concluem a preparação com nova Saga.
-- [ ] Mecânico registra execução/consumos; cobrança somente após reparo; entrega bloqueada até confirmação.
-- [ ] Comprador e vendedor Mercado Pago TEST distintos e do mesmo país; cartão TEST preparado. Verificações da conta real ficam com o titular e fora da gravação.
-- [ ] Refazer login do cliente antes do trecho de pagamento: o token dura 5 minutos. Conferir a sessão isolada do comprador TEST, sem mostrar credenciais ou documento.
-- [ ] Retorno do checkout preserva a OS; pagamento aprovado, confirmação e liberação da entrega aparecem na aplicação.
-- [ ] Anotar osId, Saga compensada, Saga de recuperação e correlações para o Datadog, sem copiar tokens/headers de autenticação.
+- [ ] Ensaio completo na AWS aprovado, com base fictícia nova e Mercado Pago TEST real.
+- [ ] Portal HTTPS, assets e três healths respondem; imagens/rollouts correspondem aos SHAs aprovados.
+- [ ] Auth usa Lambda/Gateway, sem adaptador de demonstração local.
+- [ ] Sessão AWS e credenciais de runtime válidas por toda a janela; renovação inclui redeploy quando necessária.
+- [ ] CI/Sonar, deploy automatizado e documentação abertos nos runs/commits atuais.
+- [ ] Datadog recebeu sinais atuais dos três serviços; período e identificação da OS anotados.
+- [ ] Massa exclusiva para a gravação: filtro1/junta0 na filial-sp; serviço100 + materiais50/25.
+- [ ] Quatro sessões isoladas e autenticadas; comprador/vendedor Mercado Pago TEST distintos.
+- [ ] Nova OS será criada durante a tomada. Nenhuma ordem previamente paga será paga novamente.
 
-## Captura e publicação
+## Durante os 12 blocos
 
-- [ ] Áudio testado, fonte legível, zoom estável e notificações pessoais fechadas. Abas prontas sem Secrets, .env, state ou bearer visível.
-- [ ] Ensaio ≤14min30s; arquivo exportado ≤15min. Cortes preservam cronologia e ID; dados locais simulados não são usados como prova de ambientes externos.
-- [ ] Revisar o vídeo inteiro: legibilidade, som e ausência de credenciais/dados pessoais reais.
-- [ ] Manter Matheus Chula e Karina Lage e preencher os RMs em [entrega.json](../fase4/entrega.json).
-- [ ] Publicar no YouTube/Vimeo, preencher video_url e verificar acesso sem permissões extras.
-- [ ] Gerar/revisar o PDF pelo processo de [entrega Fase 4](../fase4/entrega.md): seis repositórios, vídeo, diagrama, divisão dos dados e justificativa da Saga.
+- [ ] Número da OS anotado após a criação; abertura e atribuição aguardam confirmação efetiva.
+- [ ] Seleção por nome/placa/código, sem transcrição de UUID para operar.
+- [ ] Solicitações de peças, grupo e notas preservados; nota interna ausente no cliente.
+- [ ] Falta apresentada ao consultor sem acesso ao estoque.
+- [ ] Compensação concluída antes da reposição; recuperação usa nova Saga e a mesma OS.
+- [ ] Entrada e consumo únicos; saldos por OS conciliados; entrega bloqueada antes do pagamento.
+- [ ] Aguardar checkout disponível; retorno à mesma OS e confirmação real antes da entrega.
+- [ ] Histórico, logs/traces/métricas pertencem à execução indicada.
+- [ ] Deploy capturado fora do trecho transacional, com versão aprovada e resultado real.
 
-RMs e URL do vídeo podem continuar pendentes durante o ensaio, mas devem ser preenchidos para fechar a entrega.
+## Publicação e encerramento
+
+- [ ] Captura em1080p legível; sem senhas, documentos reais, tokens ou notificações pessoais.
+- [ ] Vídeo revisado, cronologia correta, até15min; áudio condiz com evidências.
+- [ ] YouTube/Vimeo público ou não listado, acessível sem autorização adicional.
+- [ ] RMs e video_url preenchidos; PDF gerado e visualmente revisado.
+- [ ] Material bruto, relatórios, capturas e referências preservados.
+- [ ] Após validar os materiais, desmontar recursos AWS e verificar resíduos/custos pelo runbook.
+- [ ] Preservar contas/projetos GitHub, Mercado Pago, Sonar e Datadog.

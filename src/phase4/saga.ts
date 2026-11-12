@@ -57,6 +57,7 @@ export function transition(order: Order, event: Message): Delivery[] {
     case 'MechanicAssigned':
       if (['RECEBIDA', 'ATRIBUIDA'].includes(order.status)) {
         order.mecanicoResponsavelId = event.payload.mecanicoId;
+        order.mecanicoNome = undefined;
         history(order, 'MECANICO_ATRIBUIDO', 'ATRIBUIDA');
         send('BILLING', 'AssignMechanic', {
           mecanicoId: event.payload.mecanicoId,
@@ -98,6 +99,7 @@ export function transition(order: Order, event: Message): Delivery[] {
       if (order.sagaState !== 'CONFIRMING_EXECUTION') break;
       order.sagaState = 'COMPLETED';
       order.deadline = undefined;
+      order.faltasEstoque = undefined;
       history(order, 'EXECUCAO_LIBERADA');
       break;
     case 'ExecutionStarted':
@@ -167,6 +169,11 @@ export function transition(order: Order, event: Message): Delivery[] {
         ].includes(order.sagaState)
       ) {
         order.failure = String(event.payload.reason || 'Timeout de preparação');
+        if (event.payload.faltasEstoque) {
+          order.faltasEstoque = event.payload.faltasEstoque.filter(
+            (part) => part.filialId === order.filialId,
+          );
+        }
         step('COMPENSATING');
         // Cancellation is conditional in Production. It cannot undo physical work.
         send('PRODUCTION', 'CancelExecutionReservation');

@@ -87,3 +87,11 @@ kubeconfig-*
 /phase4-compose.log
 /output/phase4-manual-e2e/
 /output/phase4-manual-e2e-report.json
+/output/phase4-desktop/
+/output/phase4-desktop-report/
+/output/phase4-desktop-report.json
+/output/desktop-review-*/
+/output/video-readiness/
+
+# Roteiro de consulta local com credenciais de homologacao
+/docs/entrega/roteiro-video.local.md

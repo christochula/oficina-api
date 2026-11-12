@@ -24,22 +24,22 @@ const ROLE_COPY = Object.freeze({
   [ROLES.ADMIN]: {
     eyebrow: 'Operação da oficina',
     title: 'Visão geral',
-    description: 'Prioridades da fila visível e indicadores reais do ciclo de atendimento.',
+    description: 'Acompanhe as prioridades da fila visível e os tempos de atendimento.',
   },
   [ROLES.CONSULTANT]: {
     eyebrow: 'Atendimento técnico',
     title: 'Visão geral',
-    description: 'Acompanhe a fila visível e os tempos reais que orientam o atendimento.',
+    description: 'Organize o atendimento e acompanhe o próximo passo de cada ordem.',
   },
   [ROLES.MECHANIC]: {
     eyebrow: 'Bancada técnica',
     title: 'Meu trabalho',
-    description: 'Suas ordens ativas na lista visível, organizadas pela etapa atual.',
+    description: 'Suas ordens de serviço, organizadas pela etapa atual.',
   },
   [ROLES.CLIENT]: {
     eyebrow: 'Acompanhamento',
     title: 'Meus serviços',
-    description: 'Acompanhe as ordens presentes na lista visível e veja quando uma decisão for necessária.',
+    description: 'Veja o andamento das ordens desta lista e quando uma ação sua for necessária.',
   },
 });
 
@@ -128,7 +128,7 @@ function renderOrdersTable(orders, { title, description }) {
     <div class="section-header"><div><h2 id="dashboard-orders-title">${escapeHtml(title)}</h2><p class="section-description">${escapeHtml(description)}</p></div>${button({ label: 'Ver todas', iconName: 'view_list', variant: 'secondary', href: '#/ordens', className: 'button-small' })}</div>
     <div class="responsive-table">
       <table class="data-table">
-        <caption>Até oito ordens retornadas na primeira página da lista visível.</caption>
+        <caption>Até oito ordens desta página, em ordem de prioridade.</caption>
         <thead><tr><th scope="col">Ordem</th><th scope="col">Veículo</th><th scope="col">Status</th><th scope="col">Atualizada</th><th scope="col">Ação</th></tr></thead>
         <tbody>${rows}</tbody>
       </table>
@@ -148,43 +148,43 @@ function renderInternalDashboard(role, orders, kpis) {
     actions: button({ label: 'Nova ordem', iconName: 'add', variant: 'primary', href: '#/ordens/nova' }),
   })}
   <section aria-labelledby="visible-queue-title">
-    <div class="section-header"><div><h2 id="visible-queue-title">Fila visível</h2><p class="section-description">Contagens derivadas somente dos ${formatCount(orders.length)} itens retornados nesta página; não representam totais globais.</p></div></div>
+    <div class="section-header"><div><h2 id="visible-queue-title">Resumo da fila</h2><p class="section-description">Resumo das ${formatCount(orders.length)} ordens desta página. Os números não representam toda a oficina.</p></div></div>
     <div class="metric-grid">
-      ${metricCard({ label: 'Recebidas · fila visível', value: formatCount(received), detail: 'Aguardam atribuição', iconName: 'inbox', tone: 'received' })}
-      ${metricCard({ label: 'Em diagnóstico · fila visível', value: formatCount(diagnosing), detail: 'Em avaliação técnica', iconName: 'troubleshoot', tone: 'diagnosis' })}
-      ${metricCard({ label: 'Aguardando cliente · fila visível', value: formatCount(awaiting), detail: 'Somente o cliente decide', iconName: 'schedule', tone: 'awaiting' })}
-      ${metricCard({ label: 'Em execução · fila visível', value: formatCount(executing), detail: 'Serviços aprovados em andamento', iconName: 'build', tone: 'execution' })}
+      ${metricCard({ label: 'Recebidas', value: formatCount(received), detail: 'Aguardam atribuição', iconName: 'inbox', tone: 'received' })}
+      ${metricCard({ label: 'Em diagnóstico', value: formatCount(diagnosing), detail: 'Em avaliação técnica', iconName: 'troubleshoot', tone: 'diagnosis' })}
+      ${metricCard({ label: 'Aguardando cliente', value: formatCount(awaiting), detail: 'Somente o cliente decide', iconName: 'schedule', tone: 'awaiting' })}
+      ${metricCard({ label: 'Em execução', value: formatCount(executing), detail: 'Serviços aprovados em andamento', iconName: 'build', tone: 'execution' })}
     </div>
   </section>
   <section class="section" aria-labelledby="cycle-kpis-title">
-    <div class="section-header"><div><h2 id="cycle-kpis-title">Indicadores reais do ciclo</h2><p class="section-description">Médias calculadas pela API sobre ordens com eventos suficientes.</p></div>${button({ label: 'Abrir relatórios', iconName: 'monitoring', variant: 'secondary', href: '#/relatorios', className: 'button-small' })}</div>
+    <div class="section-header"><div><h2 id="cycle-kpis-title">Indicadores do atendimento</h2><p class="section-description">Calculados com ordens que possuem histórico suficiente.</p></div>${button({ label: 'Abrir relatórios', iconName: 'monitoring', variant: 'secondary', href: '#/relatorios', className: 'button-small' })}</div>
     <div class="metric-grid">
       ${metricCard({ label: 'Lead-time médio', value: formatKpiTime(kpis?.leadTimeTotal), detail: `${formatCount(kpis?.leadTimeTotal?.totalAmostras)} amostra(s)`, iconName: 'route' })}
       ${metricCard({ label: 'Tempo técnico líquido', value: formatKpiTime(kpis?.tempoTecnicoLiquido), detail: `${formatCount(kpis?.tempoTecnicoLiquido?.totalAmostras)} amostra(s)`, iconName: 'engineering' })}
       ${metricCard({ label: 'Execução média', value: formatKpiTime(kpis?.execucao), detail: `${formatCount(kpis?.execucao?.totalAmostras)} amostra(s)`, iconName: 'timer' })}
-      ${metricCard({ label: 'Taxa de aprovação', value: formatPercent(kpis?.taxaAprovacaoOrcamento), detail: 'Percentual informado pela API', iconName: 'verified' })}
+      ${metricCard({ label: 'Taxa de aprovação', value: formatPercent(kpis?.taxaAprovacaoOrcamento), detail: 'Proporção de orçamentos aprovados', iconName: 'verified' })}
     </div>
   </section>
   ${renderOrdersTable(orders, {
     title: 'Prioridades da fila',
-    description: 'Ordem priorizada pelo backend; a equipe monitora aprovações sem decidir pelo cliente.',
+    description: 'Prioridade operacional para acompanhar o próximo passo de cada atendimento.',
   })}`;
 }
 
 function renderMechanicDashboard(orders) {
-  const ready = countStatus(orders, ORDER_STATUS.APPROVED);
+  const ready = orders.filter((order) => order.status === ORDER_STATUS.APPROVED && order.preparacao === 'COMPLETED').length;
   const executing = countStatus(orders, ORDER_STATUS.IN_PROGRESS);
   const diagnosis = countStatus(orders, [ORDER_STATUS.ASSIGNED, ORDER_STATUS.IN_DIAGNOSIS]);
   const waiting = countStatus(orders, ORDER_STATUS.AWAITING_APPROVAL);
 
   return `${pageHeader(ROLE_COPY[ROLES.MECHANIC])}
   <section aria-labelledby="mechanic-visible-title">
-    <div class="section-header"><div><h2 id="mechanic-visible-title">Minha lista visível</h2><p class="section-description">Contagens dos ${formatCount(orders.length)} itens retornados nesta página, sem inferir totais fora da lista.</p></div></div>
+    <div class="section-header"><div><h2 id="mechanic-visible-title">Meu trabalho nesta página</h2><p class="section-description">Resumo das ${formatCount(orders.length)} ordens exibidas, sem incluir outras páginas.</p></div></div>
     <div class="metric-grid">
-      ${metricCard({ label: 'Diagnóstico · lista visível', value: formatCount(diagnosis), detail: 'Ordens atribuídas ou em diagnóstico', iconName: 'troubleshoot' })}
-      ${metricCard({ label: 'Prontas para iniciar · lista visível', value: formatCount(ready), detail: 'Orçamentos aprovados pelo cliente', iconName: 'play_circle' })}
-      ${metricCard({ label: 'Em execução · lista visível', value: formatCount(executing), detail: 'Serviços em andamento', iconName: 'build' })}
-      ${metricCard({ label: 'Aguardando cliente · lista visível', value: formatCount(waiting), detail: 'Acompanhe; nenhuma ação técnica nesta etapa', iconName: 'schedule' })}
+      ${metricCard({ label: 'Diagnóstico', value: formatCount(diagnosis), detail: 'Ordens atribuídas ou em diagnóstico', iconName: 'troubleshoot' })}
+      ${metricCard({ label: 'Prontas para iniciar', value: formatCount(ready), detail: 'Orçamento aprovado e peças reservadas', iconName: 'play_circle' })}
+      ${metricCard({ label: 'Em execução', value: formatCount(executing), detail: 'Serviços em andamento', iconName: 'build' })}
+      ${metricCard({ label: 'Aguardando cliente', value: formatCount(waiting), detail: 'Acompanhe; nenhuma ação técnica nesta etapa', iconName: 'schedule' })}
     </div>
   </section>
   ${renderOrdersTable(orders, {
@@ -202,18 +202,18 @@ function renderClientDashboard(orders) {
     ORDER_STATUS.APPROVED,
     ORDER_STATUS.IN_PROGRESS,
   ]);
-  const finished = countStatus(orders, ORDER_STATUS.FINISHED);
-  const delivered = countStatus(orders, ORDER_STATUS.DELIVERED);
+  const awaitingPayment = countStatus(orders, ORDER_STATUS.AWAITING_PAYMENT);
+  const readyForDelivery = countStatus(orders, ORDER_STATUS.READY_FOR_DELIVERY);
 
   return `${pageHeader(ROLE_COPY[ROLES.CLIENT])}
-  ${decision > 0 ? `<section class="next-action-panel" aria-labelledby="client-next-action"><span class="metric-icon">${icon('priority_high')}</span><div><p class="page-eyebrow">Sua próxima ação</p><h2 id="client-next-action">Há ${formatCount(decision)} orçamento(s) aguardando sua decisão na lista visível</h2><p>Abra a ordem para aprovar ou rejeitar. A equipe da oficina não pode decidir por você.</p></div>${button({ label: 'Ver minhas ordens', iconName: 'arrow_forward', variant: 'primary', href: '#/ordens' })}</section>` : ''}
+  ${decision > 0 ? `<section class="next-action-panel" aria-labelledby="client-next-action"><span class="metric-icon">${icon('priority_high')}</span><div><p class="page-eyebrow">Sua próxima ação</p><h2 id="client-next-action">Há ${formatCount(decision)} orçamento(s) aguardando sua decisão nesta página</h2><p>Abra a ordem para aprovar ou rejeitar. A equipe da oficina não pode decidir por você.</p></div>${button({ label: 'Ver minhas ordens', iconName: 'arrow_forward', variant: 'primary', href: '#/ordens' })}</section>` : ''}
   <section class="section" aria-labelledby="client-visible-title">
-    <div class="section-header"><div><h2 id="client-visible-title">Resumo da lista visível</h2><p class="section-description">Contagens dos ${formatCount(orders.length)} itens retornados nesta página; não são totais globais.</p></div></div>
+    <div class="section-header"><div><h2 id="client-visible-title">Seus atendimentos</h2><p class="section-description">Resumo das ${formatCount(orders.length)} ordens desta página, sem incluir outras páginas.</p></div></div>
     <div class="metric-grid">
-      ${metricCard({ label: 'Aguardando sua decisão · lista visível', value: formatCount(decision), detail: 'Orçamentos para aprovar ou rejeitar', iconName: 'how_to_reg' })}
-      ${metricCard({ label: 'Em andamento · lista visível', value: formatCount(active), detail: 'Serviços antes da finalização', iconName: 'settings' })}
-      ${metricCard({ label: 'Finalizadas · lista visível', value: formatCount(finished), detail: 'Aguardam entrega do veículo', iconName: 'task_alt' })}
-      ${metricCard({ label: 'Entregues · lista visível', value: formatCount(delivered), detail: 'Atendimentos concluídos', iconName: 'key' })}
+      ${metricCard({ label: 'Aguardando sua decisão', value: formatCount(decision), detail: 'Orçamentos para aprovar ou rejeitar', iconName: 'how_to_reg' })}
+      ${metricCard({ label: 'Em andamento', value: formatCount(active), detail: 'Serviços antes da finalização', iconName: 'settings' })}
+      ${metricCard({ label: 'Aguardando pagamento', value: formatCount(awaitingPayment), detail: 'Reparo concluído; abra a ordem para pagar', iconName: 'payments' })}
+      ${metricCard({ label: 'Prontas para retirada', value: formatCount(readyForDelivery), detail: 'Pagamento confirmado; combine a retirada', iconName: 'key' })}
     </div>
   </section>
   ${renderOrdersTable(orders, {

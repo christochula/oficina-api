@@ -62,12 +62,34 @@ describe('PrismaServicoOficinaRepository persistence contract', () => {
     const result = await repository.listar(2, 2);
     expect(model.findMany).toHaveBeenCalledWith({
       where: { ativo: true },
-      orderBy: { nome: 'asc' },
+      orderBy: [{ nome: 'asc' }, { id: 'asc' }],
       skip: 2,
       take: 2,
     });
     expect(model.count).toHaveBeenCalledWith({ where: { ativo: true } });
     expect(result.total).toBe(4);
     expect(result.itens[0].descricao).toBeNull();
+  });
+  it('searches before paging with normalized literal text and consistent count', async () => {
+    const queryRaw = jest
+      .fn()
+      .mockResolvedValueOnce([record])
+      .mockResolvedValueOnce([{ total: 121n }]);
+    const searched = new PrismaServicoOficinaRepository({
+      $queryRaw: queryRaw,
+    } as never);
+    const result = await searched.listar(6, 20, {
+      busca: ' Última_100% ',
+      ativo: true,
+    });
+    expect(result.total).toBe(121);
+    expect(result.itens[0]).toBeInstanceOf(ServicoOficina);
+    const [pageQuery, countQuery] = queryRaw.mock.calls;
+    expect(pageQuery[0].join('?')).toMatch(/translate\(lower/);
+    expect(pageQuery[0].join('?')).toMatch(/ORDER BY.*id ASC LIMIT/s);
+    expect(pageQuery.slice(-2)).toEqual([20, 100]);
+    expect(pageQuery.slice(1)).toContain('%ultima\\_100\\%%');
+    expect(countQuery.slice(1)).toContain('%ultima\\_100\\%%');
+    expect(countQuery[0].join('?')).not.toContain('LIMIT');
   });
 });

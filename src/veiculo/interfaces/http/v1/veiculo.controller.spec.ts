@@ -113,7 +113,10 @@ describe('VeiculoController HTTP validation and operator access', () => {
       total: 3,
       totalPaginas: 2,
     });
-    expect(listar.executar).toHaveBeenCalledWith(2, 2);
+    expect(listar.executar).toHaveBeenCalledWith(2, 2, {
+      busca: undefined,
+      ativo: undefined,
+    });
     await request(app.getHttpServer())
       .get('/api/v1/veiculos/placa/BRA2E19')
       .set('x-test-role', 'CONSULTOR_TECNICO')
@@ -145,5 +148,36 @@ describe('VeiculoController HTTP validation and operator access', () => {
     }
     expect(desativar.executar).toHaveBeenCalledWith('ve_test');
     expect(ativar.executar).toHaveBeenCalledWith('ve_test');
+  });
+  it('validates global search and inactive filters without weakening role access', async () => {
+    await request(app.getHttpServer())
+      .get('/api/v1/veiculos')
+      .query({
+        busca: '  Última revisão  ',
+        ativo: 'false',
+        pagina: 6,
+        porPagina: 20,
+      })
+      .set('x-test-role', 'CONSULTOR_TECNICO')
+      .expect(200);
+    expect(listar.executar).toHaveBeenCalledWith(6, 20, {
+      busca: 'Última revisão',
+      ativo: false,
+    });
+    for (const query of [
+      { ativo: 'yes' },
+      { busca: 'x'.repeat(121) },
+      { porPagina: 101 },
+    ]) {
+      await request(app.getHttpServer())
+        .get('/api/v1/veiculos')
+        .query(query)
+        .set('x-test-role', 'ADMINISTRADOR')
+        .expect(400);
+    }
+    await request(app.getHttpServer())
+      .get('/api/v1/veiculos?busca=ultima&ativo=false')
+      .set('x-test-role', 'CLIENTE')
+      .expect(403);
   });
 });

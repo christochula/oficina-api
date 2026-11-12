@@ -2,20 +2,20 @@
   "info": {
     "name": "Oficina Fase 4 - tres microsservicos",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "description": "Usar os tokens dos respectivos perfis. Na AWS, apontar as tres bases para o Gateway HTTPS. O webhook nao possui simulacao publica: assinatura e verificacao do pagamento sao obrigatorias. Para falha compensavel, definir saldo insuficiente antes da aprovacao."
+    "description": "Contratos revisados em 12/11/2026. Collection contém consultas e mutações: execute requisições individuais em dados fictícios próprios; não execute toda a collection sobre uma demonstração compartilhada. JWTs ficam vazios. operatorToken deve ser ADMINISTRADOR para estoque/peças; MECANICO responsável e CLIENTE titular usam tokens próprios. UI seleciona por nome/código/filial; IDs transportados vêm dos resultados. Valores OS em reais, Billing em centavos. Respostas OS são {data}/{data,meta}; participantes usam objetos diretos. Evidência local não equivale a CI/deploy externo."
   },
   "variable": [
     {
       "key": "osBaseUrl",
-      "value": "http://localhost:3000"
+      "value": "http://localhost:3100"
     },
     {
       "key": "billingBaseUrl",
-      "value": "http://localhost:3001"
+      "value": "http://localhost:3101"
     },
     {
       "key": "productionBaseUrl",
-      "value": "http://localhost:3002"
+      "value": "http://localhost:3102"
     },
     {
       "key": "operatorToken",
@@ -48,388 +48,677 @@
     {
       "key": "pecaId",
       "value": ""
+    },
+    {
+      "key": "filialId",
+      "value": "filial-sp"
+    },
+    {
+      "key": "pecaBId",
+      "value": ""
+    },
+    {
+      "key": "numeroOS",
+      "value": ""
+    },
+    {
+      "key": "buscaPeca",
+      "value": "filtro"
+    },
+    {
+      "key": "servicoId",
+      "value": ""
+    },
+    {
+      "key": "operationId",
+      "value": ""
     }
   ],
   "item": [
     {
-      "name": "OS - abrir",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{operatorToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
+      "name": "Consultas de catalogos e contratos por perfil",
+      "item": [
+        {
+          "name": "Estoque - busca global por nome codigo descricao",
+          "request": {
+            "method": "GET",
+            "description": "ADMIN ou MECANICO. Código é único por filial. Ativo com saldo zero continua selecionável para orçamento, mas pode impedir preparação.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/estoque?busca={{buscaPeca}}&filialId={{filialId}}&ativo=true&pagina=1&porPagina=20"
           }
-        ],
-        "url": "{{osBaseUrl}}/api/v1/ordens-servico",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"clienteId\": \"{{clienteId}}\",\n  \"veiculoId\": \"{{veiculoId}}\",\n  \"filialId\": \"filial-sp\",\n  \"problemasRelatados\": [\n    {\n      \"descricao\": \"Revisao de demonstracao\"\n    }\n  ]\n}",
-          "options": {
-            "raw": {
-              "language": "json"
+        },
+        {
+          "name": "Veiculos - busca global por placa marca modelo",
+          "request": {
+            "method": "GET",
+            "description": "",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/veiculos?busca=BRA&ativo=true&pagina=1&porPagina=20"
+          }
+        },
+        {
+          "name": "Servicos - busca global por nome descricao categoria",
+          "request": {
+            "method": "GET",
+            "description": "",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/servicos-oficina?busca=revisao&ativo=true&pagina=1&porPagina=20"
+          }
+        },
+        {
+          "name": "OS - numero exato e filtros antes da pagina",
+          "request": {
+            "method": "GET",
+            "description": "Número puro, #N ou OS N identifica a OS exata. Status opcional; texto encontra rótulos humanos. Busca não amplia ownership.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico?busca={{numeroOS}}&filialId={{filialId}}&pagina=1&porPagina=20"
+          }
+        },
+        {
+          "name": "OS - cliente titular com privacidade",
+          "request": {
+            "method": "GET",
+            "description": "",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico/minhas/{{osId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json(); const order = body.data || body;",
+                  "  pm.test('Cliente não recebe detalhes internos', function () {",
+                  "    ['notasInternas','failure','faltasEstoque','consumosPeca'].forEach(key => pm.expect(order).not.to.have.property(key));",
+                  "    if (order.orcamento) pm.expect(order.orcamento).not.to.have.property('notasInternas');",
+                  "    if (order.budget) pm.expect(order.budget).not.to.have.property('notasInternas');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "OS - mecanico responsavel e saldos por OS",
+          "request": {
+            "method": "GET",
+            "description": "consumosPeca mostra reservado/consumido/restante por OS; não é saldo global.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mechanicToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico/mecanico/{{osId}}"
+          }
+        },
+        {
+          "name": "OS - equipe e faltas de preparacao",
+          "request": {
+            "method": "GET",
+            "description": "faltasEstoque identifica peça/filial/necessária/faltante/motivo. Consultor não recebe quantidadeDisponivel. Sucesso da preparação limpa faltas.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Fachada OS - orcamento e consumo atuais",
+      "item": [
+        {
+          "name": "OS - gerar orcamento com grupo e notas",
+          "request": {
+            "method": "PATCH",
+            "description": "Total R$175. Identidade ativa de materiais/filial validada no servidor. GET da OS preserva grupo/notas e remove nota interna para cliente.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mechanicToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}/orcamento",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"grupos\": [\n    {\n      \"titulo\": \"Revisão preventiva\",\n      \"linhas\": [\n        {\n          \"tipo\": \"SERVICO\",\n          \"descricao\": \"Revisão demonstrativa\",\n          \"quantidade\": 1,\n          \"valorUnitario\": 100\n        },\n        {\n          \"tipo\": \"MATERIAL\",\n          \"descricao\": \"Filtro demonstrativo\",\n          \"quantidade\": 1,\n          \"valorUnitario\": 50,\n          \"pecaId\": \"{{pecaId}}\"\n        },\n        {\n          \"tipo\": \"MATERIAL\",\n          \"descricao\": \"Junta demonstrativa\",\n          \"quantidade\": 1,\n          \"valorUnitario\": 25,\n          \"pecaId\": \"{{pecaBId}}\"\n        }\n      ]\n    }\n  ],\n  \"notasCliente\": \"Conferir orçamento antes de aprovar.\",\n  \"notasInternas\": \"Nota fictícia restrita à equipe.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "OS - consumir com recibo duravel",
+          "request": {
+            "method": "PATCH",
+            "description": "Preencha operationId com UUID novo por intenção. Resposta perdida: repita exatamente o mesmo ID e payload. Excesso: HTTP400 code=QUANTITY_EXCEEDS_RESERVATION definitive=true e quantidades; não houve consumo. Novo consumo exige outro UUID.",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mechanicToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}/consumo-peca",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pecaId\": \"{{pecaId}}\",\n  \"quantidade\": 1,\n  \"operationId\": \"{{operationId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('operationId')) throw new Error('Defina operationId (UUID) por intenção; preserve-o nas repetições.');"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 400) { const body = pm.response.json(); if (body.code === 'QUANTITY_EXCEEDS_RESERVATION') { pm.test('Excesso definitivo com saldo', function () { pm.expect(body.definitive).to.eql(true); ['quantidadeSolicitada','quantidadeReservada','quantidadeConsumida','quantidadeRestante'].forEach(key => pm.expect(body[key]).to.be.a('number')); }); } }"
+                ]
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Fluxo e participantes - executar individualmente em fixtures proprios",
+      "item": [
+        {
+          "name": "OS - abrir",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clienteId\": \"{{clienteId}}\",\n  \"veiculoId\": \"{{veiculoId}}\",\n  \"filialId\": \"{{filialId}}\",\n  \"problemasRelatados\": [\n    {\n      \"descricao\": \"Revisão demonstrativa\"\n    }\n  ],\n  \"servicosSolicitados\": [\n    {\n      \"servicoId\": \"{{servicoId}}\"\n    }\n  ],\n  \"pecasSolicitadas\": [\n    {\n      \"pecaId\": \"{{pecaId}}\",\n      \"quantidade\": 1\n    },\n    {\n      \"pecaId\": \"{{pecaBId}}\",\n      \"quantidade\": 1\n    }\n  ],\n  \"notasCliente\": \"Solicitação fictícia de revisão.\",\n  \"notasInternas\": \"Nota fictícia da abertura.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "ADMINISTRADOR. Remova servicosSolicitados se não usar catálogo. IDs vêm das buscas; validação rejeita peça inativa/outra filial. Duplicatas são somadas. Resposta persiste snapshots e não reserva estoque. CONSULTOR deve omitir peças solicitadas."
+          }
+        },
+        {
+          "name": "OS - consultar Saga e historico",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}"
+          }
+        },
+        {
+          "name": "OS - listar por filial",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico?filialId=filial-sp"
+          }
+        },
+        {
+          "name": "Production - atribuir",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/assign",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"mecanicoId\": \"{{mecanicoId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Production - diagnosticar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mechanicToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/diagnosis",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"descricao\": \"Substituir filtro\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Production - cadastrar saldo",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productionBaseUrl}}/api/v1/production/stock/{{pecaId}}",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"filialId\": \"filial-sp\",\n  \"quantity\": 10,\n  \"description\": \"Filtro de demonstracao\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Billing - gerar orcamento",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mechanicToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}/budget",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"items\": [\n    {\n      \"description\": \"Revisão demonstrativa\",\n      \"quantity\": 1,\n      \"unitPriceCents\": 10000\n    },\n    {\n      \"description\": \"Filtro demonstrativo\",\n      \"quantity\": 1,\n      \"unitPriceCents\": 5000,\n      \"pecaId\": \"{{pecaId}}\"\n    },\n    {\n      \"description\": \"Junta demonstrativa\",\n      \"quantity\": 1,\n      \"unitPriceCents\": 2500,\n      \"pecaId\": \"{{pecaBId}}\"\n    }\n  ],\n  \"groups\": [\n    {\n      \"title\": \"Revisão preventiva\",\n      \"items\": [\n        {\n          \"description\": \"Revisão demonstrativa\",\n          \"quantity\": 1,\n          \"unitPriceCents\": 10000\n        },\n        {\n          \"description\": \"Filtro demonstrativo\",\n          \"quantity\": 1,\n          \"unitPriceCents\": 5000,\n          \"pecaId\": \"{{pecaId}}\"\n        },\n        {\n          \"description\": \"Junta demonstrativa\",\n          \"quantity\": 1,\n          \"unitPriceCents\": 2500,\n          \"pecaId\": \"{{pecaBId}}\"\n        }\n      ]\n    }\n  ],\n  \"notasCliente\": \"Nota pública fictícia.\",\n  \"notasInternas\": \"Nota interna fictícia.\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Contrato direto Billing; valores em centavos. groups/items devem corresponder. Formato legado somente items continua aceito. Para validar identidade oficial de materiais e produzir snapshots, prefira a fachada OS."
+          }
+        },
+        {
+          "name": "Billing - aprovar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}/approve",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Billing - consultar",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}"
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const body = pm.response.json(); const order = body.data || body;",
+                  "  pm.test('Cliente não recebe detalhes internos', function () {",
+                  "    ['notasInternas','failure','faltasEstoque','consumosPeca'].forEach(key => pm.expect(order).not.to.have.property(key));",
+                  "    if (order.orcamento) pm.expect(order.orcamento).not.to.have.property('notasInternas');",
+                  "    if (order.budget) pm.expect(order.budget).not.to.have.property('notasInternas');",
+                  "  });",
+                  "}"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Production - iniciar",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mechanicToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/start",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Production - consumir",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mechanicToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/consume",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"pecaId\": \"{{pecaId}}\",\n  \"quantidade\": 1,\n  \"operationId\": \"{{operationId}}\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "description": "Contrato direto Production. Mesmo operationId e payload em replay; novo consumo exige novo UUID."
+          },
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (!pm.variables.get('operationId')) throw new Error('Defina operationId (UUID) por intenção; preserve-o nas repetições.');"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Production - concluir",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{mechanicToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/complete",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Billing - checkout apos reparo",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}/checkout",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Billing - consultar pagamento",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{clientToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}/payment"
+          }
+        },
+        {
+          "name": "OS - entregar apos confirmar pagamento",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}/entregar",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "OS - tentar Saga compensada novamente",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{operatorToken}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}/saga/retry",
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
             }
           }
         }
-      }
-    },
-    {
-      "name": "OS - consultar Saga e historico",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{operatorToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}"
-      }
-    },
-    {
-      "name": "OS - listar por filial",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{operatorToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{osBaseUrl}}/api/v1/ordens-servico?filialId=filial-sp"
-      }
-    },
-    {
-      "name": "Production - atribuir",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{operatorToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/assign",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"mecanicoId\": \"{{mecanicoId}}\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Production - diagnosticar",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{mechanicToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/diagnosis",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"descricao\": \"Substituir filtro\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Production - cadastrar saldo",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{operatorToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{productionBaseUrl}}/api/v1/production/stock/{{pecaId}}",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"filialId\": \"filial-sp\",\n  \"quantity\": 10,\n  \"description\": \"Filtro de demonstracao\"\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Billing - gerar orcamento",
-      "request": {
-        "method": "PUT",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{mechanicToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}/budget",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"items\": [\n    {\n      \"description\": \"Filtro\",\n      \"quantity\": 1,\n      \"unitPriceCents\": 10000,\n      \"pecaId\": \"{{pecaId}}\"\n    }\n  ]\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Billing - aprovar",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{clientToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}/approve",
-        "body": {
-          "mode": "raw",
-          "raw": "{}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Billing - consultar",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{clientToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}"
-      }
-    },
-    {
-      "name": "Production - iniciar",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{mechanicToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/start",
-        "body": {
-          "mode": "raw",
-          "raw": "{}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Production - consumir",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{mechanicToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/consume",
-        "body": {
-          "mode": "raw",
-          "raw": "{\n  \"pecaId\": \"{{pecaId}}\",\n  \"quantidade\": 1\n}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Production - concluir",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{mechanicToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{productionBaseUrl}}/api/v1/production/orders/{{osId}}/complete",
-        "body": {
-          "mode": "raw",
-          "raw": "{}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Billing - checkout apos reparo",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{clientToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}/checkout",
-        "body": {
-          "mode": "raw",
-          "raw": "{}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "Billing - consultar pagamento",
-      "request": {
-        "method": "GET",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{clientToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{billingBaseUrl}}/api/v1/billing/orders/{{osId}}/payment"
-      }
-    },
-    {
-      "name": "OS - entregar apos confirmar pagamento",
-      "request": {
-        "method": "PATCH",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{operatorToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}/entregar",
-        "body": {
-          "mode": "raw",
-          "raw": "{}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
-    },
-    {
-      "name": "OS - tentar Saga compensada novamente",
-      "request": {
-        "method": "POST",
-        "header": [
-          {
-            "key": "Authorization",
-            "value": "Bearer {{operatorToken}}"
-          },
-          {
-            "key": "Content-Type",
-            "value": "application/json"
-          }
-        ],
-        "url": "{{osBaseUrl}}/api/v1/ordens-servico/{{osId}}/saga/retry",
-        "body": {
-          "mode": "raw",
-          "raw": "{}",
-          "options": {
-            "raw": {
-              "language": "json"
-            }
-          }
-        }
-      }
+      ]
     }
   ]
 }

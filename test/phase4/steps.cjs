@@ -12,3 +12,29 @@ Then('a entrega permanece bloqueada',async function(){await h.request('os',`/api
 When('o Mercado Pago confirma o pagamento',async function(){await h.pay(data,this.order);});
 Then('a oficina pode entregar o veículo',async function(){const result=await h.request('os',`/api/v1/ordens-servico/${this.order.id}/entregar`,data.admin.accessToken,{},'PATCH');assert.equal(result.status,'ENTREGUE');});
 Then('a Saga libera as reservas e preserva a aprovação',async function(){assert.equal(this.result.sagaState,'COMPENSATED');assert.equal(this.result.status,'APROVADA');const billing=await h.request('billing',`/api/v1/billing/orders/${this.order.id}`,data.clientToken);assert.equal(billing.budget.approved,true);assert.equal(billing.budget.frozen,false);const production=await h.request('production',`/api/v1/production/orders/${this.order.id}`,data.mechanic.accessToken);assert.notEqual(production.status,'READY');});
+When('o administrador tenta preparar novamente três vezes sem repor estoque',async function(){
+  this.failedAttempts=[this.result];
+  for(let index=0;index<3;index++){
+    assert.equal(this.result.sagaState,'COMPENSATED');
+    await h.request('os',`/api/v1/ordens-servico/${this.order.id}/saga/retry`,data.admin.accessToken,{},'POST');
+    this.result=await h.eventually(()=>h.read(data,this.order.id),r=>['COMPENSATED','MANUAL_ATTENTION'].includes(r.sagaState));
+    this.failedAttempts.push(this.result);
+  }
+});
+Then('todas as tentativas são compensadas sem perder a aprovação',async function(){
+  assert.equal(new Set(this.failedAttempts.map(item=>item.sagaId)).size,4);
+  for(const attempt of this.failedAttempts){assert.equal(attempt.sagaState,'COMPENSATED');assert.equal(attempt.status,'APROVADA');}
+  const billing=await h.request('billing',`/api/v1/billing/orders/${this.order.id}`,data.clientToken);
+  assert.equal(billing.budget.approved,true);assert.equal(billing.budget.frozen,false);assert.ok(!billing.payment);
+  const stock=await h.request('production',`/api/v1/production/inventory/${this.order.pecaId}?filialId=${this.order.filialId}`,data.admin.accessToken);
+  assert.equal(stock.quantidadeDisponivel,1);assert.equal(stock.quantidadeReservada,0);
+});
+When('o administrador repõe a peça faltante e tenta novamente',async function(){
+  await h.request('production',`/api/v1/production/inventory/${this.order.pecaId}/entrada?filialId=${this.order.filialId}`,data.admin.accessToken,{quantidade:1},'PATCH');
+  await h.request('os',`/api/v1/ordens-servico/${this.order.id}/saga/retry`,data.admin.accessToken,{},'POST');
+  this.result=await h.eventually(()=>h.read(data,this.order.id),r=>r.sagaState==='COMPLETED');
+});
+Then('a mesma OS libera a execução em uma nova Saga',function(){
+  assert.equal(this.result.id,this.order.id);assert.equal(this.result.status,'APROVADA');assert.equal(this.result.sagaState,'COMPLETED');
+  assert.ok(this.failedAttempts.every(item=>item.sagaId!==this.result.sagaId));
+});

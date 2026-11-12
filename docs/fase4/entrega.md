@@ -13,7 +13,7 @@
 
 Usar o [roteiro canônico de 14min30s](../entrega/roteiro-video.md), o [checklist da sessão de gravação](../entrega/checklist-gravacao.md) e o [procedimento para nova OS sem reset](../entrega/nova-os-demonstracao.md).
 
-O roteiro preserva a OS #1 entregue por R$175 em 06/11/2026 e demonstra uma nova OS com compensação **antes** da execução, recuperação, reparo, pagamento e entrega. São três microsserviços de negócio e seis repositórios. Capturas históricas devem ser identificadas e não podem ser misturadas como se pertencessem à nova OS.
+Antes da gravação, executar o [ensaio local da narrativa](../entrega/ensaio-local-fase4.md) e depois repetir o ensaio na AWS. O roteiro cria uma nova OS de R$175 com quatro perfis, compensação **antes** da execução, reposição, recuperação, reparo, pagamento e entrega. Usa busca por nomes/códigos, peças solicitadas, grupo/notas e saldos por OS. São três microsserviços de negócio e seis repositórios; o banco legado não precisa ser provisionado na Fase 4. As evidências antigas são preservadas, mas não são pré-requisito nem substituem a nova execução.
 
 ## PDF
 

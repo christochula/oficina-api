@@ -8,7 +8,14 @@ import {
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../shared/database/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { Budget, command, history, Order } from './contracts';
+import {
+  Budget,
+  BudgetItem,
+  command,
+  history,
+  Order,
+  RequestedPart,
+} from './contracts';
 import { OrderStore } from './store';
 import { requestContext } from '../shared/observability/request-context';
 import { TelemetryService } from '../shared/observability/telemetry.service';
@@ -20,8 +27,35 @@ export interface RemoteOrder {
   updatedAt?: string;
   diagnosis?: string | { descricao: string };
   consumptions?: unknown[];
+  parts?: {
+    pecaId: string;
+    quantity: number;
+    consumedQuantity?: number;
+    description?: string;
+    nome?: string;
+    codigo?: string;
+    filialId?: string;
+  }[];
   mecanicoId?: string;
 }
+
+interface CatalogStock {
+  filialId: string;
+  peca: {
+    id: string;
+    codigo: string;
+    nome: string;
+    descricao?: string | null;
+    ativo: boolean;
+  };
+}
+
+const searchText = (value?: string) =>
+  (value ?? '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLocaleLowerCase('pt-BR')
+    .trim();
 
 class RemoteOrderNotFound extends BadGatewayException {
   constructor(service: 'billing' | 'production') {
@@ -45,6 +79,188 @@ export class DistributedOrders {
       throw new ForbiddenException('OS fora do seu escopo');
     if (role === Role.MECANICO && order.mecanicoResponsavelId !== user.sub)
       throw new ForbiddenException('OS atribuída a outro mecânico');
+  }
+  private async labels(orders: Order[]): Promise<Order[]> {
+    if (!orders.length) return [];
+    const [clients, vehicles, mechanics, services] = await Promise.all([
+      this.prisma.cliente.findMany({
+        where: {
+          id: { in: [...new Set(orders.map((order) => order.clienteId))] },
+        },
+        select: { id: true, nome: true },
+      }),
+      this.prisma.veiculo.findMany({
+        where: {
+          id: { in: [...new Set(orders.map((order) => order.veiculoId))] },
+        },
+        select: { id: true, placa: true, marca: true, modelo: true },
+      }),
+      this.prisma.usuario.findMany({
+        where: {
+          id: {
+            in: [
+              ...new Set(
+                orders
+                  .map((order) => order.mecanicoResponsavelId)
+                  .filter((id): id is string => !!id),
+              ),
+            ],
+          },
+        },
+        select: { id: true, nome: true },
+      }),
+      this.prisma.servicoOficina.findMany({
+        where: {
+          id: {
+            in: [
+              ...new Set(
+                orders
+                  .flatMap((order) => order.servicosSolicitados || [])
+                  .map((service) => service.servicoId),
+              ),
+            ],
+          },
+        },
+        select: { id: true, nome: true },
+      }),
+    ]);
+    const clientById = new Map(clients.map((value) => [value.id, value]));
+    const vehicleById = new Map(vehicles.map((value) => [value.id, value]));
+    const mechanicById = new Map(mechanics.map((value) => [value.id, value]));
+    const serviceById = new Map(services.map((value) => [value.id, value]));
+    return orders.map((order) => ({
+      ...order,
+      clienteNome: order.clienteNome || clientById.get(order.clienteId)?.nome,
+      veiculoPlaca:
+        order.veiculoPlaca || vehicleById.get(order.veiculoId)?.placa,
+      veiculoMarca:
+        order.veiculoMarca || vehicleById.get(order.veiculoId)?.marca,
+      veiculoModelo:
+        order.veiculoModelo || vehicleById.get(order.veiculoId)?.modelo,
+      mecanicoNome:
+        mechanicById.get(order.mecanicoResponsavelId || '')?.nome ||
+        order.mecanicoNome,
+      servicosSolicitados: (order.servicosSolicitados || []).map((service) => ({
+        ...service,
+        nomeServico:
+          service.nomeServico || serviceById.get(service.servicoId)?.nome,
+      })),
+    }));
+  }
+  private visible<T extends Order>(order: T, user: JwtPayload): T {
+    const safe = { ...order };
+    const role = user.role ?? user.papel;
+    if (role === Role.CLIENTE) {
+      delete safe.notasInternas;
+      delete safe.failure;
+      delete safe.faltasEstoque;
+    } else if (role === Role.CONSULTOR_TECNICO && safe.faltasEstoque) {
+      safe.faltasEstoque = safe.faltasEstoque.map(
+        ({ quantidadeDisponivel: _available, ...part }) => part,
+      );
+    }
+    return safe;
+  }
+  private async piece(
+    pecaId: string,
+    filialId: string,
+  ): Promise<CatalogStock['peca']> {
+    let stock: CatalogStock;
+    try {
+      stock = (await this.remote(
+        'production',
+        `/internal/inventory/${encodeURIComponent(pecaId)}?filialId=${encodeURIComponent(filialId)}`,
+      )) as unknown as CatalogStock;
+    } catch (error) {
+      if (error instanceof RemoteOrderNotFound)
+        throw new BadRequestException('Peça não encontrada na filial da OS');
+      throw error;
+    }
+    if (
+      stock.filialId !== filialId ||
+      stock.peca?.id !== pecaId ||
+      !stock.peca.ativo
+    )
+      throw new BadRequestException(
+        'Peça inválida, inativa ou fora da filial da OS',
+      );
+    return stock.peca;
+  }
+  private async requestedParts(
+    input: AbrirOrdemServicoInput['pecasSolicitadas'],
+    filialId: string,
+    user: JwtPayload,
+  ): Promise<RequestedPart[]> {
+    if (input === undefined || (Array.isArray(input) && !input.length))
+      return [];
+    if ((user.role ?? user.papel) !== Role.ADMINISTRADOR)
+      throw new ForbiddenException(
+        'Seu perfil não permite selecionar peças na abertura',
+      );
+    if (!Array.isArray(input) || input.length > 100)
+      throw new BadRequestException('Informe até 100 peças');
+    const quantities = new Map<string, number>();
+    for (const part of input) {
+      if (
+        !part ||
+        typeof part.pecaId !== 'string' ||
+        !part.pecaId ||
+        !Number.isSafeInteger(part.quantidade) ||
+        part.quantidade <= 0
+      )
+        throw new BadRequestException(
+          'Peça e quantidade inteira positiva obrigatórias',
+        );
+      const quantity = (quantities.get(part.pecaId) || 0) + part.quantidade;
+      if (!Number.isSafeInteger(quantity))
+        throw new BadRequestException('Quantidade de peças inválida');
+      quantities.set(part.pecaId, quantity);
+    }
+    return Promise.all(
+      [...quantities].map(async ([pecaId, quantidade]) => {
+        const piece = await this.piece(pecaId, filialId);
+        return {
+          pecaId,
+          quantidade,
+          filialId,
+          nome: piece.nome,
+          codigo: piece.codigo,
+          descricao: piece.descricao,
+        };
+      }),
+    );
+  }
+  private async budgetIdentity(body: unknown, filialId: string) {
+    const value = body as {
+      items?: BudgetItem[];
+      groups?: { title: string; items: BudgetItem[] }[];
+    };
+    if (!value || !Array.isArray(value.items))
+      throw new BadRequestException('Itens do orçamento inválidos');
+    const cache = new Map<string, Promise<CatalogStock['peca']>>();
+    const enrich = async (item: BudgetItem): Promise<BudgetItem> => {
+      if (!item || !item.pecaId) return item;
+      if (typeof item.pecaId !== 'string')
+        throw new BadRequestException('Identidade da peça inválida');
+      if (!cache.has(item.pecaId))
+        cache.set(item.pecaId, this.piece(item.pecaId, filialId));
+      const part = await cache.get(item.pecaId)!;
+      return { ...item, nome: part.nome, codigo: part.codigo, filialId };
+    };
+    return {
+      ...value,
+      items: await Promise.all(value.items.map(enrich)),
+      ...(Array.isArray(value.groups)
+        ? {
+            groups: await Promise.all(
+              value.groups.map(async (group) => ({
+                ...group,
+                items: await Promise.all(group.items.map(enrich)),
+              })),
+            ),
+          }
+        : {}),
+    };
   }
   async remote(
     service: 'billing' | 'production',
@@ -87,8 +303,44 @@ export class DistributedOrders {
         throw new ConflictException(
           'Estado incompatível no serviço responsável',
         );
-      if (response.status === 400)
+      if (response.status === 400) {
+        const rejection = (await response.json().catch(() => ({}))) as Record<
+          string,
+          unknown
+        >;
+        const quantities = [
+          'quantidadeSolicitada',
+          'quantidadeReservada',
+          'quantidadeConsumida',
+          'quantidadeRestante',
+        ] as const;
+        if (
+          rejection.code === 'QUANTITY_EXCEEDS_RESERVATION' &&
+          rejection.definitive === true &&
+          quantities.every(
+            (key) =>
+              Number.isSafeInteger(rejection[key]) &&
+              Number(rejection[key]) >= 0,
+          )
+        ) {
+          throw new BadRequestException({
+            statusCode: 400,
+            message: `Quantidade acima da reserva. Restam ${Number(rejection.quantidadeRestante)} unidade(s) desta peça.`,
+            code: rejection.code,
+            definitive: true,
+            ...(typeof rejection.pecaId === 'string'
+              ? { pecaId: rejection.pecaId }
+              : {}),
+            ...(typeof rejection.filialId === 'string'
+              ? { filialId: rejection.filialId }
+              : {}),
+            ...Object.fromEntries(
+              quantities.map((key) => [key, rejection[key]]),
+            ),
+          });
+        }
         throw new BadRequestException('Dados inválidos no serviço responsável');
+      }
       throw new BadGatewayException(
         `${service} indisponível (${response.status})`,
       );
@@ -100,8 +352,30 @@ export class DistributedOrders {
   }
   async open(
     input: AbrirOrdemServicoInput & { filialId?: string },
-    _user: JwtPayload,
+    user: JwtPayload,
   ) {
+    const filialId = input.filialId || 'filial-sp';
+    const pecasSolicitadas = await this.requestedParts(
+      input.pecasSolicitadas,
+      filialId,
+      user,
+    );
+    const servicosSolicitados = await Promise.all(
+      (input.servicosSolicitados || []).map(async (service) => {
+        const catalog = await this.prisma.servicoOficina.findUnique({
+          where: { id: service.servicoId },
+        });
+        if (!catalog?.ativo)
+          throw new BadRequestException('Serviço inválido ou inativo');
+        return {
+          servicoId: service.servicoId,
+          nomeServico: catalog.nome,
+          ...(service.observacao !== undefined
+            ? { observacao: service.observacao }
+            : {}),
+        };
+      }),
+    );
     let clienteId = input.clienteId;
     if (!clienteId && input.cliente) {
       const c = input.cliente;
@@ -154,9 +428,13 @@ export class DistributedOrders {
     const order: Order = {
       id: `os${randomUUID()}`,
       numero: 0,
-      filialId: input.filialId || 'filial-sp',
+      filialId,
       clienteId,
       veiculoId,
+      clienteNome: cliente.nome,
+      veiculoPlaca: veiculo.placa,
+      veiculoMarca: veiculo.marca,
+      veiculoModelo: veiculo.modelo,
       status: 'RECEBIDA',
       sagaId: randomUUID(),
       correlationId: requestContext.getStore()?.correlationId,
@@ -164,7 +442,8 @@ export class DistributedOrders {
       sagaState: 'AWAITING_DIAGNOSIS',
       paymentConfirmed: false,
       problemasRelatados: input.problemasRelatados || [],
-      servicosSolicitados: input.servicosSolicitados || [],
+      servicosSolicitados,
+      pecasSolicitadas,
       notasInternas: input.notasInternas,
       notasCliente: input.notasCliente,
       criadoEm: now,
@@ -189,8 +468,9 @@ export class DistributedOrders {
     return created;
   }
   async read(id: string, user: JwtPayload) {
-    const order = await this.store.get(id);
-    this.assertAccess(order, user);
+    const stored = await this.store.get(id);
+    this.assertAccess(stored, user);
+    const [order] = await this.labels([stored]);
     // Capture the committed outbox state before GET: the worker may finish
     // registration after a participant has already returned its initial 404.
     const registering =
@@ -231,21 +511,33 @@ export class DistributedOrders {
             aprovadoEm: budget.approved
               ? billing.updatedAt || order.atualizadoEm
               : null,
-            grupos: [
-              {
-                titulo: 'Serviços aprovados',
-                ordem: 0,
-                total: budget.totalCents / 100,
-                linhasServico: budget.items.map((item) => ({
-                  descricao: item.description,
-                  quantidade: item.quantity,
-                  valorUnitario: item.unitPriceCents / 100,
-                  subtotal: (item.quantity * item.unitPriceCents) / 100,
-                  tipo: item.pecaId ? 'MATERIAL' : 'SERVICO',
-                  pecaId: item.pecaId,
-                })),
-              },
-            ],
+            version: budget.version,
+            notasCliente: budget.notasCliente,
+            ...((user.role ?? user.papel) !== Role.CLIENTE
+              ? { notasInternas: budget.notasInternas }
+              : {}),
+            grupos: (
+              budget.groups || [{ title: 'Orçamento', items: budget.items }]
+            ).map((group, index) => ({
+              titulo: group.title,
+              ordem: index,
+              total:
+                group.items.reduce(
+                  (sum, item) => sum + item.quantity * item.unitPriceCents,
+                  0,
+                ) / 100,
+              linhasServico: group.items.map((item) => ({
+                descricao: item.description,
+                quantidade: item.quantity,
+                valorUnitario: item.unitPriceCents / 100,
+                subtotal: (item.quantity * item.unitPriceCents) / 100,
+                tipo: item.pecaId ? 'MATERIAL' : 'SERVICO',
+                pecaId: item.pecaId,
+                nome: item.nome,
+                codigo: item.codigo,
+                filialId: item.filialId,
+              })),
+            })),
           }
         : null,
       diagnostico: production.diagnosis
@@ -261,15 +553,36 @@ export class DistributedOrders {
         (service) => pending.has(service),
       ),
       preparacao: order.sagaState,
-      consumosPeca: production.consumptions || [],
+      ...((user.role ?? user.papel) !== Role.CLIENTE
+        ? {
+            consumosPeca: production.parts
+              ? production.parts.map((part) => ({
+                  pecaId: part.pecaId,
+                  nome:
+                    part.nome ||
+                    budget?.items.find((item) => item.pecaId === part.pecaId)
+                      ?.nome ||
+                    part.description ||
+                    'Peça',
+                  codigo:
+                    part.codigo ||
+                    budget?.items.find((item) => item.pecaId === part.pecaId)
+                      ?.codigo,
+                  filialId: part.filialId || order.filialId,
+                  quantidadeReservada: part.quantity,
+                  quantidadeConsumida: part.consumedQuantity || 0,
+                  quantidadeRestante: Math.max(
+                    0,
+                    part.quantity - (part.consumedQuantity || 0),
+                  ),
+                }))
+              : production.consumptions || [],
+          }
+        : {}),
       mecanicoResponsavelId:
         production.mecanicoId || order.mecanicoResponsavelId,
     };
-    if ((user.role ?? user.papel) === Role.CLIENTE) {
-      delete result.notasInternas;
-      delete result.failure;
-    }
-    return result;
+    return this.visible(result, user);
   }
   async list(user: JwtPayload, query: Record<string, string>) {
     let orders = await this.store.list();
@@ -287,16 +600,29 @@ export class DistributedOrders {
           (!query.status || order.status === query.status) &&
           (!query.filialId || order.filialId === query.filialId),
       );
+    orders = await this.labels(orders);
+    const busca = searchText(query.busca);
+    if (busca) {
+      const number = /^(?:os\s*)?#?\s*(\d+)$/.exec(busca);
+      orders = orders.filter((order) =>
+        number
+          ? order.numero === Number(number[1])
+          : [
+              order.clienteNome,
+              order.veiculoPlaca,
+              order.veiculoMarca,
+              order.veiculoModelo,
+              order.mecanicoNome,
+              order.status,
+            ].some((value) => searchText(value).includes(busca)),
+      );
+    }
     const pagina = Math.max(1, Number(query.pagina) || 1);
     const porPagina = Math.min(100, Math.max(1, Number(query.porPagina) || 20));
     return {
       data: orders
         .slice((pagina - 1) * porPagina, pagina * porPagina)
-        .map((order) => {
-          if ((user.role ?? user.papel) !== Role.CLIENTE) return order;
-          const { notasInternas: _notes, failure: _failure, ...safe } = order;
-          return safe;
-        }),
+        .map((order) => this.visible(order, user)),
       meta: {
         pagina,
         porPagina,
@@ -328,7 +654,9 @@ export class DistributedOrders {
       service,
       `/orders/${encodeURIComponent(id)}/${action}`,
       method,
-      body,
+      service === 'billing' && action === 'budget'
+        ? await this.budgetIdentity(body, order.filialId)
+        : body,
       auth,
     );
   }

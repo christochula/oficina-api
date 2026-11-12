@@ -118,21 +118,31 @@ export class DistributedOrdersController {
     @UsuarioAtual() user: JwtPayload,
     @Headers('authorization') auth: string,
   ) {
-    const items = (body.grupos || []).flatMap((group) =>
-      (group.linhas || []).map((line) => ({
+    const groups = (body.grupos || []).map((group) => ({
+      title: group.titulo,
+      items: (group.linhas || []).map((line) => ({
         description: line.descricao,
         quantity: line.quantidade,
         unitPriceCents: Math.round(line.valorUnitario * 100),
         ...(line.pecaId ? { pecaId: line.pecaId } : {}),
       })),
-    );
+    }));
     return this.service.forward(
       id,
       user,
       auth,
       'billing',
       'budget',
-      { items },
+      {
+        items: groups.flatMap((group) => group.items),
+        groups,
+        ...(body.notasCliente !== undefined
+          ? { notasCliente: body.notasCliente }
+          : {}),
+        ...(body.notasInternas !== undefined
+          ? { notasInternas: body.notasInternas }
+          : {}),
+      },
       'PUT',
     );
   }
@@ -167,7 +177,7 @@ export class DistributedOrdersController {
   @Papeis(Role.MECANICO)
   consume(
     @Param('id') id: string,
-    @Body() body: { pecaId: string; quantidade: number },
+    @Body() body: { pecaId: string; quantidade: number; operationId?: string },
     @UsuarioAtual() user: JwtPayload,
     @Headers('authorization') auth: string,
   ) {

@@ -2,7 +2,16 @@ const assert = require('node:assert/strict');
 const jwt = require('jsonwebtoken');
 const { randomUUID, createHmac } = require('node:crypto');
 const { execFileSync } = require('node:child_process');
-const urls = { os: process.env.OS_TEST_URL || 'http://localhost:3000', billing: process.env.BILLING_TEST_URL || 'http://localhost:3001', production: process.env.PRODUCTION_TEST_URL || 'http://localhost:3002', provider: 'http://localhost:8088' };
+const urls = { os: process.env.OS_TEST_URL || 'http://localhost:3100', billing: process.env.BILLING_TEST_URL || 'http://localhost:3101', production: process.env.PRODUCTION_TEST_URL || 'http://localhost:3102', provider: process.env.MP_TEST_URL || 'http://localhost:8188' };
+for (const value of Object.values(urls)) {
+  const url = new URL(value);
+  if (url.protocol !== 'http:' || !['localhost', '127.0.0.1'].includes(url.hostname) || ['3000','3001','3002','8088'].includes(url.port)) throw new Error('Acceptance tests require isolated local services, not the persistent demonstration ports');
+}
+const projectName = process.env.COMPOSE_PROJECT_NAME || process.env.PHASE4_COMPOSE_PROJECT || 'oficina-phase4-test-local';
+if (!/^oficina-phase4-(?:test|ci)-[a-z0-9-]+$/.test(projectName)) throw new Error('Acceptance fixtures require a dedicated test Compose project');
+function composeArgs(...args) {
+  return ['compose', '-p', projectName, '-f', 'compose.phase4.yml', ...args];
+}
 const secret = 'local-only-access-secret-32-bytes-minimum';
 const internal = 'local-only-internal-token-32-bytes-minimum';
 async function request(service, path, token, body, method = 'GET', expected) {
@@ -19,7 +28,7 @@ async function eventually(work, test, timeout = 60000) {
 }
 const id = record => typeof record.id === 'string' ? record.id : record.id.valor;
 async function setup() {
-  execFileSync('docker', ['compose','-f','compose.phase4.yml','exec','-T','-e','ADMIN_SEED_PASSWORD=Local-only-admin-password-2026','os','npm','run','seed'], { stdio: 'pipe' });
+  execFileSync('docker', composeArgs('exec','-T','-e','ADMIN_SEED_PASSWORD=Local-only-admin-password-2026','os','npm','run','seed'), { stdio: 'pipe', cwd: require('node:path').resolve(__dirname, '../..') });
   const admin = await request('os','/api/v1/auth/login', null, { email:'admin@oficina.com', senha:'Local-only-admin-password-2026' },'POST');
   const unique = randomUUID();
   const user = await request('os','/api/v1/usuarios', admin.accessToken, { nome:'Mecânico demonstração',email:`mecanico-${unique}@example.com`,senha:'Local-only-mechanic-password',papel:'MECANICO' },'POST');
@@ -31,7 +40,7 @@ async function setup() {
   try { vehicle = await request('os','/api/v1/veiculos/placa/BRA2E19',admin.accessToken); }
   catch { vehicle = await request('os','/api/v1/veiculos',admin.accessToken,{placa:'BRA2E19',renavam:'12345678901',chassi:'9BWZZZ377VT004251',marca:'Fiat',modelo:'Demo',ano:2020,cor:'Prata'},'POST'); }
   const clientToken = jwt.sign({sub:id(client),client_id:id(client),role:'CLIENTE',papel:'CLIENTE',token_use:'client'},secret,{issuer:'oficina-auth-serverless',audience:'oficina-api',expiresIn:'1h'});
-  return {admin,mechanic,mechanicId:id(user),clientId:id(client),vehicleId:id(vehicle),clientToken};
+  return {admin,mechanic,mechanicEmail:`mecanico-${unique}@example.com`,mechanicId:id(user),clientId:id(client),vehicleId:id(vehicle),clientToken};
 }
 async function prepare(data, quantity = 1, stock = 10, filialId = 'filial-sp') {
   const pecaId = `peca-${randomUUID()}`;
@@ -49,7 +58,7 @@ async function prepare(data, quantity = 1, stock = 10, filialId = 'filial-sp') {
 function read(data,osId) { return request('os',`/api/v1/ordens-servico/${osId}`,data.admin.accessToken); }
 async function approve(data,order) {
   await request('billing',`/api/v1/billing/orders/${order.id}/approve`,data.clientToken,{},'POST');
-  return eventually(()=>read(data,order.id),r=>r.sagaState==='COMPLETED'||r.sagaState==='COMPENSATED');
+  return eventually(()=>read(data,order.id),r=>['COMPLETED','COMPENSATED','MANUAL_ATTENTION'].includes(r.sagaState));
 }
 async function complete(data,order) {
   await request('production',`/api/v1/production/orders/${order.id}/start`,data.mechanic.accessToken,{},'POST');
@@ -66,4 +75,4 @@ async function pay(data,order) {
   assert.ok(response.ok,await response.text());
   return eventually(()=>read(data,order.id),r=>r.status==='PRONTA_PARA_ENTREGA');
 }
-module.exports={request,eventually,setup,prepare,approve,complete,pay,read};
+module.exports={request,eventually,setup,prepare,approve,complete,pay,read,composeArgs,urls};

@@ -36,7 +36,7 @@ export class DistributedInventoryController {
     const search = new URLSearchParams(
       Object.entries(query).filter(
         ([key, value]) =>
-          ['filialId', 'pagina', 'porPagina'].includes(key) &&
+          ['filialId', 'pagina', 'porPagina', 'busca', 'ativo'].includes(key) &&
           typeof value === 'string',
       ),
     );

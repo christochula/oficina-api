@@ -20,6 +20,33 @@ export function fixture(): Order {
   };
 }
 describe('Saga distribuída de preparação e cobrança', () => {
+  it('retains structured shortage data through compensation and clears it only after successful preparation', () => {
+    const order = fixture();
+    const shortage = {
+      pecaId: 'oil',
+      nome: 'Óleo',
+      filialId: order.filialId,
+      quantidadeNecessaria: 3,
+      quantidadeDisponivel: 1,
+      quantidadeFaltante: 2,
+      motivo: 'ESTOQUE_INSUFICIENTE',
+    };
+    transition(order, command(order, 'BudgetApproved'));
+    transition(
+      order,
+      command(order, 'CommandFailed', {
+        reason: 'Estoque insuficiente',
+        faltasEstoque: [shortage, { ...shortage, filialId: 'other' }],
+      }),
+    );
+    transition(order, command(order, 'ExecutionCancelled'));
+    transition(order, command(order, 'BudgetReleased'));
+    expect(order.faltasEstoque).toEqual([shortage]);
+    expect(order.sagaState).toBe('COMPENSATED');
+    order.sagaState = 'CONFIRMING_EXECUTION';
+    transition(order, command(order, 'ExecutionReady'));
+    expect(order.faltasEstoque).toBeUndefined();
+  });
   it('libera execução, aguarda reparo e pagamento antes de liberar entrega', () => {
     const order = fixture();
     const apply = (type: string, payload = {}) =>

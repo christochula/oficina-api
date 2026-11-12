@@ -83,7 +83,39 @@ export class ExcecaoHttpFilter implements ExceptionFilter {
       caminho: sanitizeHttpPath(requisicao.path),
       correlationId: requestContext.getStore()?.correlationId,
       timestamp: new Date().toISOString(),
+      ...this.extrairDetalhesNegocio(excecao),
     });
+  }
+
+  private extrairDetalhesNegocio(excecao: unknown): Record<string, unknown> {
+    if (!(excecao instanceof HttpException) || excecao.getStatus() !== 400)
+      return {};
+    const body = excecao.getResponse();
+    if (typeof body !== 'object' || body === null) return {};
+    const value = body as Record<string, unknown>;
+    const quantities = [
+      'quantidadeSolicitada',
+      'quantidadeReservada',
+      'quantidadeConsumida',
+      'quantidadeRestante',
+    ];
+    if (
+      value.code !== 'QUANTITY_EXCEEDS_RESERVATION' ||
+      value.definitive !== true ||
+      !quantities.every(
+        (key) => Number.isSafeInteger(value[key]) && Number(value[key]) >= 0,
+      )
+    )
+      return {};
+    return {
+      code: value.code,
+      definitive: true,
+      ...Object.fromEntries(quantities.map((key) => [key, value[key]])),
+      ...(typeof value.pecaId === 'string' ? { pecaId: value.pecaId } : {}),
+      ...(typeof value.filialId === 'string'
+        ? { filialId: value.filialId }
+        : {}),
+    };
   }
 
   /**

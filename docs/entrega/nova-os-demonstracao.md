@@ -1,80 +1,18 @@
-# Nova OS de demonstração, preservando o histórico
+# Preparar nova OS para ensaio ou gravação
 
-Procedimento pelo **portal cloud**, sem executar ações por este documento. Preserve as OS **#1 e #2 entregues**. A OS #2 é o ensaio completo de 10/11/2026; uma nova demonstração terá outro número, esperado #3 se nenhuma outra for criada. Não use seed local na AWS, SQL/DynamoDB direto, limpeza de filas, reset de banco ou injeção de sessão. Os acessos e as evidências estão em [pronto para gravar](pronto-para-gravar.md).
+Este procedimento usa uma massa fictícia exclusiva por tomada, preservando cadastros e ordens anteriores. A base AWS nova não depende de nenhuma OS histórica.
 
-## 1. Conferir cadastros existentes
+1. Identificar ambiente, data e tentativa em `VIDEO-AAAAMMDD-TOMADA`.
+2. Preparar cliente fictício, veículo, mecânico e consultor com acessos separados. Para cadastros já existentes da mesma tentativa, consultar antes de repetir criação.
+3. Em filial-sp, preparar serviço de R$100; filtro de R$50 com uma unidade disponível e zero reservada; junta de R$25 com zero disponível e zero reservada.
+4. Se houver saldo/reserva de outra tomada, preservar o cadastro e criar material exclusivo. Não reduzir estoque ou consumir artificialmente para fabricar a falta.
+5. Anotar **nomes, códigos, placa, filial e quantidades**, que serão usados na interface. IDs técnicos ficam somente na conferência/logs.
+6. Abrir uma OS pelo ADMIN, incluindo duas peças solicitadas de quantidade1. Revisar e criar uma vez; pesquisar por número antes de repetir em caso de resposta incerta.
+7. Aguardar confirmação dos participantes, atribuir e conferir acesso do mecânico. Digitar um nome não seleciona o catálogo: clicar no resultado.
+8. Executar os blocos4–9 do [roteiro](roteiro-video.md): diagnóstico, orçamento100+50+25, aprovação, compensação, encaminhamento, entrada1 de junta, nova Saga, execução, consumo, pagamento e entrega.
+9. A solicitação inicial de peças não reserva estoque. A reserva pertence à preparação concluída; o painel **Peças desta OS** distingue reservada/consumida/restante.
+10. Na AWS, usar Checkout Pro com contas TEST; no local, simulador identificado. Conferir retorno e confirmação antes de entregar. Não repetir pagamento por demora de propagação.
 
-O administrador deve localizar primeiro os registros fictícios utilizados em 06/11 e confirmar que estão ativos. Não criar duplicatas apenas para repetir o ensaio.
+Cada ensaio/gravação usa nova OS e mantém sua identidade durante a jornada. Se uma tomada falhar, preservar o resultado e registrar a retomada; não apresentar cenas de ordens diferentes como um fluxo único.
 
-| Cadastro | Referência para busca |
-|---|---|
-| Cliente | Cliente fictício Demo AWS; usar o CPF fictício preparado para o grupo no login |
-| Veículo | Placa BRA2E19 |
-| Mecânico | Mecânico Demo AWS; mecanico.demo@example.com |
-| Serviço | Revisão Demo AWS |
-| Peça A | FILTRO-DEMO-AWS, R$50 |
-| Peça B | JUNTA-DEMO-AWS, R$25 |
-| Filial | filial-sp / São Paulo |
-
-Anotar os **IDs das peças** mostrados no cadastro/estoque: o orçamento exige ID, não código textual. Cliente e mecânico precisam ser selecionados nos resultados reais da busca; digitar o nome não confirma a seleção.
-
-## 2. Falta de estoque sem desfazer operações anteriores
-
-Após o ensaio da OS #2, a conferência pela interface/API do serviço responsável registrou:
-
-| Filial / peça | Disponível | Reservado | Consumido |
-|---|---|---|---|
-| São Paulo / FILTRO-DEMO-AWS | 3 | 0 | 2 |
-| São Paulo / JUNTA-DEMO-AWS | 0 | 0 | 2 |
-| Rio de Janeiro / FILTRO-DEMO-AWS | 3 | 0 | 0 |
-
-Em **Estoque**, reconferir São Paulo antes da próxima OS. A peça A precisa de pelo menos **1 unidade disponível**. A peça B deve começar com **0 unidades disponíveis e sem reservas de outra OS**. Os saldos confirmados acima permitem repetir a falta da junta sem reset; não usar o estoque do Rio para o orçamento da filial-sp. Outras ordens podem alterar esses valores.
-
-Se a tela não permitir confirmar a ausência de reservas, preferir uma peça B nova com quantidade inicial zero, como descrito abaixo.
-
-- Peça A insuficiente: administrador usa **Dar entrada no estoque** para acrescentar o necessário e registra essa preparação.
-- Peça B sem saldo e sem reservas: reutilizar o cadastro existente.
-- Peça B com saldo/reservas: preservá-la. Em **Cadastrar peça**, criar uma peça fictícia com código único, por exemplo JUNTA-VIDEO-AAAAMMDD-01, filial-sp, preço R$25 e **Quantidade inicial 0**; usar o novo ID no orçamento.
-- Se precisar isolar também a peça A: cadastrar FILTRO-VIDEO-AAAAMMDD-01, preço R$50, quantidade inicial suficiente. Pesquisar o código antes de criar.
-
-Não reduzir saldo diretamente nem registrar consumo fictício para forçar a falha. A recuperação será uma entrada de **1 unidade da peça B**, pela interface, depois de comprovar a compensação.
-
-## 3. Criar uma única OS
-
-1. Administrador: **Ordens de serviço → Nova ordem**. Selecionar o cliente existente na busca.
-2. Escolher São Paulo e o veículo BRA2E19. Problema identificável: “Demonstração Fase 4 — AAAAMMDD — revisão e troca de filtro/junta”. Opcionalmente selecionar o serviço de catálogo existente.
-3. Revisar e clicar **Criar ordem uma vez**. Anotar número e URL/ID imediatamente.
-4. Se houver timeout/erro visual, consultar a lista antes de repetir. Se a OS já existe, continuar pela sua URL.
-5. Aguardar **Preparando atendimento** terminar. A atribuição depende da confirmação dos dois serviços. Após o limite da espera automática, usar **Atualizar andamento**; resolver falhas de serviço antes de avançar.
-6. **Informar mecânico**: buscar e selecionar Mecânico Demo AWS; confirmar **Atribuir** uma vez. A resposta HTTP200 não substitui a confirmação assíncrona: aguardar, no administrador, status **ATRIBUIDA** e o responsável selecionado antes de abrir a mesma OS no perfil do mecânico.
-
-No ensaio da OS #2, a abertura imediata pelo mecânico ocorreu antes do consumo de MechanicAssigned e recebeu 403; após a atualização do estado, a consulta funcionou. Se isso ocorrer nesse intervalo, confirmar no administrador o status/responsável e atualizar **Minhas ordens** do mecânico. Não reatribuir, criar outra OS ou relaxar a autorização. Se o 403 persistir após a confirmação, investigar sessão, identidade do responsável e serviços antes de avançar.
-
-## 4. Diagnóstico, orçamento e compensação
-
-Mecânico: **Registrar diagnóstico → Salvar diagnóstico → Gerar orçamento**. Usar **Adicionar item** para três editores:
-
-| Tipo | Descrição | Quantidade | Valor unitário em reais | ID da peça |
-|---|---|---|---|---|
-| Serviço | Revisão Demo AWS | 1 | 100 | vazio |
-| Material | Filtro Demo AWS | 1 | 50 | ID da peça A escolhida |
-| Material | Junta Demo AWS | 1 | 25 | ID da peça B escolhida |
-
-Conferir **R$175,00** e clicar **Enviar ao cliente**. Aguardar AGUARDANDO_APROVACAO.
-
-1. Cliente titular abre a mesma OS e aprova. Aguardar a preparação; não iniciar reparo durante a pendência.
-2. Mostrar a falha por falta de estoque e Saga **COMPENSATED** no histórico/observabilidade. A OS permanece aprovada. Conferir que as reservas anteriores foram liberadas antes de chamar o rollback de concluído.
-3. Admin: na **mesma peça B e filial**, **Dar entrada no estoque**, quantidade 1. Confirmar uma vez; se a resposta for incerta, consultar o saldo antes de repetir.
-4. Na OS, **Tentar preparação novamente**, uma vez. Aguardar COMPLETED e anotar a **nova sagaId**, preservando a referência à anterior e o orçamento aprovado.
-
-## 5. Reparo, pagamento e entrega
-
-1. Mecânico: **Iniciar execução**. Em **Consumir peça**, registrar 1 unidade de A e 1 de B, cada consumo uma vez. Se houver dúvida na resposta, consultar histórico/saldo antes de repetir.
-2. **Finalizar serviço**; aguardar AGUARDANDO_PAGAMENTO e mostrar que a entrega ainda está bloqueada.
-3. Refazer o login do cliente antes de **Pagar OS**, pois seu token dura 5 minutos; concluir no Checkout Pro com comprador/cartão TEST preparados em sessão separada. Não mudar para conta/cartão real nem repetir pagamento por demora no retorno.
-4. Voltar à mesma OS. Com pagamento APPROVED, paymentConfirmed=true e PRONTA_PARA_ENTREGA, o administrador confirma a entrega.
-5. Registrar ENTREGUE, total, histórico e IDs de Saga/correlação. Preservar a OS para consultas posteriores.
-
-Cada ensaio consome estoque e pode criar outra preferência/pagamento. Antes do próximo, consultar ordens e saldos, reutilizar cadastros e criar apenas a nova OS necessária. Não reposicionar uma ordem entregue nem apagar evidências.
-
-Seguir o [roteiro de 14min30s](roteiro-video.md). Se optar por mostrar a execução já concluída da **OS #2**, identificar o ensaio de **10/11/2026** e suas capturas. A OS #1 de 06/11 é histórico separado; não usar etapas ou pagamentos antigos como se pertencessem à nova OS.
+Preparação do ambiente local: [ensaio local](ensaio-local-fase4.md). Preparação AWS: [runbook de nova conta](../operacao/deploy-fase4-nova-conta.md).

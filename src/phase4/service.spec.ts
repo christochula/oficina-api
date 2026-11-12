@@ -57,11 +57,32 @@ function setup(value = fixture()) {
   const prisma = {
     cliente: {
       findUnique: jest.fn().mockResolvedValue({ id: 'cl-test', ativo: true }),
+      findMany: jest
+        .fn()
+        .mockResolvedValue([{ id: 'cl-test', nome: 'João Silva' }]),
       create: jest.fn().mockResolvedValue({ id: 'new-client' }),
     },
     veiculo: {
       findUnique: jest.fn().mockResolvedValue({ id: 've-test', ativo: true }),
+      findMany: jest
+        .fn()
+        .mockResolvedValue([
+          { id: 've-test', placa: 'ABC1D23', marca: 'Marca', modelo: 'Modelo' },
+        ]),
       create: jest.fn().mockResolvedValue({ id: 'new-vehicle' }),
+    },
+    usuario: {
+      findMany: jest
+        .fn()
+        .mockResolvedValue([{ id: 'mech-test', nome: 'Mecânico' }]),
+    },
+    servicoOficina: {
+      findMany: jest.fn().mockResolvedValue([]),
+      findUnique: jest.fn().mockResolvedValue({
+        id: 'service-test',
+        nome: 'Revisão',
+        ativo: true,
+      }),
     },
   };
   const telemetry = { serviceOrderCreated: jest.fn() };
@@ -405,6 +426,369 @@ describe('DistributedOrders authorization and lifecycle', () => {
     });
     expect(value.sagaId).not.toBe(previousId);
     expect(Date.parse(value.deadline!)).toBeGreaterThan(Date.now());
+  });
+});
+
+describe('DistributedOrders complete human contracts', () => {
+  afterEach(() => jest.restoreAllMocks());
+  const stock = {
+    filialId: 'filial-sp',
+    peca: {
+      id: 'oil',
+      codigo: 'OL-01',
+      nome: 'Óleo',
+      descricao: 'Motor',
+      ativo: true,
+    },
+  };
+  const budget = {
+    totalCents: 5500,
+    version: 2,
+    approved: false,
+    items: [
+      { description: 'Troca', quantity: 1, unitPriceCents: 3000 },
+      {
+        description: 'Material',
+        quantity: 2,
+        unitPriceCents: 1250,
+        pecaId: 'oil',
+        nome: 'Óleo',
+        codigo: 'OL-01',
+        filialId: 'filial-sp',
+      },
+    ],
+    notasCliente: 'Entrega amanhã',
+    notasInternas: 'Ajuste interno',
+  };
+
+  it('persists requested parts by authoritative identity and snapshots service names before registration', async () => {
+    const { service, store } = setup();
+    jest.spyOn(service, 'remote').mockResolvedValue(stock as never);
+    const created = await service.open(
+      {
+        clienteId: 'cl-test',
+        veiculoId: 've-test',
+        pecasSolicitadas: [
+          { pecaId: 'oil', quantidade: 1 },
+          { pecaId: 'oil', quantidade: 2 },
+        ],
+        servicosSolicitados: [
+          { servicoId: 'service-test', observacao: 'Ruído' },
+        ],
+      },
+      admin,
+    );
+    expect(created.pecasSolicitadas).toEqual([
+      {
+        pecaId: 'oil',
+        quantidade: 3,
+        nome: 'Óleo',
+        codigo: 'OL-01',
+        descricao: 'Motor',
+        filialId: 'filial-sp',
+      },
+    ]);
+    expect(created.servicosSolicitados).toEqual([
+      {
+        servicoId: 'service-test',
+        nomeServico: 'Revisão',
+        observacao: 'Ruído',
+      },
+    ]);
+    expect(store.create.mock.calls[0][0].pecasSolicitadas).toEqual(
+      created.pecasSolicitadas,
+    );
+  });
+
+  it.each([
+    { ...stock, filialId: 'filial-rj' },
+    { ...stock, peca: { ...stock.peca, ativo: false } },
+    { ...stock, peca: { ...stock.peca, id: 'other' } },
+  ])(
+    'rejects invalid current material identity without writing an order',
+    async (invalid) => {
+      const { service, store, prisma } = setup();
+      jest.spyOn(service, 'remote').mockResolvedValue(invalid as never);
+      await expect(
+        service.open(
+          {
+            clienteId: 'cl-test',
+            veiculoId: 've-test',
+            pecasSolicitadas: [{ pecaId: 'oil', quantidade: 1 }],
+          },
+          admin,
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+      expect(store.create).not.toHaveBeenCalled();
+      expect(prisma.cliente.create).not.toHaveBeenCalled();
+    },
+  );
+
+  it('does not grant consultant inventory selection and rejects fractional requests or inactive services', async () => {
+    const { service, store, prisma } = setup();
+    const remote = jest.spyOn(service, 'remote');
+    await expect(
+      service.open(
+        {
+          clienteId: 'cl-test',
+          veiculoId: 've-test',
+          pecasSolicitadas: [{ pecaId: 'oil', quantidade: 1 }],
+        },
+        { sub: 'consultor', papel: Role.CONSULTOR_TECNICO },
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(
+      service.open(
+        {
+          clienteId: 'cl-test',
+          veiculoId: 've-test',
+          pecasSolicitadas: [{ pecaId: 'oil', quantidade: 1.5 }],
+        },
+        admin,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    prisma.servicoOficina.findUnique.mockResolvedValueOnce({
+      id: 'inactive',
+      nome: 'Inativo',
+      ativo: false,
+    });
+    await expect(
+      service.open(
+        {
+          clienteId: 'cl-test',
+          veiculoId: 've-test',
+          servicosSolicitados: [{ servicoId: 'inactive' }],
+        },
+        admin,
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(store.create).not.toHaveBeenCalled();
+    expect(remote).not.toHaveBeenCalled();
+  });
+
+  it('hydrates legacy human labels, retains ordered groups/notes and reads aggregate consumption from Production parts', async () => {
+    const { service, value, prisma } = setup();
+    value.servicosSolicitados = [{ servicoId: 'service-test' }];
+    prisma.servicoOficina.findMany.mockResolvedValue([
+      { id: 'service-test', nome: 'Revisão antiga' },
+    ]);
+    jest.spyOn(service, 'remote').mockImplementation(async (target) =>
+      target === 'billing'
+        ? {
+            budget: {
+              ...budget,
+              groups: [
+                { title: 'Mão de obra', items: [budget.items[0]] },
+                { title: 'Peças', items: [budget.items[1]] },
+              ],
+            },
+          }
+        : {
+            parts: [
+              {
+                pecaId: 'oil',
+                quantity: 2,
+                consumedQuantity: 1,
+                codigo: 'OL-01',
+                nome: 'Óleo',
+              },
+            ],
+            consumptions: [{ wrongSource: true }],
+          },
+    );
+    const result = await service.read(value.id, admin);
+    expect(result).toMatchObject({
+      clienteNome: 'João Silva',
+      veiculoPlaca: 'ABC1D23',
+      mecanicoNome: 'Mecânico',
+      servicosSolicitados: [{ nomeServico: 'Revisão antiga' }],
+    });
+    expect(result.orcamento).toMatchObject({
+      notasCliente: 'Entrega amanhã',
+      notasInternas: 'Ajuste interno',
+      grupos: [
+        { titulo: 'Mão de obra', total: 30 },
+        {
+          titulo: 'Peças',
+          total: 25,
+          linhasServico: [
+            { nome: 'Óleo', codigo: 'OL-01', filialId: 'filial-sp' },
+          ],
+        },
+      ],
+    });
+    expect(result.consumosPeca).toEqual([
+      {
+        pecaId: 'oil',
+        nome: 'Óleo',
+        codigo: 'OL-01',
+        filialId: 'filial-sp',
+        quantidadeReservada: 2,
+        quantidadeConsumida: 1,
+        quantidadeRestante: 1,
+      },
+    ]);
+    const customer = await service.read(value.id, client);
+    expect(customer).not.toHaveProperty('consumosPeca');
+    expect(customer.orcamento).not.toHaveProperty('notasInternas');
+    expect(customer.orcamento?.notasCliente).toBe('Entrega amanhã');
+  });
+
+  it('finds an order outside page one by number or accent-insensitive human label after ownership filtering', async () => {
+    const { service, store, value } = setup();
+    store.list.mockResolvedValue(
+      Array.from({ length: 25 }, (_, index) => ({
+        ...value,
+        id: `os-${index + 1}`,
+        numero: index + 1,
+        clienteNome: index === 24 ? 'Úrsula Especial' : 'João',
+        veiculoPlaca: index === 24 ? 'XYZ9A99' : 'ABC1D23',
+      })).concat([
+        {
+          ...value,
+          id: 'unauthorized',
+          numero: 26,
+          clienteId: 'other',
+          clienteNome: 'Úrsula Especial',
+          veiculoPlaca: 'XYZ9A99',
+        },
+      ]),
+    );
+    for (const busca of ['#25', 'OS 25', 'ursula especial', 'xyz9a99']) {
+      const result = await service.list(client, {
+        busca,
+        pagina: '1',
+        porPagina: '20',
+      });
+      expect(result.meta.total).toBe(1);
+      expect(result.data[0].numero).toBe(25);
+    }
+    expect((await service.list(client, { busca: 'os-25' })).meta.total).toBe(0);
+    expect(
+      (
+        await service.list(admin, {
+          busca: 'ursula especial',
+          status: 'ENTREGUE',
+        })
+      ).meta.total,
+    ).toBe(0);
+  });
+
+  it('limits shortage visibility without mutating durable data', async () => {
+    const { service, value } = setup();
+    value.faltasEstoque = [
+      {
+        pecaId: 'oil',
+        nome: 'Óleo',
+        filialId: 'filial-sp',
+        quantidadeNecessaria: 3,
+        quantidadeDisponivel: 1,
+        quantidadeFaltante: 2,
+        motivo: 'ESTOQUE_INSUFICIENTE',
+      },
+    ];
+    jest.spyOn(service, 'remote').mockResolvedValue({});
+    expect(
+      (await service.read(value.id, admin)).faltasEstoque?.[0]
+        .quantidadeDisponivel,
+    ).toBe(1);
+    expect(
+      (
+        await service.read(value.id, {
+          sub: 'consultor',
+          papel: Role.CONSULTOR_TECNICO,
+        })
+      ).faltasEstoque?.[0],
+    ).not.toHaveProperty('quantidadeDisponivel');
+    expect(await service.read(value.id, client)).not.toHaveProperty(
+      'faltasEstoque',
+    );
+    expect((await service.list(client, {})).data[0]).not.toHaveProperty(
+      'faltasEstoque',
+    );
+    expect(value.faltasEstoque[0].quantidadeDisponivel).toBe(1);
+  });
+
+  it('validates budget material in its order branch and replaces supplied display identity before forwarding', async () => {
+    const { service } = setup();
+    const remote = jest
+      .spyOn(service, 'remote')
+      .mockImplementation(async (target) =>
+        target === 'production' ? (stock as never) : {},
+      );
+    const item = {
+      ...budget.items[1],
+      nome: 'Forged',
+      codigo: 'WRONG',
+      filialId: 'filial-rj',
+    };
+    await service.forward(
+      'os-test',
+      { sub: 'mech-test', papel: Role.MECANICO },
+      'Bearer user',
+      'billing',
+      'budget',
+      {
+        items: [item],
+        groups: [{ title: 'Material', items: [item] }],
+        notasInternas: 'Preservada',
+      },
+      'PUT',
+    );
+    expect(remote).toHaveBeenCalledWith(
+      'production',
+      '/internal/inventory/oil?filialId=filial-sp',
+    );
+    expect(remote).toHaveBeenLastCalledWith(
+      'billing',
+      '/orders/os-test/budget',
+      'PUT',
+      {
+        items: [budget.items[1]],
+        groups: [{ title: 'Material', items: [budget.items[1]] }],
+        notasInternas: 'Preservada',
+      },
+      'Bearer user',
+    );
+  });
+
+  it('preserves a definitive stock rejection while discarding arbitrary remote fields', async () => {
+    const { service } = setup();
+    const saved = process.env.PRODUCTION_SERVICE_URL;
+    process.env.PRODUCTION_SERVICE_URL = 'http://production';
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          code: 'QUANTITY_EXCEEDS_RESERVATION',
+          definitive: true,
+          pecaId: 'oil',
+          filialId: 'filial-sp',
+          quantidadeSolicitada: 2,
+          quantidadeReservada: 2,
+          quantidadeConsumida: 1,
+          quantidadeRestante: 1,
+          secret: 'internal',
+        }),
+        { status: 400 },
+      ),
+    );
+    try {
+      await service.remote('production', '/orders/os-test/consume');
+      throw new Error('Expected rejection');
+    } catch (error) {
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect((error as BadRequestException).getResponse()).toMatchObject({
+        code: 'QUANTITY_EXCEEDS_RESERVATION',
+        definitive: true,
+        quantidadeRestante: 1,
+      });
+      expect((error as BadRequestException).getResponse()).not.toHaveProperty(
+        'secret',
+      );
+    } finally {
+      if (saved === undefined) delete process.env.PRODUCTION_SERVICE_URL;
+      else process.env.PRODUCTION_SERVICE_URL = saved;
+    }
   });
 });
 
@@ -909,9 +1293,11 @@ describe('DistributedOrders remote boundary', () => {
     [503, BadGatewayException],
   ])('maps HTTP %i to a useful boundary error', async (status, error) => {
     process.env.BILLING_SERVICE_URL = 'http://billing';
-    jest
-      .spyOn(globalThis, 'fetch')
-      .mockResolvedValue({ ok: false, status } as Response);
+    jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: false,
+      status,
+      json: async () => ({}),
+    } as Response);
     await expect(
       setup().service.remote('billing', '/orders'),
     ).rejects.toBeInstanceOf(error);

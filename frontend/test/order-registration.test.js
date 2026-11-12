@@ -9,7 +9,8 @@ const initialOrder = (pending = ['billing', 'production']) => ({
 });
 
 async function harness(respond) {
-  const target = { innerHTML: '', isConnected: true };
+  const sync = { innerHTML: '', classList: { toggle() {} } };
+  const target = { innerHTML: '', isConnected: true, querySelector: (selector) => selector === '#order-sync-state' ? sync : null, querySelectorAll: () => [] };
   const listeners = new Map();
   const requests = [];
   const root = {
@@ -25,7 +26,7 @@ async function harness(respond) {
     navigate() {}, notify() {},
   });
   return {
-    target, requests, dispose,
+    target, sync, requests, dispose,
     async click(action) {
       const trigger = { dataset: { action }, matches: () => false, closest() { return this; } };
       await listeners.get('click')?.({ target: trigger });
@@ -111,8 +112,10 @@ test('falha do GET continua visível e interrompe poll automático', async (t) =
   });
   t.after(h.dispose);
   await tick(t);
-  assert.match(h.target.innerHTML, /Não foi possível abrir a ordem/);
-  assert.match(h.target.innerHTML, /Serviço temporariamente indisponível/);
+  assert.match(h.target.innerHTML, /Preparando atendimento/);
+  assert.match(h.sync.innerHTML, /Não foi possível atualizar/);
+  assert.match(h.sync.innerHTML, /Serviço temporariamente indisponível/);
+  assert.match(h.sync.innerHTML, /últimos dados foram preservados/);
   await tick(t, 60_000);
   assert.equal(h.requests.length, 2);
 });

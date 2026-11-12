@@ -3,12 +3,13 @@ const { randomUUID } = require('node:crypto');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const { request: fixtureRequest } = require('./support.cjs');
+const { desktopEvidence } = require('./browser-support.cjs');
 
 // Prerequisite: scripts/seed-local-demo.cjs, LOCAL_DEMO_MODE=true and the local MP stub.
 // The only API writes below create a unique catalog/stock fixture. Every OS transition,
 // all three logins and payment approval are submitted through the visible browser UI.
 // There is no session injection, JWT minting, route mocking or helper payment callback.
-const portalUrl = process.env.MANUAL_PORTAL_URL || 'http://localhost:5173';
+const portalUrl = process.env.MANUAL_PORTAL_URL || 'http://localhost:5273';
 const adminEmail = process.env.DEMO_ADMIN_EMAIL || 'admin@oficina.com';
 const adminPassword = process.env.DEMO_ADMIN_PASSWORD || 'Local-only-admin-password-2026';
 const mechanicEmail = process.env.DEMO_MECHANIC_EMAIL || 'mecanico.local@example.com';
@@ -90,13 +91,14 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
   const actors = [];
   const evidence = { authentication: [], orderTransitions: [], payment: 'pending', browserErrors: [] };
   const makeActor = async (name) => {
-    const context = await browser.newContext({ baseURL: portalUrl });
-    await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
+    const context = await browser.newContext({ baseURL: portalUrl, viewport: testInfo.project.use.viewport || { width: 1920, height: 1080 }, deviceScaleFactor: 1 });
     const page = await context.newPage();
     page.on('console', (message) => {
       if (message.type() === 'error') evidence.browserErrors.push({ actor: name, text: message.text() });
     });
+    page.on('pageerror', error => evidence.browserErrors.push({ actor: name, text: error.message }));
     page.on('requestfailed', (failed) => {
+      if (failed.failure()?.errorText === 'net::ERR_ABORTED') return;
       const target = new URL(failed.url());
       evidence.browserErrors.push({ actor: name, method: failed.method(), url: `${target.origin}${target.pathname}`, reason: failed.failure()?.errorText });
     });
@@ -106,10 +108,12 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
   const capture = async (page, name) => {
     await page.evaluate(() => window.scrollTo(0, 0));
     const screenshot = await page.screenshot({ fullPage: true, animations: 'disabled' });
-    await testInfo.attach(name, { body: screenshot, contentType: 'image/png' });
+    await desktopEvidence(page, testInfo, name);
     const visualName = name.startsWith('03-') ? 'local-demo-checkout.png' : name.startsWith('05-') ? 'local-demo-delivered.png' : undefined;
     if (visualName) {
-      const destination = path.resolve(__dirname, '../../../.tmp/local-demo');
+      const destination = process.env.MANUAL_EVIDENCE_DIR
+        ? path.resolve(process.env.MANUAL_EVIDENCE_DIR)
+        : path.resolve(__dirname, '../../../.tmp/local-demo');
       await fs.mkdir(destination, { recursive: true });
       await fs.writeFile(path.join(destination, visualName), screenshot);
     }
@@ -122,13 +126,14 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
     let client;
     let vehicle;
     const pecaId = `manual-${randomUUID()}`;
+    const pieceLabel = `Filtro do teste manual ${Date.now().toString(36).toUpperCase()}`;
 
     await test.step('Administrador entra pelo formulário e prepara somente os cadastros de teste', async () => {
       adminTokens = await loginOperator(admin, adminEmail, adminPassword);
       evidence.authentication.push('ADMINISTRADOR: POST /api/v1/auth/login via form');
       client = await fixtureRequest('os', `/api/v1/clientes/documento/${clientCpf}`, adminTokens.accessToken);
       vehicle = await fixtureRequest('os', `/api/v1/veiculos/placa/${vehiclePlate}`, adminTokens.accessToken);
-      await fixtureRequest('production', `/api/v1/production/stock/${pecaId}`, adminTokens.accessToken, { filialId: 'filial-sp', quantity: 3, description: 'Filtro do teste de navegador manual' }, 'PUT');
+      await fixtureRequest('production', `/api/v1/production/stock/${pecaId}`, adminTokens.accessToken, { filialId: 'filial-sp', quantity: 3, description: pieceLabel }, 'PUT');
     });
 
     await test.step('Administrador abre a OS nas quatro etapas do wizard', async () => {
@@ -136,10 +141,12 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
       await expect(admin.getByRole('heading', { name: 'Registrar entrada do veículo', exact: true })).toBeVisible();
       await admin.locator('select[name="filialId"]').selectOption('filial-sp');
       await admin.getByRole('combobox', { name: /^Cliente/ }).fill(clientCpf);
-      await admin.getByRole('option').filter({ hasText: recordId(client) }).click();
+      await admin.getByRole('option').filter({ hasText: client.nome }).click();
       await expect(admin.locator('input[name="clienteId"]')).toHaveValue(recordId(client));
       await admin.getByRole('button', { name: 'Continuar', exact: true }).click();
-      await admin.locator('select[name="veiculoId"]').selectOption(recordId(vehicle));
+      await admin.getByRole('combobox', { name: /^Veículo/ }).fill(vehiclePlate);
+      await admin.getByRole('option').filter({ hasText: vehiclePlate }).click();
+      await expect(admin.locator('input[name="veiculoId"]')).toHaveValue(recordId(vehicle));
       await admin.getByRole('button', { name: 'Continuar', exact: true }).click();
       await admin.getByLabel('Problema relatado pelo cliente', { exact: true }).fill(`Revisão completa pelo fluxo manual ${pecaId}`);
       await admin.getByRole('button', { name: 'Continuar', exact: true }).click();
@@ -160,6 +167,7 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
       await dialog.getByRole('option').filter({ hasText: mechanicEmail }).click();
       await expect(dialog.getByRole('combobox')).toHaveValue(new RegExp(mechanicName));
       await submitAndCheck(admin, 'PATCH', (path) => path.includes(`/ordens-servico/${orderId}/atribuir/`), () => dialog.getByRole('button', { name: 'Atribuir', exact: true }).click());
+      await expect(admin.locator('.page-header .status-badge')).toContainText('Atribuída', { timeout: 60000 });
       await refreshOrderUntil(admin, `/ordens-servico/${orderId}`, (snapshot) => snapshot.status === 'ATRIBUIDA', 'A atribuição deve chegar ao OS');
       evidence.orderTransitions.push('PATCH assignment via combobox');
     });
@@ -174,16 +182,20 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
       let dialog = mechanic.getByRole('dialog', { name: 'Registrar diagnóstico', exact: true });
       await dialog.getByLabel('Descrição técnica', { exact: true }).fill('Filtro saturado; substituir e conferir funcionamento antes da entrega.');
       await submitAndCheck(mechanic, 'PATCH', (path) => path.endsWith(`/ordens-servico/${orderId}/diagnostico`), () => dialog.getByRole('button', { name: 'Salvar diagnóstico', exact: true }).click());
+      await expect(mechanic.locator('.page-header .status-badge')).toContainText('Em diagnóstico', { timeout: 60000 });
       await refreshOrderUntil(mechanic, `/ordens-servico/mecanico/${orderId}`, (snapshot) => snapshot.status === 'EM_DIAGNOSTICO' && Boolean(snapshot.diagnostico?.descricao), 'O diagnóstico deve ser persistido e refletido na OS');
       await mechanic.getByRole('button', { name: 'Gerar orçamento', exact: true }).click();
       dialog = mechanic.getByRole('dialog', { name: 'Gerar orçamento', exact: true });
       await dialog.getByLabel('Título do grupo', { exact: true }).fill('Revisão e troca do filtro');
       await dialog.locator('select[name^="type-"]').selectOption('MATERIAL');
+      await dialog.getByRole('combobox', { name: /^Peça do catálogo/ }).fill(pieceLabel);
+      await dialog.getByRole('option').filter({ hasText: pieceLabel }).click();
+      await expect(dialog.locator('input[name^="piece-"]')).toHaveValue(pecaId);
       await dialog.getByLabel('Descrição', { exact: true }).fill('Filtro de óleo');
       await dialog.getByLabel('Quantidade', { exact: true }).fill('1');
       await dialog.getByLabel('Valor unitário', { exact: true }).fill('100');
-      await dialog.getByLabel('ID da peça (para material)', { exact: true }).fill(pecaId);
       await submitAndCheck(mechanic, 'PATCH', (path) => path.endsWith(`/ordens-servico/${orderId}/orcamento`), () => dialog.getByRole('button', { name: 'Enviar ao cliente', exact: true }).click());
+      await expect(mechanic.locator('.page-header .status-badge')).toContainText('Aguardando aprovação', { timeout: 60000 });
       await refreshOrderUntil(mechanic, `/ordens-servico/mecanico/${orderId}`, (snapshot) => snapshot.status === 'AGUARDANDO_APROVACAO' && snapshot.orcamento?.total === 100, 'Orçamento de R$100 deve aguardar o cliente');
       evidence.orderTransitions.push('PATCH diagnosis and budget via modals');
     });
@@ -215,13 +227,18 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
     await test.step('Mecânico inicia, consome a peça reservada e finaliza pela interface', async () => {
       await refreshOrderUntil(mechanic, `/ordens-servico/mecanico/${orderId}`, (snapshot) => snapshot.preparacao === 'COMPLETED', 'A execução precisa ser liberada pela Saga');
       await confirmOrderAction(mechanic, orderId, 'Iniciar execução', 'Iniciar execução', 'iniciar-execucao');
+      await expect(mechanic.getByRole('button', { name: 'Consumir peça', exact: true })).toBeVisible({ timeout: 60000 });
       await refreshOrderUntil(mechanic, `/ordens-servico/mecanico/${orderId}`, (snapshot) => snapshot.status === 'EM_EXECUCAO', 'Início físico deve chegar ao OS');
       await mechanic.getByRole('button', { name: 'Consumir peça', exact: true }).click();
       const dialog = mechanic.getByRole('dialog', { name: 'Registrar consumo de peça', exact: true });
-      await dialog.getByLabel('ID da peça', { exact: true }).fill(pecaId);
+      const pieceOption = dialog.getByRole('option').filter({ hasText: pieceLabel });
+      await dialog.getByRole('combobox', { name: /^Peça do orçamento/ }).selectOption({ label: await pieceOption.textContent() });
+      await expect(dialog.getByRole('combobox', { name: /^Peça do orçamento/ })).toHaveValue(pecaId);
       await dialog.getByLabel('Quantidade', { exact: true }).fill('1');
+      await capture(mechanic, 'consumo-peca-modal');
       await submitAndCheck(mechanic, 'PATCH', (path) => path.endsWith(`/ordens-servico/${orderId}/consumo-peca`), () => dialog.getByRole('button', { name: 'Registrar consumo', exact: true }).click());
       await confirmOrderAction(mechanic, orderId, 'Finalizar serviço', 'Finalizar serviço', 'finalizar');
+      await expect(mechanic.locator('.page-header .status-badge')).toContainText('Aguardando pagamento', { timeout: 60000 });
       await refreshOrderUntil(admin, `/ordens-servico/${orderId}`, (snapshot) => snapshot.status === 'AGUARDANDO_PAGAMENTO', 'Reparo completo ainda não permite entrega');
       await expect(admin.getByRole('button', { name: 'Registrar entrega', exact: true })).toHaveCount(0);
       evidence.orderTransitions.push('PATCH start, consumption and finish via UI');
@@ -230,7 +247,7 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
     await test.step('Cliente paga no checkout de demonstração e volta pelo redirecionamento real', async () => {
       await refreshOrderUntil(clientPage, `/ordens-servico/minhas/${orderId}`, (snapshot) => snapshot.status === 'AGUARDANDO_PAGAMENTO' && Boolean(snapshot.pagamento?.checkoutUrl), 'Cobrança deve ser criada somente após o reparo');
       await submitAndCheck(clientPage, 'POST', (route) => route.endsWith(`/billing/orders/${orderId}/checkout`), () => clientPage.getByRole('button', { name: 'Pagar OS', exact: true }).click(), false);
-      await expect(clientPage).toHaveURL(/localhost:8088\/checkout\//);
+      await expect(clientPage).toHaveURL(new RegExp(`^${process.env.MP_TEST_URL || 'http://localhost:8188'}/checkout/`));
       await expect(clientPage.getByText(/demonstração|simula/i).first()).toBeVisible();
       await capture(clientPage, '03-checkout-simulado-sem-cobranca-real');
 
@@ -246,12 +263,13 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
       await capture(clientPage, '04-pagamento-recusado-entrega-bloqueada');
 
       await submitAndCheck(clientPage, 'POST', (route) => route.endsWith(`/billing/orders/${orderId}/checkout`), () => clientPage.getByRole('button', { name: 'Pagar OS', exact: true }).click(), false);
-      await expect(clientPage).toHaveURL(/localhost:8088\/checkout\//);
+      await expect(clientPage).toHaveURL(new RegExp(`^${process.env.MP_TEST_URL || 'http://localhost:8188'}/checkout/`));
       const paid = waitForMutation(clientPage, 'POST', (path) => /^\/checkout\/[^/]+\/approve$/.test(path));
       await clientPage.getByRole('button', { name: 'Aprovar pagamento de demonstração', exact: true }).click();
       const checkoutResponse = await paid;
       expect(checkoutResponse.status()).toBe(303);
       await expect(clientPage).toHaveURL(new RegExp(`#\/ordens\/${orderId}$`));
+      await expect(clientPage.locator('.context-card').getByText('Confirmado', { exact: true })).toBeVisible({ timeout: 60000 });
       const returned = await refreshOrderUntil(clientPage, `/ordens-servico/minhas/${orderId}`, (snapshot) => snapshot.status === 'PRONTA_PARA_ENTREGA' && snapshot.paymentConfirmed === true, 'Webhook assinado deve liberar a retirada');
       expect(returned.pagamento?.status).toBe('APPROVED');
       evidence.payment = 'Browser POST checkout approve → signed webhook → Billing → SQS → OS';
@@ -259,6 +277,7 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
     });
 
     await test.step('Administrador entrega somente depois da confirmação de pagamento', async () => {
+      await expect(admin.getByRole('button', { name: 'Registrar entrega', exact: true })).toBeVisible({ timeout: 60000 });
       await refreshOrderUntil(admin, `/ordens-servico/${orderId}`, (snapshot) => snapshot.status === 'PRONTA_PARA_ENTREGA', 'Entrega exige pagamento confirmado');
       await confirmOrderAction(admin, orderId, 'Registrar entrega', 'Confirmar entrega', 'entregar');
       await refreshOrderUntil(admin, `/ordens-servico/${orderId}`, (snapshot) => snapshot.status === 'ENTREGUE', 'OS deve terminar entregue');
@@ -268,14 +287,14 @@ test('formulários reais: recepção, diagnóstico, aprovação por CPF, execuç
       await capture(admin, '05-os-entregue-historico-real');
       evidence.orderTransitions.push('PATCH delivery via admin confirmation');
     });
+    expect(evidence.browserErrors, 'No browser errors during the complete business flow').toEqual([]);
     completed = true;
   } finally {
     await testInfo.attach('manual-flow-evidence', { body: Buffer.from(JSON.stringify(evidence, null, 2)), contentType: 'application/json' });
     for (const actor of actors) {
       if (!completed) {
         await actor.page.screenshot({ path: testInfo.outputPath(`${actor.name}-failure.png`), fullPage: true }).catch(() => {});
-        await actor.context.tracing.stop({ path: testInfo.outputPath(`${actor.name}-trace.zip`) });
-      } else await actor.context.tracing.stop();
+      }
       await actor.context.close();
     }
   }

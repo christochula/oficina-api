@@ -174,3 +174,23 @@ test('compensação permite nova tentativa pela equipe e conclusão libera somen
   assert.match(ready.target.innerHTML, /data-action="order:start"/);
   assert.doesNotMatch(ready.target.innerHTML, /Preparando execução|Preparação exige intervenção/);
 });
+
+test('iniciar execução aceita acompanha projeção atrasada e bloqueia repetição até confirmação', async (t) => {
+  t.mock.timers.enable({ apis: ['setTimeout', 'Date'], now: 1000 });
+  const modal = confirmationHarness(t);
+  const h = await harness(ROLES.MECHANIC, (count) => count < 4
+    ? order('COMPLETED') : order('EXECUTING', { status: 'EM_EXECUCAO' }));
+  t.after(h.dispose);
+  const action = h.click('order:start');
+  modal.confirm();
+  await action;
+  assert.equal(h.requests.length, 3);
+  assert.match(h.target.innerHTML, /Orçamento aprovado/);
+  await h.click('order:start');
+  assert.equal(h.requests.length, 3);
+  t.mock.timers.tick(1000);
+  for (let i = 0; i < 5; i++) await Promise.resolve();
+  assert.equal(h.requests.length, 4);
+  assert.match(h.target.innerHTML, /Consumir peça/);
+  assert.equal(h.requests.filter(({ options }) => options?.method === 'PATCH').length, 1);
+});

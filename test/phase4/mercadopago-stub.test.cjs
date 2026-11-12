@@ -179,6 +179,20 @@ test('não escuta durante importação e recusa destino de webhook externo na co
   assert.throws(() => createServer({ env: { BILLING_WEBHOOK_URL: 'http://169.254.169.254/metadata' } }), /Billing local/);
 });
 
+test('portas isoladas preservam checkout, retorno e persistência, sem aceitar destinos externos', async t => {
+  const {file}=await temporaryState(t);
+  const env={MP_PUBLIC_BASE_URL:'http://localhost:8188',MP_PORTAL_BASE_URL:'http://localhost:5273',DEMO_STATE_FILE:file};
+  const h=await harness(t,{env});
+  const pref=await h.preference({back_urls:{success:'http://localhost:5273/#/ordens'}});
+  assert.equal(pref.init_point,`http://localhost:8188/checkout/${pref.id}`);
+  const html=await h.request(`/checkout/${pref.id}`);assert.match(await html.text(),/http:\/\/localhost:5273\/#\/ordens\/os-demo/);
+  assert.match(html.headers.get('content-security-policy'),/localhost:5273/);
+  await h.restart();
+  const restored=await (await h.request(`/checkout/preferences/${pref.id}`)).json();assert.equal(restored.init_point,pref.init_point);
+  const approved=await h.post(`/checkout/${pref.id}/approve`);assert.equal(approved.headers.get('location'),'http://localhost:5273/#/ordens/os-demo');
+  for(const name of ['MP_PUBLIC_BASE_URL','MP_PORTAL_BASE_URL']) for(const value of ['https://example.com','http://localhost:8188/other','http://name:pass@localhost:8188']) assert.throws(()=>createServer({env:{[name]:value}}),/origem HTTP local/);
+});
+
 test('estado opt-in persiste preferência, pagamento, idempotência e ACK após reiniciar servidor', async t => {
   const disk = await temporaryState(t);
   const h = await harness(t, { env: { DEMO_STATE_FILE: disk.file } });

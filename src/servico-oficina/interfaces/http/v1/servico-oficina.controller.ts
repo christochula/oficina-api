@@ -13,7 +13,7 @@ import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
 import { PapeisGuard } from '../../../../auth/guards/papeis.guard';
 import { Papeis } from '../../../../auth/decorators/papeis.decorator';
-import { PaginacaoDto } from '../../../../shared/http/dtos/paginacao.dto';
+import { CatalogQueryDto } from '../../../../shared/http/dtos/catalog-query.dto';
 import { RespostaPaginadaDto } from '../../../../shared/http/dtos/resposta-paginada.dto';
 import { PapelUsuario } from '../../../../usuario/domain/papel-usuario.enum';
 import { AtivarServicoOficinaUseCase } from '../../../application/casos-de-uso/ativar-servico-oficina.usecase';
@@ -78,11 +78,12 @@ export class ServicoOficinaController {
   )
   @ApiOperation({ summary: 'Listar serviços do catálogo (paginado)' })
   async listarServicos(
-    @Query() paginacao: PaginacaoDto,
+    @Query() paginacao: CatalogQueryDto,
   ): Promise<RespostaPaginadaDto<ServicoOficina>> {
     const { itens, total } = await this.listar.executar(
       paginacao.pagina,
       paginacao.porPagina,
+      { busca: paginacao.busca, ativo: paginacao.ativo },
     );
     return new RespostaPaginadaDto(
       itens,

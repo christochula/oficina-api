@@ -153,10 +153,31 @@ describe('DistributedOrders HTTP facade', () => {
     ]);
   });
 
+  it('forwards the optional consumption operation ID without replacing it on retries', () => {
+    const body = {
+      pecaId: 'oil',
+      quantidade: 1,
+      operationId: 'ef422f21-34e9-4476-bae1-31cb36a3a7e2',
+    };
+
+    void controller.consume('os', body, user, token);
+
+    expect(service.forward).toHaveBeenCalledWith(
+      'os',
+      user,
+      token,
+      'production',
+      'consume',
+      body,
+    );
+  });
+
   it('converts legacy grouped prices from reais into integer cents without losing quantity or material ID', () => {
     void controller.budget(
       'os',
       {
+        notasCliente: 'Nota pública',
+        notasInternas: 'Nota interna',
         grupos: [
           {
             titulo: 'Service',
@@ -182,6 +203,8 @@ describe('DistributedOrders HTTP facade', () => {
       'billing',
       'budget',
       {
+        notasCliente: 'Nota pública',
+        notasInternas: 'Nota interna',
         items: [
           {
             description: 'Oil',
@@ -190,6 +213,20 @@ describe('DistributedOrders HTTP facade', () => {
             pecaId: 'oil',
           },
           { description: 'Labor', quantity: 1, unitPriceCents: 2001 },
+        ],
+        groups: [
+          {
+            title: 'Service',
+            items: [
+              {
+                description: 'Oil',
+                quantity: 2,
+                unitPriceCents: 1029,
+                pecaId: 'oil',
+              },
+              { description: 'Labor', quantity: 1, unitPriceCents: 2001 },
+            ],
+          },
         ],
       },
       'PUT',
@@ -201,7 +238,7 @@ describe('DistributedOrders HTTP facade', () => {
       token,
       'billing',
       'budget',
-      { items: [] },
+      { items: [], groups: [] },
       'PUT',
     );
     void controller.budget(
@@ -216,7 +253,7 @@ describe('DistributedOrders HTTP facade', () => {
       token,
       'billing',
       'budget',
-      { items: [] },
+      { items: [], groups: [{ title: 'Empty', items: [] }] },
       'PUT',
     );
   });

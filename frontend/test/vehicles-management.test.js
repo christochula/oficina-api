@@ -103,6 +103,7 @@ test('listagem de veículos separa identificação e dados em colunas e cartões
         method: 'GET',
         body: undefined,
         query: { pagina: 1, porPagina: 20 },
+        signal: calls[0].options.signal,
       },
     });
 
@@ -117,7 +118,7 @@ test('listagem de veículos separa identificação e dados em colunas e cartões
     const headings = [...headingMarkup.matchAll(/<th scope="col">([\s\S]*?)<\/th>/g)]
       .map((match) => textContent(match[1]));
     assert.deepEqual(headings, [
-      'Placa / ID',
+      'Placa',
       'Veículo',
       'Ano',
       'Cor',
@@ -138,7 +139,8 @@ test('listagem de veículos separa identificação e dados em colunas e cartões
 
     assert.equal(cells.length, 7);
     assert.match(cells[0].markup, /class="resource-cell-stack"/);
-    assert.match(cells[0].text, /ABC••23/);
+    assert.match(cells[0].text, /ABC1D23/);
+    assert.match(cells[0].markup, /<details class="resource-record-id">/);
     assert.match(cells[0].text, /ID:\s*vhVEHICLE01/);
     assert.equal(cells[1].text, 'Volkswagen Gol');
     assert.equal(cells[2].text, '2022');
