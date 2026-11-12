@@ -2,6 +2,15 @@
 
 Este guia executa os mesmos 12 blocos do [roteiro canônico](roteiro-video.md), **sem gravar vídeo**. Objetivo: validar a narrativa exata pela interface antes do merge, da implantação em outra conta AWS e da gravação final.
 
+**Situação em 12/11/2026:** a rodada local foi encerrada por decisão do grupo. Este guia e as evidências existentes ficam preservados como referência. A preparação atual segue para os merges e o deploy; a próxima homologação completa será na AWS, antes da gravação. Os checks obrigatórios de CI continuam exigidos para os commits candidatos.
+
+## Acessos LOCAL e AWS — ficha privada
+
+Consultar a [ficha privada de acessos](acessos-gravacao.local.md) antes do ensaio e, na gravação posterior, antes de iniciar a captura. Ela reúne as contas do sistema e do Mercado Livre/Mercado Pago separadas por ambiente. Fazer os logins fora das capturas e fechar a ficha; não incluir seus valores nos relatórios ou documentos públicos.
+
+- **LOCAL:** usar as contas fictícias de administrador, consultor, mecânico e cliente do portal 5273. O fluxo de pagamento usa o simulador da porta 8188 e não exige credenciais Mercado Pago.
+- **AWS:** usar o novo PORTAL_URL; os logins dos quatro perfis da nova base ainda precisam ser criados/validados e registrados na ficha privada. O pagamento será Mercado Livre/Mercado Pago TEST, com comprador separado do vendedor. Não reutilizar acessos locais ou históricos como se estivessem confirmados na nova base.
+
 ## Ambiente e preparação
 
 - Portal atual: **http://localhost:5273**; Docker Compose **oficina-phase4-test-ux**.

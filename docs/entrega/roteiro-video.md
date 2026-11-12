@@ -2,9 +2,18 @@
 
 Participantes: **Matheus Chula e Karina Lage**. Limite do vídeo exportado: **15 minutos**. Atualizado para a interface ensaiada em novembro de 2026.
 
-Este é o roteiro canônico de gravação. A [narração](voice-over-video.md) acompanha os mesmos 12 blocos. Antes de gravar na AWS, executar o [ensaio local completo](ensaio-local-fase4.md) sem captura de vídeo e, depois do deploy, repetir o ensaio na AWS. Teste local aprovado não comprova Mercado Pago TEST real, Gateway, EKS, Sonar ou Datadog.
+Este é o roteiro canônico de gravação. A [narração](voice-over-video.md) acompanha os mesmos 12 blocos. A preparação segue para os merges e o deploy; a rodada local foi encerrada em 12/11/2026 por decisão do grupo. O [guia local](ensaio-local-fase4.md) permanece como referência, sem exigir uma nova execução antes do merge. Antes de gravar, executar o roteiro completo na AWS, sem captura de vídeo. Evidências locais anteriores não comprovam Mercado Pago TEST real, Gateway, EKS, Sonar ou Datadog.
 
-**Cópia privada:** `roteiro-video.local.md` é somente um apoio de acessos, ignorado pelo Git; não é o roteiro de localhost. Credenciais nunca entram em vídeo, PDF ou PR.
+**Cópias privadas:** `roteiro-video.local.md`, `voice-over-video.local.md` e `ensaio-local-fase4.local.md` incluem a ficha de acessos LOCAL/AWS antes das instruções. O sufixo `.local.md` significa arquivo privado, ignorado pelo Git, não um roteiro exclusivo de localhost. Credenciais nunca entram em vídeo, PDF ou PR.
+
+## Acessos LOCAL e AWS — consulta privada
+
+Antes de iniciar a captura, abrir a [ficha privada de acessos](acessos-gravacao.local.md), que reúne as contas do sistema e do Mercado Livre/Mercado Pago separadas por ambiente. Fazer os logins e fechar a ficha antes de gravar; não copiar seus valores para as versões públicas dos roteiros ou evidências.
+
+| Ambiente | Acessos e pagamento |
+|---|---|
+| LOCAL | Usar as quatro contas fictícias do portal 5273 indicadas na ficha: administrador, consultor, mecânico e cliente. O pagamento da jornada usa o simulador local; não exige login Mercado Pago. |
+| AWS | Usar o novo PORTAL_URL e os cadastros da nova base, cujos logins ainda estão pendentes de criação/validação. Para o checkout, usar as contas Mercado Livre/Mercado Pago TEST da ficha, com comprador em sessão separada do vendedor. Não presumir que acessos locais ou históricos funcionam na nova AWS. |
 
 ## Preparação da tomada
 

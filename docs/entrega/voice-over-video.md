@@ -4,6 +4,15 @@ Gravar a voz depois das imagens, seguindo os mesmos 12 blocos do [roteiro de tel
 
 No ensaio local, substituir expressamente a fala do pagamento pela variante indicada e tratar EKS, CI/Sonar e Datadog como verificações posteriores. O vídeo final usa Mercado Pago TEST real e evidências da versão implantada.
 
+A rodada local foi encerrada em 12/11/2026; suas variantes permanecem como referência. A próxima execução completa será na AWS, após os merges e o deploy, antes da gravação.
+
+## Acessos LOCAL e AWS — nota de preparação, não narrar
+
+Abrir a [ficha privada de acessos](acessos-gravacao.local.md) antes da captura, autenticar as sessões e fechar a ficha. Ela reúne as contas do sistema e do Mercado Livre/Mercado Pago por ambiente; nenhum login, senha ou token deve entrar na fala ou nas imagens.
+
+- **LOCAL:** quatro perfis fictícios no portal 5273 e pagamento pelo simulador local, sem login Mercado Pago.
+- **AWS:** logins do novo portal/base ainda pendentes de criação/validação. Usar Mercado Livre/Mercado Pago TEST, com comprador separado do vendedor; não apresentar credenciais locais ou históricas como acessos confirmados da nova AWS.
+
 ## 1. 00:00–00:40 — Apresentação
 
 > Somos Matheus Chula e Karina Lage. Este é o projeto da Fase quatro da Oficina. Vamos acompanhar uma ordem de serviço em quatro perfis: administrador, consultor técnico, mecânico e cliente. Mostramos uma falha de estoque, sua compensação e recuperação, e concluímos reparo, pagamento e entrega. Depois, apresentamos a arquitetura, os testes, o deploy automatizado e os sinais do fluxo distribuído.

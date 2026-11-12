@@ -144,6 +144,12 @@ O baseline inclui EKS, dois nodes `t3.medium`/50 GiB, dois RDS `db.t3.micro`, tr
 
 Após validar e preservar o vídeo, PDF e evidências, desmontar **somente os recursos da nova conta criados para esta entrega**, conforme a decisão do grupo. A conta antiga e seus states ficam fora desta operação. Confirmar a conta esperada e o inventário antes do plano de remoção. Interromper entradas, preservar as evidências e os backups necessários, remover Gateway/consumidores e workloads/Services enquanto o EKS ainda pode limpar os LoadBalancers. Depois remover recursos de aplicação, bancos e plataforma na ordem das dependências. OS/Billing têm proteção de exclusão e snapshot final obrigatório com nome fixo; resolver proteção e conflito de snapshot por mudança revisada. Conferir ECR não vazio, snapshots, secrets em janela de recuperação, versões S3 e outros resíduos cobrados; registrar o que foi removido e qualquer retenção necessária. Não excluir a organização ou recursos Datadog reutilizados; reconciliar o Synthetic para não monitorar um endpoint já desligado. O backend de state é o último recurso a encerrar, após concluir a remoção e preservar o registro operacional de forma privada; nunca publicar state bruto em artifacts, pois pode conter segredos.
 
+## Preparação da versão para merge
+
+A rodada de ensaio local foi encerrada pelo grupo em 12/11/2026. Preservar as evidências anteriores e publicar as correções posteriores como novos commits; não atribuir os resultados de um SHA anterior à nova versão. A jornada completa passa a ser requisito de homologação na AWS antes da gravação, sem uma nova rodada local como condição de merge.
+
+Antes dos merges, exigir CI do HEAD atual, revisão de outro integrante e os checks definidos nas regras de `main`. Manter `BILLING_CI_REF` e `PRODUCTION_CI_REF` nos commits candidatos durante o CI da API. Consolidar os SHAs resultantes dos merges no manifesto antes de construir imagens ou gerar planos. CI ativo não autoriza reativar deploy automático na conta anterior.
+
 ## Referências e validação local
 
 - [AWS: requisitos de rede EKS](https://docs.aws.amazon.com/eks/latest/userguide/network-reqs.html) e [IDs físicos de AZ entre contas](https://docs.aws.amazon.com/global-infrastructure/latest/regions/az-ids.html).

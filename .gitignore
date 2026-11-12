@@ -93,5 +93,5 @@ kubeconfig-*
 /output/desktop-review-*/
 /output/video-readiness/
 
-# Roteiro de consulta local com credenciais de homologacao
-/docs/entrega/roteiro-video.local.md
+# Roteiros e fichas privadas de acesso; nunca publicar credenciais
+/docs/entrega/*.local.md
