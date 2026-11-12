@@ -134,7 +134,7 @@ export function localDemoAuthPlugin({
       if (Buffer.byteLength(jwtSecret, 'utf8') < 32 || Buffer.byteLength(internalToken, 'utf8') < 32) {
         throw new Error('Local demo authentication secrets must have at least 32 bytes.');
       }
-      settings = { lookupUrl: localApiUrl(apiTarget), jwtSecret, internalToken };
+      settings = { lookupUrl: localApiUrl(apiTarget), jwtSecret, internalToken, port: config.server.port };
       // Resolved config also overrides a CLI --host 0.0.0.0 before Vite binds.
       config.server.host = '127.0.0.1';
       config.server.allowedHosts = ['localhost', '127.0.0.1'];
@@ -187,10 +187,16 @@ export function localDemoAuthPlugin({
     },
     transformIndexHtml(html, context) {
       if (!settings || !enabled || !context.server) return html;
+      const port = Number(context.server.config?.server?.port ?? settings.port);
+      const notice = port === 5273
+        ? 'Ensaio Fase 4 · localhost:5273 · Use os acessos LOCAL do roteiro. Sem cobranças reais.'
+        : port === 5173
+          ? 'Demonstração anterior · localhost:5173 · Base e acessos separados do ensaio. Sem cobranças reais.'
+          : 'Demonstração local: sem cobranças reais';
       return { html, tags: [{
         tag: 'div',
         attrs: { role: 'status', 'data-local-demo': '', style: 'padding:10px 16px;background:#fff4ce;color:#513c06;text-align:center;font:600 14px system-ui' },
-        children: 'Demonstração local: sem cobranças reais',
+        children: notice,
         injectTo: 'body-prepend',
       }] };
     },

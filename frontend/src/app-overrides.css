@@ -447,6 +447,10 @@
   border-bottom: 0;
 }
 
+.catalog-combobox .client-combobox__option {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
 .client-combobox__option:hover,
 .client-combobox__option.is-active,
 .client-combobox__option[aria-selected='true'] {
@@ -478,9 +482,8 @@
 
 .client-combobox__identity strong,
 .client-combobox__identity small {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .client-combobox__identity small,
@@ -1517,6 +1520,10 @@
 
   .client-combobox__option {
     grid-template-columns: 2.25rem minmax(0, 1fr);
+  }
+
+  .catalog-combobox .client-combobox__option {
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .client-combobox__avatar {

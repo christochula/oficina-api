@@ -227,6 +227,10 @@ test('local key overrides remain in Node and the demo notice is never rendered f
   const html = '<body><div id="app"></div></body>';
   const transformed = local.plugin.transformIndexHtml(html, { server: {} });
   assert.equal(transformed.tags[0].children, 'Demonstração local: sem cobranças reais');
+  const rehearsal = local.plugin.transformIndexHtml(html, { server: { config: { server: { port: 5273 } } } });
+  const previousDemo = local.plugin.transformIndexHtml(html, { server: { config: { server: { port: 5173 } } } });
+  assert.match(rehearsal.tags[0].children, /Ensaio Fase 4 · localhost:5273 · Use os acessos LOCAL do roteiro/);
+  assert.match(previousDemo.tags[0].children, /Demonstração anterior · localhost:5173 · Base e acessos separados/);
   assert.equal(JSON.stringify(transformed).includes(secret), false);
   assert.equal(JSON.stringify(transformed).includes(internal), false);
   assert.equal(local.plugin.transformIndexHtml(html, {}), html);
