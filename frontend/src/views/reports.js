@@ -110,7 +110,7 @@ function reportsHeader() {
   return pageHeader({
     eyebrow: 'Eficiência operacional',
     title: 'Relatórios',
-    description: 'Tempos e taxas calculados pela API a partir do histórico real das ordens de serviço.',
+    description: 'Tempos e taxas calculados a partir do histórico real das ordens de serviço.',
     actions: button({
       label: 'Atualizar dados',
       iconName: 'refresh',
@@ -165,7 +165,7 @@ function renderKpiCards(kpis) {
       <article class="metric-card">
         <div class="metric-top"><span class="metric-label">Taxa de aprovação de orçamentos</span><span class="metric-icon">${icon('verified')}</span></div>
         <p class="metric-value">${escapeHtml(formatPercent(approval))}</p>
-        <div class="metric-detail"><span>Percentual calculado pela API</span></div>
+        <div class="metric-detail"><span>Proporção de orçamentos aprovados</span></div>
         <div class="kpi-bar" role="progressbar" aria-label="Taxa de aprovação de orçamentos" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${escapeAttribute(approvalProgress)}"><span style="--progress: ${escapeAttribute(approvalProgress)}%"></span></div>
       </article>
     </div>

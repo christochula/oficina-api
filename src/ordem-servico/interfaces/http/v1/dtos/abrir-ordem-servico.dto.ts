@@ -134,6 +134,7 @@ class VeiculoAberturaDto {
  * Ao menos um problema relatado ou um serviço solicitado deve ser informado.
  */
 export class AbrirOrdemServicoDto {
+  @ApiPropertyOptional() @IsOptional() @IsString() filialId?: string;
   @ApiPropertyOptional({
     description: 'ID do cliente que solicita o atendimento',
   })

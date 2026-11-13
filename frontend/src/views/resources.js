@@ -56,7 +56,7 @@ const DEFINITIONS = Object.freeze({
     searchLabel: 'Buscar clientes',
     searchPlaceholder: 'Nome, contato ou CPF/CNPJ',
     searchHint:
-      'A busca filtra a página carregada. Um CPF ou CNPJ completo consulta o cadastro diretamente.',
+      'Busque em todos os clientes por nome, contato ou CPF/CNPJ.',
   },
   veiculos: {
     key: 'veiculos',
@@ -71,7 +71,7 @@ const DEFINITIONS = Object.freeze({
     searchLabel: 'Buscar veículos',
     searchPlaceholder: 'Placa, marca ou modelo',
     searchHint:
-      'A busca filtra a página carregada. Uma placa completa consulta o cadastro diretamente.',
+      'Busque em todos os veículos por placa, marca ou modelo.',
   },
   estoque: {
     key: 'estoque',
@@ -84,9 +84,9 @@ const DEFINITIONS = Object.freeze({
     mutationRoles: [ROLES.ADMIN],
     createLabel: 'Cadastrar peça',
     searchLabel: 'Buscar peças',
-    searchPlaceholder: 'Código, nome ou ID da peça',
+    searchPlaceholder: 'Código, nome ou descrição da peça',
     searchHint:
-      'A busca filtra a página carregada. Um ID iniciado por pc consulta a peça diretamente.',
+      'Busque em todas as peças por código, nome ou descrição e confira a filial.',
   },
   catalogo: {
     key: 'catalogo',
@@ -99,9 +99,9 @@ const DEFINITIONS = Object.freeze({
     mutationRoles: [ROLES.ADMIN],
     createLabel: 'Novo serviço',
     searchLabel: 'Buscar serviços',
-    searchPlaceholder: 'Nome, categoria ou ID do serviço',
+    searchPlaceholder: 'Nome, categoria ou descrição do serviço',
     searchHint:
-      'A busca filtra os serviços ativos desta página. Um ID iniciado por sv consulta também serviços inativos.',
+      'Busque em todo o catálogo por nome, categoria ou descrição e selecione a situação.',
   },
   usuarios: {
     key: 'usuarios',
@@ -114,7 +114,7 @@ const DEFINITIONS = Object.freeze({
     mutationRoles: [ROLES.ADMIN],
     createLabel: 'Novo usuário',
     searchLabel: 'Buscar usuários',
-    searchPlaceholder: 'Nome, e-mail ou ID do usuário',
+    searchPlaceholder: 'Nome ou e-mail do usuário',
     searchHint:
       'A pesquisa consulta toda a base e pode ser combinada com papel e situação.',
   },
@@ -184,19 +184,7 @@ function itemId(key, item) {
     : normalizeResourceId(item?.id);
 }
 
-function compactId(value) {
-  const id = normalizeResourceId(value);
-  if (id.length <= 16) return id || '—';
-  return `${id.slice(0, 8)}…${id.slice(-5)}`;
-}
 
-function normalizeSearch(value) {
-  return String(value ?? '')
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLocaleLowerCase('pt-BR')
-    .trim();
-}
 
 function cleanDocument(value) {
   const raw = String(value ?? '').trim();
@@ -230,11 +218,7 @@ function maskPhone(value) {
   return `(**) *****-${digits.slice(-4)}`;
 }
 
-function maskPlate(value) {
-  const plate = cleanPlate(value);
-  if (plate.length !== 7) return plate || '—';
-  return `${plate.slice(0, 3)}••${plate.slice(-2)}`;
-}
+
 
 function formatMoney(value) {
   const numeric = Number(value);
@@ -284,7 +268,9 @@ function freshState(key) {
     meta: { pagina: 1, porPagina: PAGE_SIZE, total: 0, totalPaginas: 0 },
     search: '',
     roleFilter: '',
-    activeFilter: '',
+    activeFilter: key === 'catalogo' ? 'true' : '',
+    branchFilter: '',
+    scrollY: 0,
     mode: 'page',
     lookupLabel: '',
     notFound: '',
@@ -334,81 +320,19 @@ function renderHeader(definition, role) {
 }
 
 function renderSearch(definition, state) {
-  if (definition.key === 'usuarios') {
-    return `<section class="resource-toolbar interactive-card" aria-labelledby="resource-search-title">
-      <form class="resource-search resource-search--users" data-resource-search-form>
-        <div class="form-field resource-search__field resource-search__field--query">
-          <label id="resource-search-title" for="resource-search-input">${escapeHtml(definition.searchLabel)}</label>
-          <div class="input-with-icon">
-            <span class="input-with-action__icon">${icon('search')}</span>
-            <input
-              id="resource-search-input"
-              name="query"
-              type="search"
-              value="${escapeHtml(state.search)}"
-              placeholder="${escapeHtml(definition.searchPlaceholder)}"
-              maxlength="120"
-              autocomplete="off"
-              aria-describedby="resource-search-hint"
-              data-search-input
-            />
-          </div>
-        </div>
-        <div class="form-field resource-search__filter">
-          <label for="resource-user-role">Papel</label>
-          <select id="resource-user-role" name="papel" data-user-filter>
-            <option value="">Todos os papéis</option>
-            <option value="ADMINISTRADOR" ${state.roleFilter === 'ADMINISTRADOR' ? 'selected' : ''}>Administrador</option>
-            <option value="CONSULTOR_TECNICO" ${state.roleFilter === 'CONSULTOR_TECNICO' ? 'selected' : ''}>Consultor técnico</option>
-            <option value="MECANICO" ${state.roleFilter === 'MECANICO' ? 'selected' : ''}>Mecânico</option>
-          </select>
-        </div>
-        <div class="form-field resource-search__filter">
-          <label for="resource-user-active">Situação</label>
-          <select id="resource-user-active" name="ativo" data-user-filter>
-            <option value="">Ativos e inativos</option>
-            <option value="true" ${state.activeFilter === 'true' ? 'selected' : ''}>Ativos</option>
-            <option value="false" ${state.activeFilter === 'false' ? 'selected' : ''}>Inativos</option>
-          </select>
-        </div>
-        <div class="resource-search__actions">
-          <button class="interactive-button button-primary" type="submit">${icon('search')} Buscar</button>
-          <button class="interactive-button button-ghost" type="button" data-action="clear-filters">${icon('filter_alt_off')} Limpar</button>
-        </div>
-        <p class="field-hint resource-search__hint" id="resource-search-hint">${escapeHtml(definition.searchHint)}</p>
-      </form>
-    </section>`;
-  }
-  const submitLabel = 'Consultar cadastro';
+  const users = definition.key === 'usuarios', stock = definition.key === 'estoque';
   return `<section class="resource-toolbar interactive-card" aria-labelledby="resource-search-title">
-    <form class="resource-search" data-resource-search-form>
-      <div class="form-field resource-search__field">
+    <form class="resource-search resource-search--users" data-resource-search-form>
+      <div class="form-field resource-search__field resource-search__field--query">
         <label id="resource-search-title" for="resource-search-input">${escapeHtml(definition.searchLabel)}</label>
-        <div class="input-with-action">
-          <span class="input-with-action__icon">${icon('search')}</span>
-          <input
-            id="resource-search-input"
-            name="query"
-            type="search"
-            value="${escapeHtml(state.search)}"
-            placeholder="${escapeHtml(definition.searchPlaceholder)}"
-            autocomplete="off"
-            aria-describedby="resource-search-hint"
-            data-search-input
-          />
-          <button class="interactive-button button-secondary" type="submit">${escapeHtml(submitLabel)}</button>
-        </div>
-        <p class="field-hint" id="resource-search-hint">${escapeHtml(definition.searchHint)}</p>
+        <div class="input-with-icon">${icon('search')}<input id="resource-search-input" name="query" type="search" value="${escapeHtml(state.search)}" placeholder="${escapeHtml(definition.searchPlaceholder)}" maxlength="120" autocomplete="off" aria-describedby="resource-search-hint" data-search-input></div>
       </div>
+      ${users ? `<div class="form-field resource-search__filter"><label for="resource-user-role">Papel</label><select id="resource-user-role" name="papel" data-resource-filter><option value="">Todos os papéis</option>${['ADMINISTRADOR', 'CONSULTOR_TECNICO', 'MECANICO'].map(role => `<option value="${role}"${state.roleFilter === role ? ' selected' : ''}>${roleLabel(role)}</option>`).join('')}</select></div>` : ''}
+      ${stock ? `<div class="form-field resource-search__filter"><label for="resource-branch">Filial</label><input id="resource-branch" type="search" name="filialId" value="${escapeHtml(state.branchFilter)}" placeholder="Todas as filiais" list="resource-branches" data-resource-filter><datalist id="resource-branches"><option value="filial-sp">São Paulo</option><option value="filial-rj">Rio de Janeiro</option></datalist></div>` : ''}
+      <div class="form-field resource-search__filter"><label for="resource-active">Situação</label><select id="resource-active" name="ativo" data-resource-filter>${definition.key === 'catalogo' ? '' : `<option value=""${state.activeFilter === '' ? ' selected' : ''}>Ativos e inativos</option>`}<option value="true"${state.activeFilter === 'true' ? ' selected' : ''}>Ativos</option><option value="false"${state.activeFilter === 'false' ? ' selected' : ''}>Inativos</option></select></div>
+      <div class="resource-search__actions"><button class="interactive-button button-primary" type="submit">${icon('search')} Buscar</button><button class="interactive-button button-ghost" type="button" data-action="clear-filters">${icon('filter_alt_off')} Limpar</button></div>
+      <p class="field-hint resource-search__hint" id="resource-search-hint">${escapeHtml(definition.searchHint)}</p>
     </form>
-    ${
-      state.mode === 'lookup' && definition.key !== 'usuarios'
-        ? `<div class="lookup-context" role="status">
-            <span>${icon('filter_alt')} Consulta direta: ${escapeHtml(state.lookupLabel)}</span>
-            <button class="interactive-button button-ghost" type="button" data-action="reset-lookup">Voltar à lista</button>
-          </div>`
-        : ''
-    }
   </section>`;
 }
 
@@ -444,54 +368,10 @@ function renderNotFound(message) {
   </div>`;
 }
 
-function searchableText(key, item) {
-  if (key === 'clientes') {
-    return [
-      itemId(key, item),
-      item.nome,
-      item.email,
-      item.telefone,
-      item.tipoDoc,
-      item.numeroDoc,
-      item.cidade,
-      item.estado,
-    ].join(' ');
-  }
-  if (key === 'veiculos') {
-    return [
-      itemId(key, item),
-      item.placa,
-      item.renavam,
-      item.chassi,
-      item.marca,
-      item.modelo,
-      item.ano,
-      item.cor,
-    ].join(' ');
-  }
-  if (key === 'estoque') {
-    return [
-      itemId(key, item),
-      item.peca?.codigo,
-      item.peca?.nome,
-      item.peca?.descricao,
-    ].join(' ');
-  }
-  return [
-    itemId(key, item),
-    item.nome,
-    item.descricao,
-    item.categoria,
-  ].join(' ');
-}
+function filteredItems(state) { return state.items; }
 
-function filteredItems(state) {
-  if (state.key === 'usuarios') return state.items;
-  const query = normalizeSearch(state.search);
-  if (!query || state.mode === 'lookup') return state.items;
-  return state.items.filter((item) =>
-    normalizeSearch(searchableText(state.key, item)).includes(query),
-  );
+function supportReference(id) {
+  return `<details class="resource-record-id"><summary>Referência para suporte</summary><code class="mono-value">ID: ${escapeHtml(id)}</code></details>`;
 }
 
 function actionButtons(key, item, mutationAllowed, currentSubject = '') {
@@ -538,7 +418,7 @@ function actionButtons(key, item, mutationAllowed, currentSubject = '') {
 function renderClientRow(item, mutationAllowed) {
   const id = itemId('clientes', item);
   return `<tr>
-    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Sem nome')}</strong><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Sem nome')}</strong>${supportReference(id)}</span></th>
     <td><span class="resource-cell-stack"><span>${escapeHtml(item.tipoDoc || 'Documento')}</span><small>${escapeHtml(maskDocument(item.numeroDoc))}</small></span></td>
     <td><span class="resource-cell-stack"><span>${escapeHtml(maskEmail(item.email))}</span><small>${escapeHtml(maskPhone(item.telefone))}</small></span></td>
     <td>${activeBadge(item.ativo)}</td>
@@ -549,7 +429,7 @@ function renderClientRow(item, mutationAllowed) {
 function renderVehicleRow(item, mutationAllowed) {
   const id = itemId('veiculos', item);
   return `<tr>
-    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(maskPlate(item.placa))}</strong><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.placa || 'Placa não informada')}</strong>${supportReference(id)}</span></th>
     <td>${escapeHtml(`${item.marca ?? ''} ${item.modelo ?? ''}`.trim() || '—')}</td>
     <td class="numeric-cell">${escapeHtml(item.ano ?? '—')}</td>
     <td>${escapeHtml(item.cor || '—')}</td>
@@ -564,9 +444,10 @@ function renderStockRow(item, mutationAllowed) {
   const available = Number(item.quantidadeDisponivel ?? 0);
   const minimum = Number(item.quantidadeMinima ?? 0);
   const low = available <= minimum;
+  const stockQuantity = (value) => value === undefined || value === null ? '—' : integerFormatter.format(Number(value));
   return `<tr>
-    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.peca?.nome || 'Peça sem nome')}</strong><small class="mono-value">Código: ${escapeHtml(item.peca?.codigo || 'Sem código')}</small><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
-    <td class="numeric-cell"><span class="resource-cell-stack"><strong>${escapeHtml(integerFormatter.format(available))}</strong><small>Mínimo: ${escapeHtml(integerFormatter.format(minimum))}</small></span></td>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.peca?.nome || 'Peça sem nome')}</strong><small class="stock-branch">Filial: ${escapeHtml(item.filialId || 'Não informada')}</small><small class="mono-value">Código: ${escapeHtml(item.peca?.codigo || 'Sem código')}</small><small class="resource-description">${escapeHtml(item.peca?.descricao || 'Sem descrição')}</small>${supportReference(id)}</span></th>
+    <td class="numeric-cell"><span class="resource-cell-stack stock-balance"><strong>${escapeHtml(integerFormatter.format(available))} <span class="stock-balance-label">disponíveis</span></strong><small>Reservadas: ${escapeHtml(stockQuantity(item.quantidadeReservada))} · Consumidas: ${escapeHtml(stockQuantity(item.quantidadeConsumida))}</small><small>Mínimo: ${escapeHtml(integerFormatter.format(minimum))}</small></span></td>
     <td class="numeric-cell">${escapeHtml(formatMoney(item.peca?.precoVenda))}</td>
     <td>${activeBadge(item.peca?.ativo, low && item.peca?.ativo !== false)}</td>
     ${mutationAllowed ? `<td>${actionButtons('estoque', item, mutationAllowed)}</td>` : ''}
@@ -576,7 +457,7 @@ function renderStockRow(item, mutationAllowed) {
 function renderServiceRow(item, mutationAllowed) {
   const id = itemId('catalogo', item);
   return `<tr>
-    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Serviço sem nome')}</strong><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Serviço sem nome')}</strong>${supportReference(id)}</span></th>
     <td>${escapeHtml(item.categoria || 'Sem categoria')}</td>
     <td class="resource-description">${escapeHtml(item.descricao || 'Sem descrição')}</td>
     <td>${activeBadge(item.ativo)}</td>
@@ -587,7 +468,7 @@ function renderServiceRow(item, mutationAllowed) {
 function renderUserRow(item, mutationAllowed, currentSubject) {
   const id = itemId('usuarios', item);
   return `<tr>
-    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Usuário sem nome')}</strong><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></span></th>
+    <th scope="row"><span class="resource-cell-stack"><strong>${escapeHtml(item.nome || 'Usuário sem nome')}</strong>${supportReference(id)}</span></th>
     <td><span class="resource-cell-stack"><span>${escapeHtml(item.email || '—')}</span><small>Criado em ${escapeHtml(formatDate(item.criadoEm))}</small></span></td>
     <td>${escapeHtml(roleLabel(item.papel))}</td>
     <td>${activeBadge(item.ativo)}</td>
@@ -599,30 +480,30 @@ function tableDefinition(key) {
   if (key === 'clientes')
     return {
       caption: 'Lista de clientes',
-      headings: ['Cliente / ID', 'Documento', 'Contato', 'Situação', 'Ações'],
+      headings: ['Cliente', 'Documento', 'Contato', 'Situação', 'Ações'],
       row: renderClientRow,
     };
   if (key === 'veiculos')
     return {
       caption: 'Lista de veículos',
-      headings: ['Placa / ID', 'Veículo', 'Ano', 'Cor', 'KM', 'Situação', 'Ações'],
+      headings: ['Placa', 'Veículo', 'Ano', 'Cor', 'KM', 'Situação', 'Ações'],
       row: renderVehicleRow,
     };
   if (key === 'estoque')
     return {
       caption: 'Lista de peças em estoque',
-      headings: ['Peça / Código / ID', 'Saldo', 'Preço de venda', 'Situação', 'Ações'],
+      headings: ['Peça / Filial', 'Estoque', 'Preço de venda', 'Situação', 'Ações'],
       row: renderStockRow,
     };
   if (key === 'usuarios')
     return {
       caption: 'Lista de usuários',
-      headings: ['Usuário / ID', 'Contato', 'Papel', 'Situação', 'Ações'],
+      headings: ['Usuário', 'Contato', 'Papel', 'Situação', 'Ações'],
       row: renderUserRow,
     };
   return {
     caption: 'Catálogo de serviços',
-    headings: ['Serviço / ID', 'Categoria', 'Descrição', 'Situação', 'Ações'],
+    headings: ['Serviço', 'Categoria', 'Descrição', 'Situação', 'Ações'],
     row: renderServiceRow,
   };
 }
@@ -631,14 +512,14 @@ function mobileCard(key, item, mutationAllowed, currentSubject = '') {
   const id = itemId(key, item);
   if (key === 'clientes') {
     return `<article class="resource-card interactive-card">
-      <header><div><h3>${escapeHtml(item.nome || 'Sem nome')}</h3><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
+      <header><div><h3>${escapeHtml(item.nome || 'Sem nome')}</h3>${supportReference(id)}</div>${activeBadge(item.ativo)}</header>
       <dl><div><dt>Documento</dt><dd>${escapeHtml(maskDocument(item.numeroDoc))}</dd></div><div><dt>Contato</dt><dd>${escapeHtml(maskEmail(item.email))}</dd></div></dl>
       ${actionButtons(key, item, mutationAllowed)}
     </article>`;
   }
   if (key === 'veiculos') {
     return `<article class="resource-card interactive-card">
-      <header><div><h3>${escapeHtml(maskPlate(item.placa))}</h3><small>${escapeHtml(`${item.marca ?? ''} ${item.modelo ?? ''}`.trim())}</small></div>${activeBadge(item.ativo)}</header>
+      <header><div><h3>${escapeHtml(item.placa || 'Placa não informada')}</h3><small>${escapeHtml(`${item.marca ?? ''} ${item.modelo ?? ''}`.trim())}</small></div>${activeBadge(item.ativo)}</header>
       <dl><div><dt>Ano</dt><dd>${escapeHtml(item.ano ?? '—')}</dd></div><div><dt>Cor</dt><dd>${escapeHtml(item.cor ?? '—')}</dd></div><div><dt>Quilometragem</dt><dd>${escapeHtml(formatKm(item.quilometragem))}</dd></div></dl>
       ${actionButtons(key, item, mutationAllowed)}
     </article>`;
@@ -655,13 +536,13 @@ function mobileCard(key, item, mutationAllowed, currentSubject = '') {
   }
   if (key === 'usuarios') {
     return `<article class="resource-card interactive-card">
-      <header><div><h3>${escapeHtml(item.nome || 'Usuário sem nome')}</h3><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
+      <header><div><h3>${escapeHtml(item.nome || 'Usuário sem nome')}</h3>${supportReference(id)}</div>${activeBadge(item.ativo)}</header>
       <dl><div><dt>E-mail</dt><dd>${escapeHtml(item.email || '—')}</dd></div><div><dt>Papel</dt><dd>${escapeHtml(roleLabel(item.papel))}</dd></div><div><dt>Criado em</dt><dd>${escapeHtml(formatDate(item.criadoEm))}</dd></div></dl>
       ${actionButtons(key, item, mutationAllowed, currentSubject)}
     </article>`;
   }
   return `<article class="resource-card interactive-card">
-    <header><div><h3>${escapeHtml(item.nome || 'Serviço sem nome')}</h3><small class="resource-record-id mono-value" title="${escapeHtml(id)}">ID: ${escapeHtml(compactId(id))}</small></div>${activeBadge(item.ativo)}</header>
+    <header><div><h3>${escapeHtml(item.nome || 'Serviço sem nome')}</h3>${supportReference(id)}</div>${activeBadge(item.ativo)}</header>
     <dl><div><dt>Categoria</dt><dd>${escapeHtml(item.categoria || 'Sem categoria')}</dd></div><div><dt>Descrição</dt><dd>${escapeHtml(item.descricao || 'Sem descrição')}</dd></div></dl>
     ${actionButtons(key, item, mutationAllowed)}
   </article>`;
@@ -679,32 +560,10 @@ function renderPagination(state) {
   </nav>`;
 }
 
-function renderEmpty(definition, state, mutationAllowed, filtered) {
-  const userFiltered = definition.key === 'usuarios' && Boolean(
-    state.search || state.roleFilter || state.activeFilter !== '',
-  );
-  const filteredEmpty = userFiltered || Boolean(state.search && state.items.length && !filtered.length);
-  const emptyNoun = {
-    clientes: 'cliente',
-    veiculos: 'veículo',
-    estoque: 'item de estoque',
-    catalogo: 'serviço',
-    usuarios: 'usuário',
-  }[definition.key];
-  return `<div class="feedback-state feedback-state-empty" role="status">
-    ${icon(filteredEmpty ? 'filter_alt_off' : 'inbox', 'feedback-state__icon')}
-    <h2>${filteredEmpty ? 'Nenhum resultado encontrado' : `Nenhum ${emptyNoun} encontrado`}</h2>
-    <p>${
-      filteredEmpty
-        ? 'Revise a pesquisa ou ajuste os filtros aplicados.'
-        : 'Assim que houver cadastros, eles aparecerão aqui.'
-    }</p>
-    ${
-      !filteredEmpty && mutationAllowed
-        ? `<button class="interactive-button button-primary" type="button" data-action="create">${icon('add')} ${escapeHtml(definition.createLabel)}</button>`
-        : ''
-    }
-  </div>`;
+function renderEmpty(definition, state, mutationAllowed) {
+  const filtered = Boolean(state.search || state.branchFilter || state.roleFilter || state.activeFilter !== '');
+  const emptyLabel = { usuarios: 'Nenhum usuário encontrado', clientes: 'Nenhum cliente encontrado', veiculos: 'Nenhum veículo encontrado', estoque: 'Nenhuma peça encontrada', catalogo: 'Nenhum serviço encontrado' }[definition.key] ?? 'Nenhum cadastro encontrado';
+  return `<div class="feedback-state feedback-state-empty" role="status">${icon(filtered ? 'filter_alt_off' : 'inbox', 'feedback-state__icon')}<h2>${filtered ? 'Nenhum resultado encontrado' : emptyLabel}</h2><p>${filtered ? 'Revise a busca, a filial ou a situação. A consulta considera toda a base.' : 'Assim que houver cadastros, eles aparecerão aqui.'}</p>${filtered ? `<button type="button" class="interactive-button button-secondary" data-action="clear-filters">Limpar filtros</button>` : mutationAllowed ? `<button class="interactive-button button-primary" type="button" data-action="create">${icon('add')} ${escapeHtml(definition.createLabel)}</button>` : ''}</div>`;
 }
 
 function renderResults(definition, state, role, currentSubject = '') {
@@ -719,11 +578,7 @@ function renderResults(definition, state, role, currentSubject = '') {
   const headings = mutationAllowed ? table.headings : table.headings.slice(0, -1);
   const total = Number(state.meta.total ?? state.items.length);
   const pageCount = state.items.length;
-  const filteredLabel = state.search && state.mode === 'page'
-    ? `${items.length} resultado(s) nesta página`
-    : state.mode === 'lookup'
-      ? `${items.length} cadastro localizado`
-      : `${pageCount} de ${total} resultado(s)`;
+  const filteredLabel = `${pageCount} de ${total} resultado(s)`;
   return `<div class="resource-results__summary" role="status" aria-live="polite">
       <span>${escapeHtml(filteredLabel)}</span>
     </div>
@@ -844,14 +699,15 @@ function vehicleForm(item, editing) {
 
 function stockForm(item, editing) {
   return `<div class="form-grid">
+    ${inputField({ name: 'filialId', label: 'Filial', value: item?.filialId || 'filial-sp', required: true, readonly: editing, hint: 'Saldo e reservas pertencem a esta filial.' })}
     ${inputField({ name: 'codigo', label: 'Código da peça', value: item?.peca?.codigo, required: true, readonly: editing, hint: editing ? 'O código é imutável.' : undefined })}
     ${inputField({ name: 'nome', label: 'Nome da peça', value: item?.peca?.nome, required: true, minlength: 2 })}
     ${inputField({ name: 'precoVenda', label: 'Preço de venda', value: item?.peca?.precoVenda ?? '', type: 'number', required: true, min: 0, step: '0.01', inputmode: 'decimal' })}
     ${
       editing
         ? ''
-        : inputField({ name: 'quantidadeInicial', label: 'Quantidade inicial', value: 0, type: 'number', min: 0, step: '0.001', inputmode: 'decimal' }) +
-          inputField({ name: 'quantidadeMinima', label: 'Quantidade mínima', value: 0, type: 'number', min: 0, step: '0.001', inputmode: 'decimal', hint: 'Definida somente no cadastro nesta versão da API.' })
+        : inputField({ name: 'quantidadeInicial', label: 'Quantidade inicial', value: 0, type: 'number', min: 0, step: '1', inputmode: 'numeric' }) +
+          inputField({ name: 'quantidadeMinima', label: 'Quantidade mínima', value: 0, type: 'number', min: 0, step: '1', inputmode: 'numeric', hint: 'Definida somente no cadastro nesta versão da API.' })
     }
     ${textAreaField({ name: 'descricao', label: 'Descrição', value: item?.peca?.descricao })}
   </div>`;
@@ -891,9 +747,9 @@ function dialogCopy(key, mode, item) {
   if (mode === 'entry')
     return {
       title: 'Dar entrada no estoque',
-      description: `Adicione unidades ao saldo de ${item?.peca?.nome ?? 'esta peça'}.`,
+      description: `Adicione unidades ao saldo de ${item?.peca?.nome ?? 'esta peça'} na filial ${item?.filialId || 'informada no cadastro'}. A entrada aumenta somente o saldo disponível desta peça.`,
       submit: 'Registrar entrada',
-      body: `<div class="form-grid">${inputField({ name: 'quantidade', label: 'Quantidade de entrada', type: 'number', required: true, min: '0.001', step: '0.001', inputmode: 'decimal', hint: 'Informe um valor maior que zero.' })}</div>`,
+      body: `<div class="form-grid">${inputField({ name: 'quantidade', label: 'Quantidade de entrada', type: 'number', required: true, min: '1', step: '1', inputmode: 'numeric', hint: 'Informe uma quantidade inteira de unidades.' })}</div>`,
     };
   const editing = mode === 'edit';
   const titles = {
@@ -1041,17 +897,7 @@ function normalizePagedResponse(response, page, perPage) {
   return { data, meta };
 }
 
-function normalizeEntityResponse(response) {
-  if (
-    response &&
-    typeof response === 'object' &&
-    !Array.isArray(response) &&
-    'data' in response &&
-    !('meta' in response)
-  )
-    return response.data;
-  return response;
-}
+
 
 function statusOf(error) {
   return Number(
@@ -1171,6 +1017,7 @@ function buildPayload(key, mode, formData, item = null) {
     if (mode === 'edit') return { ...base, descricao: base.descricao ?? null };
     return compactObject({
       codigo: formValue(formData, 'codigo'),
+      filialId: formValue(formData, 'filialId') || 'filial-sp',
       ...base,
       quantidadeInicial: numericValue(formData, 'quantidadeInicial', { optional: true }),
       quantidadeMinima: numericValue(formData, 'quantidadeMinima', { optional: true }),
@@ -1239,6 +1086,37 @@ export function mountResourcesView(root, route, ctx = {}) {
   let destroyed = false;
   let loadSequence = 0;
   let userSearchTimer = null;
+  let requestController = null;
+  const windowRef = root.ownerDocument?.defaultView ?? globalThis;
+  const contextKey = currentSubject ? `oficina.resource-context.v1:${role}:${currentSubject}:${key}` : '';
+  let contextStorage;
+  try { contextStorage = ctx.storage ?? globalThis.sessionStorage; } catch { /* Storage may be unavailable. */ }
+  if (contextKey) {
+    try {
+      const saved = JSON.parse(contextStorage?.getItem(contextKey) || 'null');
+      if (saved) {
+        state.search = String(saved.search ?? '').slice(0, 120);
+        state.branchFilter = String(saved.branchFilter ?? '').slice(0, 120);
+        state.activeFilter = ['true', 'false', ''].includes(saved.activeFilter) ? saved.activeFilter : state.activeFilter;
+        state.roleFilter = ['ADMINISTRADOR', 'CONSULTOR_TECNICO', 'MECANICO'].includes(saved.roleFilter) ? saved.roleFilter : '';
+        state.page = Math.max(1, Number(saved.page) || 1);
+        state.scrollY = Math.max(0, Number(saved.scrollY) || 0);
+      }
+    } catch { /* Ignore stale context without blocking the list. */ }
+  }
+  const params = new URLSearchParams(String(windowRef.location?.hash ?? '').split('?')[1] ?? '');
+  if (params.has('busca') || params.has('filialId')) {
+    state.search = params.get('busca') ?? '';
+    state.branchFilter = params.get('filialId') ?? '';
+    state.page = 1; state.scrollY = 0;
+  }
+  let restoringScroll = true;
+  const saveContext = () => {
+    if (!contextKey) return;
+    try { contextStorage?.setItem(contextKey, JSON.stringify({ search: state.search, branchFilter: state.branchFilter, activeFilter: state.activeFilter, roleFilter: state.roleFilter, page: state.page, scrollY: state.scrollY })); } catch { /* Optional convenience, never blocks work. */ }
+  };
+  const onScroll = () => { if (restoringScroll) return; state.scrollY = Number(windowRef.scrollY) || 0; saveContext(); };
+  windowRef.addEventListener?.('scroll', onScroll, { passive: true });
 
   const syncDialog = () => {
     const dialog = root.querySelector('[data-resource-dialog]');
@@ -1273,6 +1151,7 @@ export function mountResourcesView(root, route, ctx = {}) {
       method: options.method ?? 'GET',
       body: options.body,
       query: options.query,
+      ...(options.signal ? { signal: options.signal } : {}),
     });
 
   const loadPage = async (
@@ -1280,6 +1159,9 @@ export function mountResourcesView(root, route, ctx = {}) {
     { preserveToolbar = false } = {},
   ) => {
     const sequence = ++loadSequence;
+    requestController?.abort();
+    requestController = new AbortController();
+    const signal = requestController.signal;
     state.loading = true;
     state.error = null;
     state.notFound = '';
@@ -1290,16 +1172,14 @@ export function mountResourcesView(root, route, ctx = {}) {
     else render();
     try {
       const query = { pagina: state.page, porPagina: state.perPage };
-      if (key === 'usuarios') {
-        const busca = state.search.trim();
-        if (busca) query.busca = busca;
-        if (state.roleFilter) query.papel = state.roleFilter;
-        if (state.activeFilter !== '') {
-          query.ativo = state.activeFilter === 'true';
-        }
-      }
+      const busca = state.search.trim();
+      if (busca) query.busca = busca;
+      if (key === 'usuarios' && state.roleFilter) query.papel = state.roleFilter;
+      if (key === 'estoque' && state.branchFilter.trim()) query.filialId = state.branchFilter.trim();
+      if (state.activeFilter !== '') query.ativo = state.activeFilter === 'true';
+      saveContext();
       const response = await request(definition.endpoint, {
-        query,
+        query, signal,
       });
       if (destroyed || sequence !== loadSequence) return;
       const normalized = normalizePagedResponse(
@@ -1318,13 +1198,15 @@ export function mountResourcesView(root, route, ctx = {}) {
       state.meta = normalized.meta;
       state.page = Number(normalized.meta.pagina ?? state.page);
     } catch (error) {
-      if (destroyed || sequence !== loadSequence) return;
+      if (destroyed || sequence !== loadSequence || signal.aborted) return;
       state.error = safeError(error, 'Não foi possível carregar esta lista.');
     } finally {
       if (!destroyed && sequence === loadSequence) {
         state.loading = false;
         if (preserveToolbar) renderResultsOnly();
         else render();
+        saveContext();
+        if (restoringScroll) { windowRef.scrollTo?.({ top: state.scrollY, left: 0, behavior: 'instant' }); restoringScroll = false; }
       }
     }
   };
@@ -1342,59 +1224,10 @@ export function mountResourcesView(root, route, ctx = {}) {
     }, 300);
   };
 
-  const exactLookup = async (rawQuery) => {
-    const query = String(rawQuery ?? '').trim();
-    if (!query) return;
-    let path = '';
-    let label = query;
-    if (key === 'clientes') {
-      const document = cleanDocument(query);
-      if (![11, 14].includes(document.length)) return;
-      path = `${definition.endpoint}/documento/${encodeURIComponent(document)}`;
-      label = maskDocument(document);
-    } else if (key === 'veiculos') {
-      const plate = cleanPlate(query);
-      if (plate.length !== 7) return;
-      path = `${definition.endpoint}/placa/${encodeURIComponent(plate)}`;
-      label = maskPlate(plate);
-    } else if (key === 'estoque') {
-      if (!/^pc[a-z0-9]+$/i.test(query)) return;
-      path = `${definition.endpoint}/pecas/${encodeURIComponent(query)}`;
-    } else if (key === 'catalogo') {
-      if (!/^sv[a-z0-9]+$/i.test(query)) return;
-      path = `${definition.endpoint}/${encodeURIComponent(query)}`;
-    }
-    if (!path) return;
-    state.loading = true;
-    state.error = null;
-    state.notFound = '';
-    state.mode = 'lookup';
-    state.lookupLabel = label;
-    render();
-    try {
-      const entity = normalizeEntityResponse(await request(path));
-      if (destroyed) return;
-      state.items = entity ? [entity] : [];
-      state.meta = {
-        pagina: 1,
-        porPagina: 1,
-        total: entity ? 1 : 0,
-        totalPaginas: entity ? 1 : 0,
-      };
-    } catch (error) {
-      if (destroyed) return;
-      const safe = safeError(error);
-      if (safe.status === 404) {
-        state.notFound = 'Nenhum cadastro corresponde ao valor informado.';
-        state.items = [];
-      } else state.error = safe;
-    } finally {
-      state.loading = false;
-      render();
-    }
-  };
+
 
   const openDialog = (mode, item = null) => {
+    if (key === 'estoque' && mode === 'create' && state.branchFilter) item = { filialId: state.branchFilter };
     state.dialog = { mode, item, busy: false, error: null };
     render();
   };
@@ -1406,16 +1239,17 @@ export function mountResourcesView(root, route, ctx = {}) {
 
   const mutationPath = (mode, item, active) => {
     const id = itemId(key, item);
+    const branchQuery = key === 'estoque' && item?.filialId ? `?filialId=${encodeURIComponent(item.filialId)}` : '';
     if (mode === 'create')
       return key === 'estoque' ? `${definition.endpoint}/pecas` : definition.endpoint;
     if (mode === 'entry')
-      return `${definition.endpoint}/pecas/${encodeURIComponent(id)}/entrada`;
+      return `${definition.endpoint}/pecas/${encodeURIComponent(id)}/entrada${branchQuery}`;
     const base =
       key === 'estoque'
         ? `${definition.endpoint}/pecas/${encodeURIComponent(id)}`
         : `${definition.endpoint}/${encodeURIComponent(id)}`;
-    if (mode === 'toggle') return `${base}/${active ? 'desativar' : 'ativar'}`;
-    return base;
+    if (mode === 'toggle') return `${base}/${active ? 'desativar' : 'ativar'}${branchQuery}`;
+    return `${base}${branchQuery}`;
   };
 
   const submitMutation = async (form, mode) => {
@@ -1484,15 +1318,15 @@ export function mountResourcesView(root, route, ctx = {}) {
       return;
     }
     if (action === 'retry') {
-      if (state.mode === 'lookup') exactLookup(state.search);
-      else loadPage(state.page);
+      loadPage(state.page);
       return;
     }
-    if (action === 'clear-filters' && key === 'usuarios') {
+    if (action === 'clear-filters') {
       cancelUserSearchTimer();
       state.search = '';
       state.roleFilter = '';
-      state.activeFilter = '';
+      state.activeFilter = key === 'catalogo' ? 'true' : '';
+      state.branchFilter = '';
       loadPage(1);
       return;
     }
@@ -1530,46 +1364,35 @@ export function mountResourcesView(root, route, ctx = {}) {
   };
 
   const onInput = (event) => {
-    if (!event.target.matches('[data-search-input]')) return;
-    state.search = event.target.value;
-    if (state.mode === 'page' && key !== 'usuarios') renderResultsOnly();
-    if (key === 'usuarios') {
-      loadSequence += 1;
-      state.loading = true;
-      state.error = null;
-      renderResultsOnly();
-      scheduleUserSearch();
-    }
+    const field = event.target;
+    if (field.matches('[data-search-input]')) state.search = field.value;
+    else if (field.matches('[data-resource-filter]') && field.name === 'filialId') state.branchFilter = field.value;
+    else return;
+    loadSequence += 1; requestController?.abort(); state.loading = true; state.error = null;
+    renderResultsOnly(); saveContext(); scheduleUserSearch();
   };
 
   const onChange = (event) => {
-    if (key !== 'usuarios' || !event.target.matches('[data-user-filter]')) {
-      return;
-    }
+    if (!event.target.matches('[data-resource-filter]')) return;
     cancelUserSearchTimer();
     if (event.target.name === 'papel') state.roleFilter = event.target.value;
     if (event.target.name === 'ativo') state.activeFilter = event.target.value;
-    void loadPage(1);
+    if (event.target.name === 'filialId') state.branchFilter = event.target.value;
+    void loadPage(1, { preserveToolbar: true });
   };
 
   const onSubmit = (event) => {
     if (event.target.matches('[data-resource-search-form]')) {
-      event.preventDefault();
+      event.preventDefault(); cancelUserSearchTimer();
       const formData = new FormData(event.target);
-      if (key === 'usuarios') {
-        cancelUserSearchTimer();
-        state.search = formValue(formData, 'query');
-        state.roleFilter = formValue(formData, 'papel');
-        state.activeFilter = formValue(formData, 'ativo');
-        loadPage(1);
-      } else {
-        exactLookup(formData.get('query'));
-      }
-      return;
+      state.search = formValue(formData, 'query');
+      if (key === 'usuarios') state.roleFilter = formValue(formData, 'papel');
+      state.activeFilter = formValue(formData, 'ativo') || (key === 'catalogo' ? 'true' : '');
+      if (key === 'estoque') state.branchFilter = formValue(formData, 'filialId');
+      void loadPage(1, { preserveToolbar: true }); return;
     }
     if (event.target.matches('[data-resource-form]')) {
-      event.preventDefault();
-      if (!event.target.reportValidity()) return;
+      event.preventDefault(); if (!event.target.reportValidity()) return;
       submitMutation(event.target, event.target.dataset.formMode);
     }
   };
@@ -1587,10 +1410,13 @@ export function mountResourcesView(root, route, ctx = {}) {
   root.addEventListener('submit', onSubmit);
   root.addEventListener('close', onDialogClose, true);
 
-  loadPage(1);
+  loadPage(state.page);
 
   return {
     destroy() {
+      state.scrollY = Number(windowRef.scrollY) || state.scrollY; saveContext();
+      windowRef.removeEventListener?.('scroll', onScroll);
+      requestController?.abort();
       destroyed = true;
       loadSequence += 1;
       cancelUserSearchTimer();

@@ -1,0 +1,1110 @@
+{
+  "schemaVersion": 1,
+  "purpose": "Metadata only for a fresh AWS homolog account using the existing GitHub, Sonar, Datadog and Mercado Pago accounts. This file is not input to configure-repositories.mjs.",
+  "scope": {
+    "githubOwner": "christochula",
+    "githubEnvironment": "homolog",
+    "awsAccountId": null,
+    "awsRegion": "us-east-1",
+    "environment": "homolog",
+    "stateBucket": null,
+    "kubernetesVersion": null,
+    "clusterName": "oficina-homolog-eks",
+    "namespace": "oficina-fase4",
+    "roles": {
+      "cluster": null,
+      "node": null,
+      "principal": null,
+      "lambda": null
+    }
+  },
+  "decisions": {
+    "freshApplicationData": true,
+    "deployLegacyDatabase": false,
+    "paymentMode": "mercado-pago-test",
+    "datadogObservabilityMode": "agent-only",
+    "existingDatadogState": {
+      "bucket": null,
+      "key": null,
+      "owningAccountId": null
+    },
+    "cleanup": "Only after the new environment is accepted; preserve old states and retained data until separately reviewed."
+  },
+  "repositories": {
+    "oficina-api": {
+      "sourceRef": "feature/phase4-distributed",
+      "targetSha": null,
+      "enabled": true
+    },
+    "oficina-billing-service": {
+      "sourceRef": "feature/aws-mercadopago-test",
+      "targetSha": null,
+      "enabled": true
+    },
+    "oficina-production-service": {
+      "sourceRef": "feature/aws-mercadopago-test",
+      "targetSha": null,
+      "enabled": true
+    },
+    "oficina-auth-serverless": {
+      "sourceRef": "feature/phase4-distributed",
+      "targetSha": null,
+      "enabled": true
+    },
+    "oficina-infra-kubernetes": {
+      "sourceRef": "feature/phase4-distributed",
+      "targetSha": null,
+      "enabled": true
+    },
+    "oficina-infra-database": {
+      "sourceRef": "feature/phase4-distributed",
+      "targetSha": null,
+      "enabled": false
+    }
+  },
+  "states": [
+    {
+      "repository": "oficina-infra-kubernetes",
+      "directory": "aws",
+      "key": "oficina/kubernetes/terraform.tfstate",
+      "enabled": true,
+      "ownership": "new AWS account; never migrate old-account resource state"
+    },
+    {
+      "repository": "oficina-infra-kubernetes",
+      "directory": "observability",
+      "key": "oficina/observability/terraform.tfstate",
+      "enabled": false,
+      "ownership": "existing canonical Datadog state; do not initialize a second owner"
+    },
+    {
+      "repository": "oficina-api",
+      "directory": "infra",
+      "key": "oficina-fase4/os/terraform.tfstate",
+      "enabled": true,
+      "ownership": "new AWS account; never migrate old-account resource state"
+    },
+    {
+      "repository": "oficina-billing-service",
+      "directory": "infra",
+      "key": "oficina-fase4/billing/terraform.tfstate",
+      "enabled": true,
+      "ownership": "new AWS account; never migrate old-account resource state"
+    },
+    {
+      "repository": "oficina-production-service",
+      "directory": "infra",
+      "key": "oficina/production/terraform.tfstate",
+      "enabled": true,
+      "ownership": "new AWS account; never migrate old-account resource state"
+    },
+    {
+      "repository": "oficina-auth-serverless",
+      "directory": "terraform",
+      "key": "oficina/auth/terraform.tfstate",
+      "enabled": true,
+      "ownership": "new AWS account; never migrate old-account resource state"
+    },
+    {
+      "repository": "oficina-infra-database",
+      "directory": ".",
+      "key": "oficina/database/terraform.tfstate",
+      "enabled": false,
+      "ownership": "new AWS account; never migrate old-account resource state"
+    }
+  ],
+  "bindings": [
+    {
+      "kind": "environmentSecret",
+      "names": [
+        "AWS_ACCESS_KEY_ID",
+        "AWS_SECRET_ACCESS_KEY",
+        "AWS_SESSION_TOKEN"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service",
+        "oficina-auth-serverless",
+        "oficina-infra-kubernetes"
+      ],
+      "source": "Fresh temporary session of scope.awsAccountId; copy the complete triple through the approved secret channel. Never copy previous-account credentials.",
+      "stage": "before-each-session"
+    },
+    {
+      "kind": "repositorySecret",
+      "names": [
+        "SONAR_TOKEN"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service",
+        "oficina-auth-serverless"
+      ],
+      "source": "Existing Sonar account; preserve repository secret.",
+      "stage": "before-ci"
+    },
+    {
+      "kind": "environmentSecret",
+      "names": [
+        "MP_ACCESS_TOKEN",
+        "MP_WEBHOOK_SECRET"
+      ],
+      "destinations": [
+        "oficina-billing-service"
+      ],
+      "source": "Existing Mercado Pago test seller MLB/application; preserve matching pair, validate seller before final deploy.",
+      "stage": "billing-final"
+    },
+    {
+      "kind": "environmentSecret",
+      "names": [
+        "DATADOG_API_KEY",
+        "DATADOG_APP_KEY"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "Existing Datadog organization; preserve pair, no new organization or rotation.",
+      "stage": "datadog-agent"
+    },
+    {
+      "kind": "repositoryVariable",
+      "names": [
+        "SONAR_ORGANIZATION"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service",
+        "oficina-auth-serverless"
+      ],
+      "source": "Existing Sonar organization.",
+      "stage": "before-ci",
+      "value": null
+    },
+    {
+      "kind": "repositoryVariable",
+      "names": [
+        "SONAR_PROJECT_KEY"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service",
+        "oficina-auth-serverless"
+      ],
+      "source": "Existing distinct Sonar project for each repository.",
+      "stage": "before-ci",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "EXPECTED_AWS_ACCOUNT_ID"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service",
+        "oficina-auth-serverless",
+        "oficina-infra-kubernetes"
+      ],
+      "source": "scope.awsAccountId; account confirmed out of band and by STS.",
+      "stage": "before-aws",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "TF_STATE_BUCKET"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service",
+        "oficina-auth-serverless"
+      ],
+      "source": "Platform bootstrap output bucket = oficina-tc3-tfstate-<scope.awsAccountId>.",
+      "stage": "after-platform-bootstrap",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DEPLOY_SOURCE_REF"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service",
+        "oficina-auth-serverless",
+        "oficina-infra-kubernetes"
+      ],
+      "source": "repositories.<repo>.sourceRef; manual target_ref and target_sha must identify the same reviewed HEAD.",
+      "stage": "before-ci",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "EKS_CLUSTER_NAME"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service"
+      ],
+      "source": "platform aws output cluster_name.",
+      "stage": "after-platform",
+      "value": "oficina-homolog-eks"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "VPC_ID"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service"
+      ],
+      "source": "platform aws output vpc_id.",
+      "stage": "after-platform",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "PRIVATE_SUBNET_IDS_JSON"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service"
+      ],
+      "source": "JSON array from platform aws output subnet_ids; name does not imply private routing. Inspect default subnet routes.",
+      "stage": "after-platform",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "EKS_NODE_SECURITY_GROUP_ID"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service"
+      ],
+      "source": "platform aws output cluster_security_group_id; verify it is attached to actual worker nodes.",
+      "stage": "after-platform",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "CLUSTER_ROLE_ARN"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "scope.roles.cluster; existing EKS-trusted IAM role in expected account.",
+      "stage": "before-platform",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "NODE_ROLE_ARN"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "scope.roles.node; existing EC2-trusted node IAM role in expected account.",
+      "stage": "before-platform",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "PRINCIPAL_ARN"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "scope.roles.principal; permanent IAM role ARN, not STS assumed-role session ARN.",
+      "stage": "before-platform",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "LAB_ROLE_ARN"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes",
+        "oficina-auth-serverless"
+      ],
+      "source": "scope.roles.lambda for Auth; optional platform fallback only if same reviewed role fits cluster/node contracts.",
+      "stage": "before-platform",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "KUBERNETES_VERSION"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "scope.kubernetesVersion; confirm STANDARD_SUPPORT in target region, no automatic minor selection.",
+      "stage": "before-platform",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "ADDON_VERSIONS_JSON"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "Reviewed compatible EKS addon versions; preserve installed values when enabling Datadog. Empty map uses most recent compatible versions.",
+      "stage": "before-platform",
+      "value": "{}"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "PLATFORM_APPROVED_PLAN_RUN_ID"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "ID of reviewed plan run for this exact repository/SHA/ref/scope. Never reuse a run from previous account.",
+      "stage": "after-reviewed-plan",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "OS_APPROVED_PLAN_RUN_ID"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "ID of reviewed plan run for this exact repository/SHA/ref/scope. Never reuse a run from previous account.",
+      "stage": "after-reviewed-plan",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "BILLING_APPROVED_PLAN_RUN_ID"
+      ],
+      "destinations": [
+        "oficina-billing-service"
+      ],
+      "source": "ID of reviewed plan run for this exact repository/SHA/ref/scope. Never reuse a run from previous account.",
+      "stage": "after-reviewed-plan",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "PRODUCTION_APPROVED_PLAN_RUN_ID"
+      ],
+      "destinations": [
+        "oficina-production-service"
+      ],
+      "source": "ID of reviewed plan run for this exact repository/SHA/ref/scope. Never reuse a run from previous account.",
+      "stage": "after-reviewed-plan",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "AUTH_APPROVED_PLAN_RUN_ID"
+      ],
+      "destinations": [
+        "oficina-auth-serverless"
+      ],
+      "source": "ID of reviewed plan run for this exact repository/SHA/ref/scope. Never reuse a run from previous account.",
+      "stage": "after-reviewed-plan",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "JWT_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service"
+      ],
+      "source": "Canonical secret initialized by OS infrastructure apply.",
+      "stage": "after-os-infra",
+      "value": "oficina/fase4/jwt"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "AUTH_CLIENT_LOOKUP_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service"
+      ],
+      "source": "Canonical lookup token initialized by OS infrastructure apply.",
+      "stage": "after-os-infra",
+      "value": "oficina/fase4/auth-client-lookup"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "OS_RUNTIME_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "OS infrastructure runtime helper creates/preserves internal token and admin seed password.",
+      "stage": "after-os-infra",
+      "value": "oficina/fase4/os/homolog/runtime"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "OS_DATABASE_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "OS infra output database_secret_id.",
+      "stage": "after-os-infra",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "OS_QUEUE_URL"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service",
+        "oficina-production-service"
+      ],
+      "source": "OS infra output os_queue_url.",
+      "stage": "after-os-infra",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DATABASE_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-billing-service"
+      ],
+      "source": "Billing infra output database_secret_id.",
+      "stage": "after-billing-infra",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "BILLING_RUNTIME_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-billing-service"
+      ],
+      "source": "Billing bootstrap helper creates internal token; final helper adds validated MP pair.",
+      "stage": "billing-bootstrap",
+      "value": "oficina/homolog/billing/runtime"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "BILLING_QUEUE_URL"
+      ],
+      "destinations": [
+        "oficina-api",
+        "oficina-billing-service"
+      ],
+      "source": "Billing infra output billing_queue_url.",
+      "stage": "after-billing-infra",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "PRODUCTION_QUEUE_URL"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "Production infra output inbox_queue_url.",
+      "stage": "after-production-infra",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "PRODUCTION_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-production-service"
+      ],
+      "source": "Production infra output application_secret_id; preferred explicit binding.",
+      "stage": "after-production-infra",
+      "value": "oficina/homolog/production/application"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "APPLICATION_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-production-service"
+      ],
+      "source": "Legacy alias of PRODUCTION_SECRET_ID; leave unset when preferred binding is set.",
+      "stage": "after-production-infra",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "BILLING_SERVICE_URL"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "Kubernetes service DNS; keep traffic inside namespace.",
+      "stage": "os-deploy",
+      "value": "http://oficina-billing:3001"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "PRODUCTION_SERVICE_URL"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "Kubernetes service DNS; keep traffic inside namespace.",
+      "stage": "os-deploy",
+      "value": "http://oficina-production-service:3002"
+    },
+    {
+      "kind": "repositoryVariable",
+      "names": [
+        "BILLING_CI_REF"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "Exact reviewed Billing commit/ref used by distributed CI. Existing repository owner remains unchanged.",
+      "stage": "before-ci",
+      "value": null
+    },
+    {
+      "kind": "repositoryVariable",
+      "names": [
+        "PRODUCTION_CI_REF"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "Exact reviewed Production commit/ref used by distributed CI. Existing repository owner remains unchanged.",
+      "stage": "before-ci",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "JWT_SECRET_ARN"
+      ],
+      "destinations": [
+        "oficina-auth-serverless"
+      ],
+      "source": "DescribeSecret ARN of canonical oficina/fase4/jwt in expected account; do not read value for this binding.",
+      "stage": "before-auth",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "AUTH_CLIENT_LOOKUP_SECRET_ARN"
+      ],
+      "destinations": [
+        "oficina-auth-serverless"
+      ],
+      "source": "DescribeSecret ARN of canonical lookup secret in expected account.",
+      "stage": "before-auth",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "BACKEND_URL"
+      ],
+      "destinations": [
+        "oficina-auth-serverless"
+      ],
+      "source": "OS Service LoadBalancer hostname, HTTP base URL port 80, no path.",
+      "stage": "after-os-deploy",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "BILLING_BACKEND_URL"
+      ],
+      "destinations": [
+        "oficina-auth-serverless"
+      ],
+      "source": "Billing bootstrap Service LoadBalancer hostname, http://<host>:3001.",
+      "stage": "after-billing-bootstrap",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "PRODUCTION_BACKEND_URL"
+      ],
+      "destinations": [
+        "oficina-auth-serverless"
+      ],
+      "source": "Production Service LoadBalancer hostname, http://<host>:3002.",
+      "stage": "after-production-deploy",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "OS_CLIENT_LOOKUP_URL"
+      ],
+      "destinations": [
+        "oficina-auth-serverless"
+      ],
+      "source": "Leave unset: Auth derives its own Gateway /api/v1/internal/auth/cliente route.",
+      "stage": "before-auth",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "CORS_ORIGIN"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "New Auth api_endpoint HTTPS origin; review existing CORS configuration.",
+      "stage": "after-auth",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "FRONTEND_API_BASE_URL"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "Same-origin API route compiled into frontend.",
+      "stage": "os-deploy",
+      "value": "/api/v1"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "FRONTEND_CLIENT_AUTH_BASE_URL"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "Empty = same-origin Gateway /auth/token. Do not preserve old Gateway URL.",
+      "stage": "os-deploy",
+      "value": ""
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "NOTIFICATION_QUEUE_URL"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "Auth output notification_queue_url; redeploy OS after Auth if notifications are enabled.",
+      "stage": "after-auth",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "MP_NOTIFICATION_URL"
+      ],
+      "destinations": [
+        "oficina-billing-service"
+      ],
+      "source": "Auth api_endpoint + /api/v1/billing/webhooks/mercadopago; HTTPS only.",
+      "stage": "billing-final",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "MP_BACK_URL"
+      ],
+      "destinations": [
+        "oficina-billing-service"
+      ],
+      "source": "Auth api_endpoint HTTPS base; Billing preserves OS hash when generating return URL.",
+      "stage": "billing-final",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DATADOG_ENABLED"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes",
+        "oficina-auth-serverless"
+      ],
+      "source": "false for base bootstrap; true after existing Datadog ownership review, Gateway and canonical secret exist.",
+      "stage": "datadog-agent",
+      "value": "false"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DD_ENABLED"
+      ],
+      "destinations": [
+        "oficina-api"
+      ],
+      "source": "false during base bootstrap; true only when Agent rollout is ready.",
+      "stage": "datadog-agent",
+      "value": "false"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DATADOG_OBSERVABILITY_MODE"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "agent-only preserves existing external dashboards/monitors and their canonical state; manage requires explicit ownership reconciliation.",
+      "stage": "datadog-agent",
+      "value": "agent-only"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DATADOG_SECRET_ID"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "Canonical AWS secret in new account populated by existing Datadog pair through Actions.",
+      "stage": "datadog-agent",
+      "value": "oficina/datadog"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DATADOG_API_KEY_SECRET_ARN"
+      ],
+      "destinations": [
+        "oficina-auth-serverless"
+      ],
+      "source": "DescribeSecret ARN of new-account canonical Datadog secret; Auth expects JSON api_key.",
+      "stage": "datadog-agent",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DD_SITE"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes",
+        "oficina-api",
+        "oficina-auth-serverless"
+      ],
+      "source": "Existing organization site. Must agree with DATADOG_API_URL.",
+      "stage": "datadog-agent",
+      "value": "datadoghq.com"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "DATADOG_API_URL"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "Existing Datadog organization API endpoint.",
+      "stage": "datadog-agent",
+      "value": "https://api.datadoghq.com/"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "API_BASE_URL"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "New Auth api_endpoint. agent-only does not update existing Synthetic; reconcile that separately.",
+      "stage": "after-auth",
+      "value": null
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "SAGA_QUEUE_NAMES_JSON"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "Names derived from the actual new OS/Billing/Production inbox URLs; only used by optional Datadog AWS integration monitors.",
+      "stage": "observability-reconcile",
+      "value": "[]"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "SAGA_DLQ_NAMES_JSON"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "New OS output os_dlq_name plus Billing/Production DLQ names; do not retain old names blindly.",
+      "stage": "observability-reconcile",
+      "value": "[]"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "MANAGE_METRIC_TAG_CONFIGURATION"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "Global Datadog metric configuration ownership; keep false unless all existing metrics and canonical owner reviewed.",
+      "stage": "observability-reconcile",
+      "value": "false"
+    },
+    {
+      "kind": "environmentVariable",
+      "names": [
+        "ENABLE_DISTRIBUTION_PERCENTILES"
+      ],
+      "destinations": [
+        "oficina-infra-kubernetes"
+      ],
+      "source": "Enable only after both distributions exist and canonical Datadog owner is confirmed.",
+      "stage": "observability-reconcile",
+      "value": "false"
+    }
+  ],
+  "generatedSecrets": [
+    {
+      "id": "oficina/fase4/jwt",
+      "fields": [
+        "secret",
+        "refreshSecret"
+      ],
+      "creator": "OS infra apply: configure-runtime-secrets.mjs",
+      "consumers": [
+        "OS",
+        "Billing",
+        "Production",
+        "Auth/authorizer"
+      ],
+      "policy": "Generate in new AWS account; preserve existing valid values on retry; never output values."
+    },
+    {
+      "id": "oficina/fase4/auth-client-lookup",
+      "fields": [
+        "token"
+      ],
+      "creator": "OS infra apply runtime helper",
+      "consumers": [
+        "OS",
+        "Billing",
+        "Production",
+        "Auth"
+      ],
+      "policy": "Canonical token; all runtime copies must match."
+    },
+    {
+      "id": "oficina/fase4/os/homolog/runtime",
+      "fields": [
+        "AUTH_CLIENT_LOOKUP_TOKEN",
+        "ADMIN_SEED_PASSWORD"
+      ],
+      "creator": "OS infra apply runtime helper",
+      "consumers": [
+        "OS seed/runtime"
+      ],
+      "policy": "Administrator password generated, never a manifest/GitHub variable."
+    },
+    {
+      "id": "oficina/fase4/os/homolog/database",
+      "fields": [
+        "url"
+      ],
+      "creator": "OS Terraform random_password + RDS endpoint",
+      "consumers": [
+        "OS"
+      ],
+      "policy": "Sensitive Terraform state; never export state in CI artifacts."
+    },
+    {
+      "id": "oficina/homolog/billing/database/connection",
+      "fields": [
+        "url"
+      ],
+      "creator": "Billing Terraform random_password + RDS endpoint",
+      "consumers": [
+        "Billing"
+      ],
+      "policy": "Sensitive Terraform state."
+    },
+    {
+      "id": "oficina/homolog/production/application",
+      "fields": [
+        "JWT_SECRET",
+        "AUTH_CLIENT_LOOKUP_TOKEN"
+      ],
+      "creator": "Production Terraform metadata, deploy helper content",
+      "consumers": [
+        "Production"
+      ],
+      "policy": "Metadata must exist before helper."
+    },
+    {
+      "id": "oficina/homolog/billing/runtime",
+      "fields": [
+        "AUTH_CLIENT_LOOKUP_TOKEN",
+        "MP_ACCESS_TOKEN",
+        "MP_WEBHOOK_SECRET"
+      ],
+      "creator": "Billing bootstrap internal token; final deployment validated existing external MP pair",
+      "consumers": [
+        "Billing"
+      ],
+      "policy": "No MP fields during bootstrap; mismatch requires separate rotation review."
+    },
+    {
+      "id": "oficina/datadog",
+      "fields": [
+        "api_key",
+        "app_key"
+      ],
+      "creator": "Platform Datadog helper using existing external pair",
+      "consumers": [
+        "Datadog Agent",
+        "Auth instrumentation",
+        "canonical observability owner only"
+      ],
+      "policy": "Same external organization. New AWS secret does not grant ownership of existing Datadog resources."
+    }
+  ],
+  "outputs": [
+    {
+      "source": "platform aws output",
+      "names": [
+        "account_id",
+        "aws_region",
+        "vpc_id",
+        "subnet_ids",
+        "cluster_name",
+        "cluster_security_group_id",
+        "cluster_version"
+      ],
+      "destination": "scope and platform/network bindings"
+    },
+    {
+      "source": "OS infra output",
+      "names": [
+        "database_secret_id",
+        "ecr_repository_url",
+        "os_queue_url",
+        "os_dlq_name"
+      ],
+      "destination": "OS/Billing/Production runtime and queue bindings"
+    },
+    {
+      "source": "Billing infra output",
+      "names": [
+        "database_secret_id",
+        "billing_queue_url",
+        "billing_dlq_url",
+        "ecr_repository_url"
+      ],
+      "destination": "Billing/OS runtime and queue bindings"
+    },
+    {
+      "source": "Production infra output",
+      "names": [
+        "table_name",
+        "inbox_queue_url",
+        "dlq_url",
+        "ecr_repository_url",
+        "application_secret_id"
+      ],
+      "destination": "Production/OS runtime bindings"
+    },
+    {
+      "source": "Kubernetes Service status after rollout",
+      "names": [
+        "oficina-api",
+        "oficina-billing",
+        "oficina-production-service"
+      ],
+      "destination": "Auth BACKEND_URL/BILLING_BACKEND_URL/PRODUCTION_BACKEND_URL"
+    },
+    {
+      "source": "Auth Terraform output",
+      "names": [
+        "api_endpoint",
+        "auth_token_endpoint",
+        "notification_queue_url",
+        "notification_topic_arn",
+        "client_lookup_endpoint"
+      ],
+      "destination": "MP URLs, CORS, notification binding, acceptance and canonical Synthetic reconciliation"
+    }
+  ],
+  "sequence": [
+    "review-commits-ci",
+    "read-only-account-preflight",
+    "platform-plan-bootstrap-state",
+    "platform-apply-base",
+    "os-infra-and-canonical-secrets",
+    "billing-infra",
+    "production-infra",
+    "production-deploy",
+    "billing-bootstrap",
+    "os-deploy",
+    "auth-plan-apply",
+    "billing-final",
+    "os-final-notifications-and-origin",
+    "datadog-agent-only",
+    "canonical-observability-reconciliation",
+    "remote-acceptance",
+    "separate-old-environment-cleanup"
+  ],
+  "exclusions": [
+    "No legacy database deploy.",
+    "No fixed-account recover-nodes workflow.",
+    "No Terraform state migration from the old AWS account.",
+    "No second Terraform owner for existing Datadog resources.",
+    "No credentials, tokens, passwords or secret values in this manifest."
+  ]
+}

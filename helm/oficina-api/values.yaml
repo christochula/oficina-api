@@ -22,6 +22,13 @@ service:
 # a partir do AWS Secrets Manager (sem External Secrets Operator).
 
 config:
+  phase4Enabled: "true"
+  billingServiceUrl: "http://oficina-billing:3001"
+  productionServiceUrl: "http://oficina-production-service:3002"
+  inboxQueueUrl: ""
+  billingQueueUrl: ""
+  productionQueueUrl: ""
+  awsRegion: us-east-1
   notificationQueueUrl: ""
   corsOrigin: "*"
   cspConnectSrc: ""

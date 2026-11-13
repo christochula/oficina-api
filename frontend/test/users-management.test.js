@@ -155,10 +155,10 @@ test('gestão de usuários expõe pesquisa global, filtros e carregamento', () =
   });
 
   assert.match(html, /Buscar usuários/);
-  assert.match(html, /Nome, e-mail ou ID do usuário/);
+  assert.match(html, /Nome ou e-mail do usuário/);
   assert.match(html, /name="papel"/);
   assert.match(html, /name="ativo"/);
-  assert.match(html, /data-user-filter/);
+  assert.match(html, /data-resource-filter/);
   assert.match(html, /data-action="clear-filters"/);
   assert.match(html, /aria-busy="true"/);
   assert.doesNotMatch(html, /Consulta individual/);
@@ -198,6 +198,7 @@ test('lista usuários, protege a conta atual e executa edição e desativação'
         method: 'GET',
         body: undefined,
         query: { pagina: 1, porPagina: 20 },
+        signal: calls[0].options.signal,
       },
     });
     assert.match(root.innerHTML, /Matheus Chula/);
@@ -346,7 +347,7 @@ test('busca dinâmica usa debounce, filtros server-side e ignora respostas antig
       target: {
         name: 'papel',
         value: 'MECANICO',
-        matches: (selector) => selector === '[data-user-filter]',
+        matches: (selector) => selector === '[data-resource-filter]',
       },
     });
     await settle();

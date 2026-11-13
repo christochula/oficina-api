@@ -15,7 +15,7 @@ import { JwtAuthGuard } from '../../../../auth/guards/jwt-auth.guard';
 import { PapeisGuard } from '../../../../auth/guards/papeis.guard';
 import { Papeis } from '../../../../auth/decorators/papeis.decorator';
 import { PapelUsuario } from '../../../../usuario/domain/papel-usuario.enum';
-import { PaginacaoDto } from '../../../../shared/http/dtos/paginacao.dto';
+import { CatalogQueryDto } from '../../../../shared/http/dtos/catalog-query.dto';
 import { RespostaPaginadaDto } from '../../../../shared/http/dtos/resposta-paginada.dto';
 import { AtualizarVeiculoUseCase } from '../../../application/casos-de-uso/atualizar-veiculo.usecase';
 import { BuscarVeiculoPorPlacaUseCase } from '../../../application/casos-de-uso/buscar-veiculo-por-placa.usecase';
@@ -64,11 +64,12 @@ export class VeiculoController {
   @Version('1')
   @ApiOperation({ summary: 'Listar veículos (paginado)' })
   async listar(
-    @Query() paginacao: PaginacaoDto,
+    @Query() paginacao: CatalogQueryDto,
   ): Promise<RespostaPaginadaDto<Veiculo>> {
     const { itens, total } = await this.listarVeiculos.executar(
       paginacao.pagina,
       paginacao.porPagina,
+      { busca: paginacao.busca, ativo: paginacao.ativo },
     );
     return new RespostaPaginadaDto(
       itens,

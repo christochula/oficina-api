@@ -52,6 +52,20 @@ spec:
             - secretRef:
                 name: oficina-api
           env:
+            - name: PHASE4_ENABLED
+              value: {{ .Values.config.phase4Enabled | quote }}
+            - name: BILLING_SERVICE_URL
+              value: {{ .Values.config.billingServiceUrl | quote }}
+            - name: PRODUCTION_SERVICE_URL
+              value: {{ .Values.config.productionServiceUrl | quote }}
+            - name: INBOX_QUEUE_URL
+              value: {{ .Values.config.inboxQueueUrl | quote }}
+            - name: BILLING_QUEUE_URL
+              value: {{ .Values.config.billingQueueUrl | quote }}
+            - name: PRODUCTION_QUEUE_URL
+              value: {{ .Values.config.productionQueueUrl | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.config.awsRegion | quote }}
             - name: NODE_ENV
               value: production
             - name: PORT
@@ -86,6 +100,8 @@ spec:
               value: {{ .Values.config.ddEnabled | quote }}
             - name: DD_TRACE_ENABLED
               value: {{ .Values.config.ddEnabled | quote }}
+            - name: DD_TRACE_PROPAGATION_STYLE_INJECT
+              value: datadog,tracecontext
             - name: DD_METRICS_ENABLED
               value: {{ .Values.config.ddEnabled | quote }}
             # DogStatsD/APM: o Agent (DaemonSet) escuta no host. hot-shots e

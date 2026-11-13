@@ -1,81 +1,152 @@
 name: CI
-
 on:
   pull_request:
     branches: [main]
   push:
-    branches-ignore: [main]
-
+    branches: ["**"]
+  workflow_dispatch:
+    inputs:
+      billing_ref:
+        description: Ref Billing usada nos testes distribuidos
+        default: main
+        type: string
+      production_ref:
+        description: Ref Production usada nos testes distribuidos
+        default: main
+        type: string
 permissions:
   contents: read
-
 concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
-
+env:
+  NODE_ENV: test
+  PHASE4_ENABLED: "false"
+  DD_TRACE_ENABLED: "false"
+  DD_METRICS_ENABLED: "false"
 jobs:
   quality:
     name: Quality
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      NODE_ENV: test
-      DD_TRACE_ENABLED: "false"
-      DD_METRICS_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: |
-            package-lock.json
-            frontend/package-lock.json
+        with: { node-version: 22, cache: npm }
       - run: npm ci
-      - run: npm ci --prefix frontend
       - run: npx prisma generate
       - run: npm run format:check
       - run: npm run lint
       - run: npm run test:cov -- --runInBand
       - run: npm run build
-      - run: npm run check --prefix frontend
-      - uses: azure/setup-helm@v4
-        with:
-          version: v3.17.3
-      - name: Lint Helm chart
-        run: helm lint helm/oficina-api --set image.repository=oficina-api
-      - name: Render Helm chart
-        run: helm template oficina-api helm/oficina-api --set image.repository=oficina-api
-
-  e2e:
-    name: E2E
+      - run: node --test scripts/*.test.mjs
+      - run: node --test test/phase4/mercadopago-stub.test.cjs
+      - uses: actions/upload-artifact@v4
+        with: { name: os-coverage, path: coverage/ }
+  integration:
+    name: Integration
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    env:
-      NODE_ENV: test
-      DD_TRACE_ENABLED: "false"
-      DD_METRICS_ENABLED: "false"
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Legacy database integration, distributed mode explicitly disabled
+        run: npm run test:e2e
+  sonar:
+    name: Sonar
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - uses: actions/download-artifact@v4
+        with: { name: os-coverage, path: coverage }
+      - name: Require SonarCloud configuration
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          PROJECT: ${{ vars.SONAR_PROJECT_KEY }}
+          ORGANIZATION: ${{ vars.SONAR_ORGANIZATION }}
+        run: test -n "$SONAR_TOKEN" && test -n "$PROJECT" && test -n "$ORGANIZATION"
+      - uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        with:
+          args: -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }} -Dsonar.organization=${{ vars.SONAR_ORGANIZATION }} -Dsonar.host.url=https://sonarcloud.io -Dsonar.qualitygate.wait=true
+  distributed:
+    name: ${{ matrix.check }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - check: BDD
+            suite: bdd
+          - check: Frontend
+            suite: frontend
+    defaults:
+      run:
+        working-directory: oficina-api
+    steps:
+      - uses: actions/checkout@v4
+        with: { path: oficina-api }
+      - uses: actions/checkout@v4
+        with:
+          repository: christochula/oficina-billing-service
+          ref: ${{ inputs.billing_ref || vars.BILLING_CI_REF || 'main' }}
+          path: oficina-billing-service
+      - uses: actions/checkout@v4
+        with:
+          repository: christochula/oficina-production-service
+          ref: ${{ inputs.production_ref || vars.PRODUCTION_CI_REF || 'main' }}
+          path: oficina-production-service
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
+          cache-dependency-path: oficina-api/package-lock.json
       - run: npm ci
-      - run: npx prisma generate
-      - run: npm run test:e2e
-
+      - if: matrix.suite == 'frontend'
+        run: npm ci --prefix frontend && npm run check --prefix frontend && npx playwright install --with-deps chromium
+      - name: Prepare executable LocalStack init script
+        run: chmod +x test/phase4/localstack-init.sh
+      - name: Run real distributed acceptance suite
+        run: bash scripts/ci-phase4.sh ${{ matrix.suite }}
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: phase4-${{ matrix.suite }}-evidence
+          path: |
+            oficina-api/bdd-report.json
+            oficina-api/playwright-report/
+            oficina-api/test-results/
+            oficina-api/output/phase4-manual-e2e/
+            oficina-api/output/phase4-manual-e2e-report.json
+            oficina-api/output/phase4-desktop/
+            oficina-api/output/phase4-desktop-report/
+            oficina-api/output/phase4-desktop-report.json
+            oficina-api/phase4-compose.log
   container:
     name: Container
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
+      - uses: azure/setup-helm@v4
+        with: { version: v3.17.3 }
+      - run: helm lint helm/oficina-api --set image.repository=oficina-fase4-os && helm template oficina-api helm/oficina-api --namespace oficina-fase4 --set image.repository=oficina-fase4-os
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform -chdir=infra init -backend=false && terraform -chdir=infra validate
       - uses: docker/setup-buildx-action@v3
       - uses: docker/build-push-action@v6
         with:
           context: .
           push: false
-          tags: oficina-api:${{ github.sha }}
+          tags: oficina-fase4-os:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max

@@ -1,4 +1,5 @@
 import { PrismaClienteRepository } from './prisma-cliente.repository';
+import { Cliente, TipoDocumento } from '../../domain/cliente.entity';
 
 describe('PrismaClienteRepository.listar', () => {
   const findMany = jest.fn();
@@ -67,5 +68,123 @@ describe('PrismaClienteRepository.listar', () => {
     const where = findMany.mock.calls[0][0].where;
     expect(where).toEqual({});
     expect(count).toHaveBeenCalledWith({ where });
+  });
+});
+
+describe('PrismaClienteRepository identity and address mapping', () => {
+  const model = {
+    upsert: jest.fn(),
+    findUnique: jest.fn(),
+    findMany: jest.fn(),
+    count: jest.fn(),
+  };
+  const repository = new PrismaClienteRepository({ cliente: model } as never);
+  const cliente = Cliente.criar({
+    tipoDoc: TipoDocumento.CPF,
+    numeroDoc: '11144477735',
+    nome: 'Cliente teste',
+    email: 'cliente@example.com',
+    telefone: '11999999999',
+    usuarioId: 'us_test',
+    endereco: {
+      logradouro: 'Rua A',
+      numero: '10',
+      complemento: 'Sala 2',
+      bairro: 'Centro',
+      cidade: 'Sao Paulo',
+      estado: 'SP',
+      cep: '01310100',
+    },
+  });
+  const record = {
+    ...cliente,
+    id: cliente.id.valor,
+    criadoEm: new Date('2026-01-01'),
+    atualizadoEm: new Date('2026-01-02'),
+  };
+
+  beforeEach(() => jest.resetAllMocks());
+
+  it('keeps fiscal identity immutable in upsert and saves all address fields', async () => {
+    await repository.salvar(cliente);
+    const saved = model.upsert.mock.calls[0][0];
+    expect(saved.create).toMatchObject({
+      numeroDoc: '11144477735',
+      tipoDoc: 'CPF',
+      usuarioId: 'us_test',
+      complemento: 'Sala 2',
+      bairro: 'Centro',
+      cep: '01310100',
+    });
+    expect(saved.update).not.toHaveProperty('numeroDoc');
+    expect(saved.update).not.toHaveProperty('tipoDoc');
+    expect(saved.update).not.toHaveProperty('criadoEm');
+    expect(saved.update).toMatchObject({ cidade: 'Sao Paulo', ativo: true });
+  });
+
+  it('maps lookups by ID, linked user and fiscal document', async () => {
+    model.findUnique.mockResolvedValue(record);
+    for (const result of [
+      await repository.buscarPorId(cliente.id),
+      await repository.buscarPorUsuarioId('us_test'),
+      await repository.buscarPorNumeroDoc('11144477735'),
+    ]) {
+      expect(result).toBeInstanceOf(Cliente);
+      expect(result).toMatchObject({
+        id: cliente.id,
+        usuarioId: 'us_test',
+        logradouro: 'Rua A',
+        complemento: 'Sala 2',
+        criadoEm: record.criadoEm,
+      });
+    }
+    expect(model.findUnique).toHaveBeenCalledWith({
+      where: { usuarioId: 'us_test' },
+    });
+    expect(model.findUnique).toHaveBeenCalledWith({
+      where: { numeroDoc: '11144477735' },
+    });
+    model.findUnique.mockResolvedValue(null);
+    expect(await repository.buscarPorId(cliente.id)).toBeNull();
+    expect(await repository.buscarPorUsuarioId('absent')).toBeNull();
+    expect(await repository.buscarPorNumeroDoc('absent')).toBeNull();
+  });
+
+  it('preserves nullable addresses on inactive records and unfiltered pages', async () => {
+    model.findMany.mockResolvedValue([
+      {
+        ...record,
+        usuarioId: null,
+        ativo: false,
+        logradouro: null,
+        numero: null,
+        complemento: null,
+        bairro: null,
+        cidade: null,
+        estado: null,
+        cep: null,
+      },
+    ]);
+    model.count.mockResolvedValue(1);
+    const result = await repository.listar(1, 10);
+    expect(result.itens[0]).toMatchObject({
+      ativo: false,
+      usuarioId: null,
+      logradouro: null,
+      complemento: null,
+      cep: null,
+    });
+    expect(model.count).toHaveBeenCalledWith({ where: {} });
+  });
+
+  it('ignores punctuation-only search without generating empty document predicates', async () => {
+    model.findMany.mockResolvedValue([]);
+    model.count.mockResolvedValue(0);
+    await repository.listar(1, 10, { busca: '...---' });
+    const where = model.findMany.mock.calls[0][0].where;
+    expect(where.OR).toEqual([
+      { nome: { contains: '...---', mode: 'insensitive' } },
+      { email: { contains: '...---', mode: 'insensitive' } },
+    ]);
   });
 });

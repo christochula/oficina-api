@@ -1,117 +1,102 @@
-# Datadog: sinais, dashboards, monitores e validação
+# Datadog na Fase 4: sinais e validação
 
-## Topologia implementada
+**Ingestão e ensaio de negócio verificados em 10/11/2026 à noite, em São Paulo (11/11 em UTC).** Há APM, logs, métricas Saga/p95 e um trace com os três serviços para parte do fluxo da OS #2. A evidência não afirma indexação de cada transição nem um trace único para toda a espera humana da Saga.
 
-- `oficina-infra-kubernetes` instala Datadog Operator, `DatadogAgent`, integração AWS, dashboard, monitores e Synthetic API test.
-- O Cluster Agent coleta estado do Kubernetes; Agents nos nós recebem infraestrutura, logs, APM e DogStatsD.
-- A aplicação inicializa `dd-trace` antes dos módulos NestJS, usa unified service tagging e escreve JSON em stdout.
-- Lambdas usam a library Node.js e a Datadog Lambda Extension; API Gateway/Lambda/RDS também chegam pela integração AWS.
-- Chaves Datadog vêm de segredo externo. Nenhuma chave está no repositório, imagem ou manifest renderizado.
+## Evidência verificada
 
-No GitHub Environment autoritativo, defina `ENABLE_AWS_INTEGRATION=true` em um único state por conta AWS e `MANAGE_DATADOG_METRIC_TAGS=true` em um único state por organização Datadog. Homologação permanece `false` quando compartilha a mesma conta/organização com produção, evitando conflito sobre recursos globais.
+- [Dashboard de homologação](https://app.datadoghq.com/dashboard/u6t-x9c-awx/oficina--operao-e-observabilidade--homolog), env:homolog.
+- Consulta APM retornou **199 spans OS, 236 Billing e 185 Production**. São contagens de spans na amostra, não de traces distintos nem comprovação de que todos compartilham um trace.
+- Logs recebidos dos três serviços: 672 OS, 264 Billing e 64 Production na amostra.
+- Métrica HTTP com **3 séries**; gauges de fila com **6 séries**, correspondentes a 3 inboxes e 3 DLQs. As DLQs mostraram zero, sem mensagens artificiais.
+- A consulta inicial precedeu o ensaio e ainda não retornava séries Saga. Após o fluxo da OS #2, consultas retornaram **7 séries Saga**, com sinais de compensação/recuperação e logs dos três serviços.
+- [Apply de infraestrutura 42929602706](https://github.com/christochula/oficina-infra-kubernetes/actions/runs/42929602706), SHA 84c6494; [deploy OS](https://github.com/christochula/oficina-api/actions/runs/42929328275), SHA af93d83; [deploy Billing](https://github.com/christochula/oficina-billing-service/actions/runs/42928569648), SHA 2335; [deploy Production](https://github.com/christochula/oficina-production-service/actions/runs/42928627925), SHA 7daa.
 
-Referências operacionais oficiais: [instalação no Kubernetes](https://docs.datadoghq.com/containers/kubernetes/installation/?tab=datadogoperator), [tracing Node.js](https://docs.datadoghq.com/tracing/trace_collection/dd_libraries/nodejs/) e [correlação entre logs e traces](https://docs.datadoghq.com/tracing/other_telemetry/connect_logs_and_traces/).
+No ensaio, a OS **#2**, `os06a521bf-0d80-49b5-8dd2-1a1c9c961588`, terminou **ENTREGUE**, R$175, pagamento APPROVED e paymentConfirmed=true. A Saga `57dccf1d-8f9d-4d2d-93ce-099c823d1264` foi COMPENSATED; o retry `c5469a88-8b2b-4503-a146-e3db319485fd` concluiu a preparação e o fluxo prosseguiu por reparo, pagamento e entrega.
 
-## Tags e dados sensíveis
+- O trace **6af3b4f30000000061b75976960c6fe6** contém spans OS/Billing/Production de parte do fluxo. Outros trechos aparecem em traces distintos; não se afirma que cada transição esteja indexada.
+- Logs recebidos dos três serviços incluem compensação e conclusão. O evento `billing.payment.checked`, source:webhook, ocorreu em **11/11 00:43:09.702 UTC**; o OS registrou PaymentConfirmed em **00:43:09.955 UTC** (10/11 21:43 em São Paulo).
+- Em **11/11 00:40:38 UTC**, a consulta p95 retornou status ok e **3 séries**, uma por serviço, com pontos observados aproximadamente entre **2 e 5ms**. É uma amostra do tráfego daquele período, sem conclusão de SLA ou benchmark.
+- [Apply de percentis 42932263134](https://github.com/christochula/oficina-infra-kubernetes/actions/runs/42932263134), SHA 917a94e, após [plano 42931855935](https://github.com/christochula/oficina-infra-kubernetes/actions/runs/42931855935): nenhuma alteração AWS e duas configurações de métricas Datadog.
 
-Tags obrigatórias: `env`, `service` e `version`. Tags de domínio são enumeradas, por exemplo `status:diagnostico`. Não enviar CPF, JWT, e-mail, placa, texto do diagnóstico, ID de correlação ou ID de OS como tag de métrica.
+Reconferir período, serviços e versões na gravação. O [guia pronto para gravar](../entrega/pronto-para-gravar.md) reúne os links e IDs; snapshots comprovam o momento observado, sem garantir disponibilidade futura.
 
-O `correlation_id` é um atributo de log e cabeçalho de resposta. `dd.trace_id` e `dd.span_id` são injetados quando a chamada está em um trace. O logger não registra `Authorization`, corpo da autenticação nem connection string.
+## Implantação e escopo
 
-## Métricas da aplicação
+Seguir [Datadog por GitHub Actions](https://github.com/christochula/oficina-infra-kubernetes/blob/feature/phase4-distributed/docs/datadog-actions.md) e a [preparação deste repositório](datadog-setup.md). As entradas pertencem ao **Environment homolog**; o secret canônico é **oficina/datadog**. Plano/apply e sincronização do Secret Kubernetes são executados por Actions, com revisão de texto/fingerprint do mesmo SHA.
 
-| Métrica | Tipo | Uso |
+O Agent é instalado via Helm como DaemonSet, acompanhado de Cluster Agent, no namespace datadog. O chart Datadog 3.270.0 também instalou um Deployment do Operator como dependência; não aplicamos um recurso DatadogAgent para implantar o Agent nem habilitamos SSI. Aplicações em oficina-fase4 enviam APM/DogStatsD ao IP do node e logs JSON por stdout. O Academy não disponibiliza a integração AWS cross-account para métricas CloudWatch; a ingestão dos aplicativos não comprova observabilidade de RDS, Gateway ou Lambda no Datadog.
+
+Serviços: **oficina-api**, **oficina-billing-service** e **oficina-production-service**, todos com env:homolog e version correspondente à imagem. O portal, APIs e healths públicos usam o mesmo Gateway HTTPS; API_BASE_URL deve apontar para ele, não para um ELB HTTP antigo.
+
+## Tags e correlação
+
+Tags de métricas são de baixa cardinalidade: env, service, version, status/step/outcome e basename da fila. Não usar CPF, JWT, e-mail, placa, texto do diagnóstico, osId ou correlationId como tag de métrica.
+
+IDs de OS/Saga/correlação podem aparecer como atributos de logs e spans: correlation_id nos logs e os.id, saga.id, correlation.id nos spans customizados. dd.trace_id/dd.span_id existem quando há span ativo. O tracing propaga contexto por HTTP e no envelope SQS; cada processamento tem sua própria duração. Esperas humanas não devem ser apresentadas como um único span contínuo.
+
+No [Trace Explorer](https://app.datadoghq.com/apm/traces), selecionar a janela **11/11/2026 00:15–00:50 UTC** (10/11 21:15–21:50 São Paulo) e pesquisar:
+
+```text
+env:homolog trace_id:6af3b4f30000000061b75976960c6fe6
+env:homolog @os.id:os06a521bf-0d80-49b5-8dd2-1a1c9c961588
+```
+
+`trace_id` é atributo reservado; atributos customizados usam `@`, conforme a [sintaxe oficial](https://docs.datadoghq.com/tracing/trace_explorer/query_syntax/). O Live Search cobre uma janela móvel de 15 minutos; buscas anteriores dependem dos spans indexados pelos filtros de retenção. A retenção documentada varia conforme o filtro, e só spans indexados são pesquisáveis fora do Live. Reconferir as configurações da conta; não garantir presença futura de todo span ou um SLA de retenção para esta demonstração. Ver [Trace Explorer](https://docs.datadoghq.com/tracing/trace_explorer/) e [Trace Retention](https://docs.datadoghq.com/tracing/trace_pipeline/trace_retention/).
+
+## Contrato de métricas
+
+| Métrica | Tipo | Uso na Fase 4 |
 |---|---|---|
-| `oficina.api.request.duration_ms` | distribution | p50/p95/p99 de latência por ambiente/serviço |
-| `oficina.service_orders.created` | count | volume diário de OS abertas |
-| `oficina.service_orders.status_transition` | count | transições por status |
-| `oficina.service_orders.status_duration_ms` | distribution | tempo em `diagnostico`, `execucao` e `finalizacao` |
-| `oficina.service_orders.processing_errors` | count | falhas ao processar/persistir OS |
-| `oficina.integrations.errors` | count | erros em webhook/integrações |
+| oficina.api.request.duration_ms | distribution | Latência HTTP por serviço/método/status |
+| oficina.service_orders.created | count | Abertura de OS |
+| oficina.service_orders.status_transition | count | Mudança persistida de status |
+| oficina.service_orders.status_duration_ms | distribution | Diagnóstico e execução; a etapa finalizacao do fluxo legado não é prova de métrica ativa da Fase 4 |
+| oficina.service_orders.processing_errors | count | Falhas de processamento |
+| oficina.integrations.errors | count | Erros de integrações |
+| oficina.saga.transitions / oficina.saga.compensations | count | Transições reais e compensações persistidas |
+| oficina.saga.pending_age_seconds | gauge | Idade das etapas automáticas pendentes |
+| oficina.messaging.processed / oficina.messaging.failed | count | Processamento/erros dos consumidores |
+| oficina.messaging.queue.visible | gauge | Mensagens aproximadas disponíveis, inclusive DLQ |
+| oficina.messaging.queue.inflight | gauge | Mensagens aproximadas em processamento |
+| oficina.messaging.queue.delayed | gauge | Mensagens aproximadas atrasadas |
 
-O dashboard como código deve conter, no mínimo:
+O coletor de filas no OS consulta INBOX_QUEUE_URL, BILLING_QUEUE_URL e PRODUCTION_QUEUE_URL a cada 30s, descobre DLQs pela RedrivePolicy e valida conta/região/ARN antes de consultar. Só usa GetQueueAttributes, sem consumir mensagens; não exporta idade da mensagem mais antiga. Falhas de coleta geram log genérico e não fabricam zeros.
 
-1. volume diário com `sum:oficina.service_orders.created{env:$env}.as_count()`;
-2. tempo médio/p95 por `status` de `oficina.service_orders.status_duration_ms`;
-3. erros de integração com `sum:oficina.integrations.errors{env:$env}.as_count()`;
-4. p95 de latência da API;
-5. CPU e memória dos containers/pods;
-6. disponibilidade do endpoint `/api/health/ready`;
-7. falhas de processamento de OS e taxa de erro HTTP/Lambda.
+Para DLQ, usar **max**, evitando somar a mesma fila observada pelas duas réplicas OS:
 
-## Limiar inicial dos monitores
+```text
+max:oficina.messaging.queue.visible{env:homolog,role:dlq} by {queue}
+max:oficina.messaging.queue.inflight{env:homolog,role:dlq} by {queue}
+```
 
-O enunciado não define SLO nem limiares. Estes valores são hipóteses iniciais e devem ser calibrados em homologação:
-
-| Monitor | Condição inicial | Ação esperada |
-|---|---|---|
-| Saúde sintética | 3 falhas consecutivas | verificar Gateway, ALB, pods, migration e banco |
-| Latência da API | p95 > 1 s na janela de 5 min | analisar trace, saturação e queries |
-| Falha de OS | soma > 0 em 10 min | localizar evento/correlation ID e avaliar integridade |
-| Erro de integração | soma > 0 em 10 min | verificar dependência, retry e DLQ |
-| CPU Kubernetes | > 0,9 core por pod durante 10 min | conferir HPA, requests e nós |
-| Memória Kubernetes | > 90% do limite por 10 min | investigar heap/OOM e calibrar limite |
-| Erros Lambda | > 0 sustentado por 5 min | conferir CloudWatch/APM, Proxy e segredos |
-
-Mensagens incluem `env`, `service`, link para o runbook e blocos de recuperação. O canal `SUBSTITUIR_CANAL_ALERTA` precisa ser conectado na conta Datadog.
+Para taxa/volume de consumidores, usar as métricas count com as_count(), filtradas por serviço/fila. A configuração dos percentis foi aplicada após a primeira ingestão pelo plano/apply referenciado acima; novas métricas podem exigir configuração e novo plano revisado. Nomes/limiares de dashboards e monitores vêm do stack observability, não de uma lista histórica fixa.
 
 ## Validação pós-deploy
 
-### 1. Agentes e tags
+1. **Recursos:** conferir DaemonSet, Cluster Agent e pods de aplicação. Comandos abaixo são de leitura; presença de pods não prova ingestão externa.
 
-```bash
-kubectl get datadogagent -A
-kubectl get pods -n datadog
-kubectl get pods -n oficina --show-labels
-kubectl exec -n datadog daemonset/datadog-agent -- agent status
+```sh
+kubectl -n datadog get daemonsets,deployments,pods
+kubectl -n datadog rollout status daemonset/datadog --timeout=5m
+kubectl -n datadog rollout status deployment/datadog-cluster-agent --timeout=5m
+kubectl -n oficina-fase4 get deployments,pods --show-labels
 ```
 
-Confirmar APM, logs e DogStatsD saudáveis e `env/service/version` visíveis.
-
-### 2. Saúde e latência
-
-```bash
-curl -i "SUBSTITUIR_API_URL/api/health/live"
-curl -i "SUBSTITUIR_API_URL/api/health/ready"
-```
-
-O primeiro prova vida do processo; o segundo só retorna sucesso após consultar o banco.
-
-### 3. Correlação ponta a ponta
-
-```bash
-curl -i -H "X-Correlation-Id: 02d71b58-80bf-4df6-8a7c-f80a28e781ce" \
-  -H "Authorization: Bearer SUBSTITUIR_TOKEN" \
-  "SUBSTITUIR_API_URL/api/v1/ordens-servico/minhas/lista"
-```
-
-No Log Explorer, buscar:
-
-```text
-service:oficina-api env:homolog @correlation_id:02d71b58-80bf-4df6-8a7c-f80a28e781ce
-```
-
-Abrir o trace relacionado e confirmar spans de API, Prisma/PostgreSQL e status HTTP. O cabeçalho deve reaparecer na resposta.
-
-### 4. Métricas de negócio
-
-Criar uma OS de teste, percorrer Diagnóstico, Execução e Finalização e confirmar os pontos no Metrics Explorer. A duração de cada etapa só existe após a transição correspondente.
-
-### 5. Falhas controladas
-
-- Em homologação, usar credencial inválida para provocar erro de integração sem revelar segredo.
-- Testar health em uma janela controlada de indisponibilidade, depois restaurar.
-- Confirmar que monitor entra em alerta e recupera; registrar timestamps e links.
-- Não interromper produção apenas para gerar evidência.
+2. **Healths:** abrir no Gateway HTTPS /api/health/ready, /api/v1/billing/health e /api/v1/production/health. Gerar tráfego pelo portal com cadastros fictícios.
+3. **Métricas:** selecionar env:homolog e o período do tráfego. Conferir os três services, HTTP e mensageria. Duração de diagnóstico/reparo só aparece após essas transições.
+4. **Logs/traces:** localizar uma chamada e seus processamentos SQS com a mesma OS/Saga/correlação. Abrir traces e confirmar spans HTTP, chamadas aos serviços/bancos e consumidores efetivamente observados. Não mostrar headers bearer ou payloads pessoais na gravação.
+5. **Falha controlada:** usar falta de estoque pelo [guia de demonstração](../entrega/nova-os-demonstracao.md); verificar compensação/recuperação. Não substituir credenciais válidas, derrubar pods ou enviar mensagens artificiais à DLQ apenas para obter um alerta.
+6. **Evidência:** guardar data, links do dashboard/logs/traces, serviços/versões e IDs não secretos. Só depois registrar ingestão como comprovada. Uma DLQ com gauge zero é informação válida; não precisa provocar mensagens de erro.
 
 ## Diagnóstico rápido
 
-| Sintoma | Verificações |
+| Sintoma | Verificar |
 |---|---|
-| Traces ausentes | tracer carregado antes do Nest, Agent acessível, porta 8126, admission labels |
-| Logs sem trace ID | JSON, `DD_LOGS_INJECTION=true`, span ativo, configuração de coleta |
-| Métricas ausentes | `DD_AGENT_HOST`, UDP 8125, non-local traffic, nome/tag da métrica |
-| Pods não vistos | Operator/Cluster Agent, RBAC, tolerations e estado do nó |
-| Lambda ausente | layers/Extension, API key secret, site/região, versão runtime |
-| Painel vazio | ambiente selecionado, janela temporal, geração real do evento e cardinalidade |
+| Traces ausentes | dd-trace inicializado antes do Nest, flags, IP do node, TCP8126 e Agent |
+| Logs sem trace ID | JSON, span ativo, configuração de coleta/correlação |
+| Métricas ausentes | DD_METRICS_ENABLED, DD_AGENT_HOST, UDP8125, site e tags |
+| DLQ customizada sem pontos | Coletor habilitado, permissão GetQueueAttributes, URLs e RedrivePolicy válidas; não esperar aws.sqs.* sem integração AWS |
+| Pods não vistos | DaemonSet/Cluster Agent, RBAC, tolerations e estado dos nós |
+| Painel vazio | Janela/env/service, tráfego real, atraso de ingestão e contrato da query |
+| Percentil ausente | Distribution ingerida e configuração de tags/percentis aplicada por plano revisado |
 

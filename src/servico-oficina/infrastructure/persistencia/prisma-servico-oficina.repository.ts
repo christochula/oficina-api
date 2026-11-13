@@ -2,7 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../shared/database/prisma.service';
 import { ServicoOficina } from '../../domain/servico-oficina.entity';
 import { ServicoOficinaId } from '../../domain/servico-oficina-id.value-object';
-import { ServicoOficinaRepository } from '../../domain/servico-oficina.repository';
+import {
+  ServicoOficinaRepository,
+  ServicoListFilters,
+} from '../../domain/servico-oficina.repository';
+import type { ServicoOficina as ServicoRecord } from '@prisma/client';
+import { catalogSearchPattern } from '../../../shared/database/catalog-search';
 
 /**
  * Implementação do repositório de ServicoOficina utilizando Prisma ORM.
@@ -44,15 +49,35 @@ export class PrismaServicoOficinaRepository implements ServicoOficinaRepository 
   async listar(
     pagina: number,
     porPagina: number,
+    filtros: ServicoListFilters = {},
   ): Promise<{ itens: ServicoOficina[]; total: number }> {
+    const ativo = filtros.ativo ?? true;
+    if (filtros.busca?.trim()) {
+      const term = catalogSearchPattern(filtros.busca);
+      const [registros, totals] = await Promise.all([
+        this.prisma.$queryRaw<
+          ServicoRecord[]
+        >`SELECT * FROM servicos_oficina WHERE ativo = ${ativo} AND
+          translate(lower(concat_ws(' ', nome, descricao, categoria)), 'áàâãäéèêëíìîïóòôõöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') LIKE ${term}
+          ORDER BY nome ASC, id ASC LIMIT ${porPagina} OFFSET ${(pagina - 1) * porPagina}`,
+        this.prisma.$queryRaw<
+          { total: bigint }[]
+        >`SELECT count(*) AS total FROM servicos_oficina WHERE ativo = ${ativo} AND
+          translate(lower(concat_ws(' ', nome, descricao, categoria)), 'áàâãäéèêëíìîïóòôõöúùûüçñ', 'aaaaaeeeeiiiiooooouuuucn') LIKE ${term}`,
+      ]);
+      return {
+        itens: registros.map((record) => this.mapear(record)),
+        total: Number(totals[0]?.total ?? 0),
+      };
+    }
     const [registros, total] = await Promise.all([
       this.prisma.servicoOficina.findMany({
-        where: { ativo: true },
-        orderBy: { nome: 'asc' },
+        where: { ativo },
+        orderBy: [{ nome: 'asc' }, { id: 'asc' }],
         skip: (pagina - 1) * porPagina,
         take: porPagina,
       }),
-      this.prisma.servicoOficina.count({ where: { ativo: true } }),
+      this.prisma.servicoOficina.count({ where: { ativo } }),
     ]);
     return { itens: registros.map((r) => this.mapear(r)), total };
   }

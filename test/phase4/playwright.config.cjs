@@ -1,0 +1,4 @@
+const {defineConfig}=require('@playwright/test');
+const path=require('node:path');
+const portalUrl=process.env.MANUAL_PORTAL_URL || 'http://localhost:5273';
+module.exports=defineConfig({testDir:'.',testMatch:'portal.spec.cjs',timeout:180000,workers:1,use:{baseURL:portalUrl,headless:true,viewport:{width:1920,height:1080},screenshot:'only-on-failure',trace:'retain-on-failure'},webServer:{command:`npm run dev --prefix frontend -- --port ${new URL(portalUrl).port || '5273'}`,cwd:path.resolve(__dirname,'../..'),url:portalUrl,reuseExistingServer:!process.env.CI,env:{LOCAL_DEMO_MODE:'true',VITE_CLIENT_AUTH_BASE_URL:'',VITE_DEV_API_TARGET:process.env.OS_TEST_URL||'http://127.0.0.1:3100',VITE_DEV_BILLING_TARGET:process.env.BILLING_TEST_URL||'http://127.0.0.1:3101',VITE_DEV_PRODUCTION_TARGET:process.env.PRODUCTION_TEST_URL||'http://127.0.0.1:3102'}}});

@@ -62,16 +62,49 @@ export class TelemetryService implements OnModuleDestroy {
     this.increment('oficina.integrations.errors', { integration });
   }
 
+  sagaTransition(step: string, status: string): void {
+    this.increment('oficina.saga.transitions', { step, status });
+    if (status === 'COMPENSATED')
+      this.increment('oficina.saga.compensations', { step, status });
+  }
+
+  messageProcessed(failed = false): void {
+    this.increment(
+      failed ? 'oficina.messaging.failed' : 'oficina.messaging.processed',
+      { queue: 'os-events' },
+    );
+  }
+
+  sagaPendingAge(seconds: number, step = 'unknown'): void {
+    this.gauge('oficina.saga.pending_age_seconds', seconds, { step });
+  }
+
+  gauge(metric: string, value: number, tags: Tags = {}): void {
+    try {
+      this.client.gauge(metric, value, tags);
+    } catch {
+      // Telemetry cannot fail a committed business operation.
+    }
+  }
+
   async onModuleDestroy(): Promise<void> {
     await new Promise<void>((resolve) => this.client.close(() => resolve()));
   }
 
   private increment(metric: string, tags: Tags = {}): void {
-    this.client.increment(metric, 1, 1, tags);
+    try {
+      this.client.increment(metric, 1, 1, tags);
+    } catch {
+      // Telemetry cannot fail a committed business operation.
+    }
   }
 
   private distribution(metric: string, value: number, tags: Tags = {}): void {
-    this.client.distribution(metric, value, 1, tags);
+    try {
+      this.client.distribution(metric, value, 1, tags);
+    } catch {
+      // Telemetry cannot fail a committed business operation.
+    }
   }
 
   private dashboardStatus(status: string): string | null {

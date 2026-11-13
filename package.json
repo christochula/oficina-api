@@ -22,7 +22,19 @@
     "test:e2e": "jest --config ./test/jest-e2e.json --runInBand",
     "seed": "ts-node prisma/seed.ts",
     "seed:demo": "ts-node prisma/seed-demo.ts",
-    "seed:demo:validate": "ts-node prisma/seed-demo.ts --validate-only"
+    "seed:demo:validate": "ts-node prisma/seed-demo.ts --validate-only",
+    "test:bdd": "cucumber-js test/phase4/features/*.feature --require test/phase4/steps.cjs --format progress --format json:bdd-report.json",
+    "test:frontend:e2e": "playwright test -c test/phase4/playwright.config.cjs",
+    "test:frontend:manual": "playwright test -c test/phase4/manual-playwright.config.cjs",
+    "seed:local-demo": "node scripts/seed-local-demo.cjs",
+    "local:up": "node scripts/local-phase4.cjs up",
+    "local:dev": "node scripts/local-phase4.cjs dev",
+    "local:stop": "node scripts/local-phase4.cjs stop",
+    "local:status": "node scripts/local-phase4.cjs status",
+    "test:local": "node scripts/local-phase4.cjs test",
+    "test:video:local": "playwright test -c test/phase4/video-rehearsal-playwright.config.cjs",
+    "test:resilience": "node --test test/phase4/resilience.cjs",
+    "test:frontend:desktop": "playwright test -c test/phase4/desktop-playwright.config.cjs"
   },
   "dependencies": {
     "@aws-sdk/client-sqs": "^3.1123.0",
@@ -51,11 +63,14 @@
     "ulidx": "^2.4.1"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.14.0",
+    "@cucumber/cucumber": "^13.3.0",
     "@eslint/eslintrc": "^3.2.0",
     "@eslint/js": "^9.18.0",
     "@nestjs/cli": "^11.0.0",
     "@nestjs/schematics": "^11.0.0",
     "@nestjs/testing": "^11.2.3",
+    "@playwright/test": "^1.64.1",
     "@testcontainers/postgresql": "^12.1.0",
     "@types/bcrypt": "^6.0.0",
     "@types/express": "^5.0.0",
@@ -91,12 +106,18 @@
       "^.+\\.(t|j)s$": "ts-jest"
     },
     "collectCoverageFrom": [
-      "**/domain/**/*.(t|j)s",
-      "**/application/casos-de-uso/**/*.(t|j)s",
-      "shared/http/validators/**/*.(t|j)s",
-      "!**/*.module.(t|j)s",
-      "!**/*.repository.(t|j)s",
-      "!**/*.spec.(t|j)s"
+      "**/*.ts",
+      "!**/*.spec.ts",
+      "!**/*.module.ts",
+      "!phase4/module.ts",
+      "!main.ts",
+      "!app.controller.ts",
+      "!app.service.ts",
+      "!ordem-servico/**",
+      "!estoque/**",
+      "ordem-servico/interfaces/http/v1/dtos/abrir-ordem-servico.dto.ts",
+      "ordem-servico/interfaces/http/v1/dtos/gerar-orcamento.dto.ts",
+      "ordem-servico/domain/value-objects/linha-servico.vo.ts"
     ],
     "coverageThreshold": {
       "global": {

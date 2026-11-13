@@ -21,12 +21,6 @@ function safeDomId(value, fallback = 'mechanic-combobox') {
   return normalized || fallback;
 }
 
-function compactId(value) {
-  const id = domainId(value);
-  if (id.length <= 18) return id;
-  return `${id.slice(0, 9)}…${id.slice(-6)}`;
-}
-
 export function normalizeMechanicSearchTerm(value) {
   return String(value ?? '').trim();
 }
@@ -80,7 +74,7 @@ export function normalizeMechanicResults(payload) {
 
 function mechanicOptionDetails(mechanic) {
   const email = String(mechanic?.email ?? '').trim();
-  const id = compactId(mechanic?.id);
+  const id = domainId(mechanic?.id);
   return [email, id ? `ID: ${id}` : ''].filter(Boolean);
 }
 

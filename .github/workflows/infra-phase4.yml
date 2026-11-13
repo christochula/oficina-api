@@ -1,0 +1,155 @@
+name: OS Infrastructure
+run-name: OS Infrastructure ${{ inputs.operation || (startsWith(github.ref_name, 'phase4/os-apply-') && 'apply' || 'plan') }} @${{ inputs.target_sha || github.sha }}
+on:
+  workflow_dispatch:
+    inputs:
+      target_ref:
+        description: Branch revisada que contem o commit aprovado no CI
+        required: true
+        type: string
+      target_sha:
+        description: SHA completo de 40 caracteres, deve ser o HEAD da branch
+        required: true
+        type: string
+      operation:
+        description: Plan primeiro; apply somente apos revisao e OS_APPROVED_PLAN_RUN_ID
+        required: true
+        default: plan
+        type: choice
+        options: [plan, apply]
+  push:
+    tags: ["phase4/os-plan-*", "phase4/os-apply-*"]
+permissions:
+  contents: read
+  actions: read
+concurrency:
+  group: os-phase4-infrastructure
+  cancel-in-progress: false
+env:
+  TF_IN_AUTOMATION: "true"
+  TF_INPUT: "false"
+  AWS_REGION: us-east-1
+jobs:
+  infrastructure:
+    name: OS Terraform plan or apply
+    environment: homolog
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      TARGET_SHA: ${{ inputs.target_sha || github.sha }}
+      TARGET_REF: ${{ inputs.target_ref || vars.DEPLOY_SOURCE_REF || 'feature/phase4-distributed' }}
+      OPERATION: ${{ inputs.operation || (startsWith(github.ref_name, 'phase4/os-apply-') && 'apply' || 'plan') }}
+      TF_VAR_vpc_id: ${{ vars.VPC_ID }}
+      TF_VAR_subnet_ids: ${{ vars.PRIVATE_SUBNET_IDS_JSON }}
+      TF_VAR_node_security_group_id: ${{ vars.EKS_NODE_SECURITY_GROUP_ID }}
+    steps:
+      - name: Checkout reviewed workflow controls
+        uses: actions/checkout@v4
+        with: { ref: "${{ github.workflow_sha }}" }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Verify every CI gate for the exact reviewed branch and commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          REQUIRED_DEPLOY_GATES: Quality,Integration,Sonar,Frontend,BDD,Container
+          CI_WORKFLOW_FILE: ci.yml
+          DISPATCH_SHA: ${{ github.event_name == 'workflow_dispatch' && github.sha || '' }}
+          DISPATCH_REF: ${{ github.event_name == 'workflow_dispatch' && github.ref || '' }}
+        run: node scripts/check-deploy-gates.mjs
+      - name: Checkout exact tested infrastructure source
+        uses: actions/checkout@v4
+        with: { ref: "${{ env.TARGET_SHA }}" }
+      - name: Verify the approved plan run before any AWS access
+        if: env.OPERATION == 'apply'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          APPROVED_PLAN_RUN_ID: ${{ vars.OS_APPROVED_PLAN_RUN_ID }}
+          PLAN_WORKFLOW_NAME: OS Infrastructure
+          PLAN_WORKFLOW_FILE: infra-phase4.yml
+          PLAN_TITLE_PREFIX: OS Infrastructure
+          PLAN_TAG_PREFIX: phase4/os-plan-
+          PLAN_ARTIFACT_PREFIX: os-plan
+        run: node scripts/check-approved-plan.mjs
+      - name: Download only the reviewed redacted text plan
+        if: env.OPERATION == 'apply'
+        uses: actions/download-artifact@v4
+        with:
+          name: os-plan-${{ env.TARGET_SHA }}-${{ vars.OS_APPROVED_PLAN_RUN_ID }}
+          run-id: ${{ vars.OS_APPROVED_PLAN_RUN_ID }}
+          github-token: ${{ github.token }}
+          path: ${{ runner.temp }}/os-reviewed
+      - name: Validate required public infrastructure inputs
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+        run: |
+          set -euo pipefail
+          for name in TF_STATE_BUCKET TF_VAR_vpc_id TF_VAR_subnet_ids TF_VAR_node_security_group_id; do
+            test -n "${!name}" || { echo "Configure $name before requesting an OS plan"; exit 1; }
+          done
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Verify expected AWS account before resource access
+        env:
+          EXPECTED_AWS_ACCOUNT_ID: ${{ vars.EXPECTED_AWS_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          [[ "${EXPECTED_AWS_ACCOUNT_ID:-}" =~ ^[0-9]{12}$ ]] || { echo 'Configure EXPECTED_AWS_ACCOUNT_ID before AWS resource access.' >&2; exit 1; }
+          actual_account="$(aws sts get-caller-identity --query Account --output text)"
+          [[ "$actual_account" == "$EXPECTED_AWS_ACCOUNT_ID" ]] || { echo 'AWS credentials belong to a different account.' >&2; exit 1; }
+      - uses: hashicorp/setup-terraform@v3
+        with: { terraform_version: 1.16.0 }
+      - name: Plan the isolated OS state without deletion or replacement
+        env:
+          TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+          PLAN_WORKFLOW_FILE: infra-phase4.yml
+          PLAN_OPERATION: ${{ env.OPERATION }}
+        run: |
+          set -euo pipefail
+          terraform -chdir=infra init -input=false -backend-config="bucket=$TF_STATE_BUCKET" -backend-config="key=oficina-fase4/os/terraform.tfstate" -backend-config="region=$AWS_REGION" -backend-config="encrypt=true" -backend-config="use_lockfile=true"
+          terraform -chdir=infra fmt -check
+          terraform -chdir=infra validate
+          terraform -chdir=infra plan -input=false -lock-timeout=5m -out="$RUNNER_TEMP/os.tfplan"
+          terraform -chdir=infra show -json "$RUNNER_TEMP/os.tfplan" | jq -e 'all(.resource_changes[]?; (.change.actions | index("delete")) == null)' > /dev/null || { echo 'Resource deletion/replacement is forbidden'; exit 1; }
+          terraform -chdir=infra show -no-color "$RUNNER_TEMP/os.tfplan" > "$RUNNER_TEMP/os-plan.txt"
+          terraform -chdir=infra show -json "$RUNNER_TEMP/os.tfplan" | node scripts/terraform-plan-fingerprint.mjs > "$RUNNER_TEMP/os-plan-review.json"
+      - name: Publish only the redacted text plan for review
+        if: env.OPERATION == 'plan'
+        uses: actions/upload-artifact@v4
+        with:
+          name: os-plan-${{ env.TARGET_SHA }}-${{ github.run_id }}
+          path: |
+            ${{ runner.temp }}/os-plan.txt
+            ${{ runner.temp }}/os-plan-review.json
+          retention-days: 7
+          if-no-files-found: error
+      - name: Apply only an identical reviewed plan
+        if: env.OPERATION == 'apply'
+        id: apply
+        env:
+          RUNTIME_COMPONENT: os
+          JWT_SECRET_ID: ${{ vars.JWT_SECRET_ID || 'oficina/fase4/jwt' }}
+          AUTH_CLIENT_LOOKUP_SECRET_ID: ${{ vars.AUTH_CLIENT_LOOKUP_SECRET_ID || 'oficina/fase4/auth-client-lookup' }}
+          OS_RUNTIME_SECRET_ID: ${{ vars.OS_RUNTIME_SECRET_ID || 'oficina/fase4/os/homolog/runtime' }}
+        run: |
+          set -euo pipefail
+          cmp -s "$RUNNER_TEMP/os-plan.txt" "$RUNNER_TEMP/os-reviewed/os-plan.txt" || { echo 'Plan changed after review; request and review a new plan'; exit 1; }
+          node scripts/terraform-plan-fingerprint.mjs --compare "$RUNNER_TEMP/os-reviewed/os-plan-review.json" "$RUNNER_TEMP/os-plan-review.json"
+          node scripts/configure-runtime-secrets.mjs
+          terraform -chdir=infra apply -input=false -lock-timeout=5m "$RUNNER_TEMP/os.tfplan"
+      - name: Publish only public resource identifiers
+        if: env.OPERATION == 'apply'
+        run: |
+          set -euo pipefail
+          for name in database_secret_id ecr_repository_url os_queue_url os_dlq_name; do
+            printf '%s: %s\n' "$name" "$(terraform -chdir=infra output -raw "$name")" >> "$GITHUB_STEP_SUMMARY"
+          done
+          printf 'jwt_secret_arn: %s\nlookup_secret_arn: %s\nos_runtime_secret_arn: %s\n' '${{ steps.apply.outputs.jwt_secret_arn }}' '${{ steps.apply.outputs.internal_secret_arn }}' '${{ steps.apply.outputs.os_secret_arn }}' >> "$GITHUB_STEP_SUMMARY"
+      - name: Delete the ephemeral binary plan
+        if: always()
+        run: rm -f "$RUNNER_TEMP/os.tfplan"

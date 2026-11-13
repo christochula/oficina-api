@@ -196,7 +196,7 @@ test('opções exibem nome, e-mail e ID em linhas seguras separadas', () => {
   assert.doesNotMatch(identity, / · /);
   assert.doesNotMatch(html, /<script>/);
   assert.match(html, /&lt;script&gt;alert\(1\)&lt;\/script&gt;/);
-  assert.match(html, /<small>ID: us03&lt;unsa…-LONGO<\/small>/);
+  assert.match(html, /<small>ID: us03&lt;unsafe&gt;-IDENTIFICADOR-LONGO<\/small>/);
 });
 
 test('rótulo selecionado usa nome e e-mail, nunca o texto livre da busca', () => {

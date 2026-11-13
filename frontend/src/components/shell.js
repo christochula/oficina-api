@@ -133,7 +133,7 @@ export function renderAppShell({
         <header class="topbar">
           <button class="icon-button menu-button" type="button" data-action="open-drawer" aria-label="Abrir menu" aria-controls="app-sidebar" aria-expanded="false">${icon('menu')}</button>
           <div class="topbar-brand">${brand()}</div>
-          <div class="topbar-context"><span class="connection-indicator connection-${escapeAttribute(connection)}"><i aria-hidden="true"></i><span>${connection === 'online' ? 'Sistema disponível' : 'Conexão instável'}</span></span></div>
+          <div class="topbar-context"><span class="connection-indicator connection-${escapeAttribute(connection)}" title="Conectividade deste navegador; a confirmação das operações aparece em cada tela."><i aria-hidden="true"></i><span>${connection === 'online' ? 'Conexão ativa' : 'Conexão instável'}</span></span></div>
           <div class="topbar-user"><span class="avatar">${escapeHtml(initials(displayName))}</span><span><strong>${escapeHtml(displayName)}</strong><small>${escapeHtml(roleLabel)}</small></span></div>
         </header>
         <main class="page-container" id="main-content" tabindex="-1">${content}</main>

@@ -1,0 +1,5 @@
+aws_region = "us-east-1"
+environment = "homolog"
+vpc_id = "vpc-preencher"
+subnet_ids = ["subnet-preencher-a", "subnet-preencher-b"]
+node_security_group_id = "sg-preencher-eks-nodes"

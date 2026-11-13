@@ -64,6 +64,9 @@ const fixtures = Object.freeze({
       ativo: true,
     },
     quantidadeDisponivel: 7,
+    filialId: 'filial-sp',
+    quantidadeReservada: 2,
+    quantidadeConsumida: 1,
     quantidadeMinima: 3,
   },
   catalogo: {
@@ -190,8 +193,9 @@ test('consultas separam identidades e dados compostos em linhas visuais', async 
   assert.match(stock.cells[0].markup, /class="resource-cell-stack"/);
   assert.match(stock.cells[0].text, /Filtro de óleo/);
   assert.match(stock.cells[0].text, /ID:\s*pcFILTRO001/);
-  assert.match(stock.cells[1].markup, /class="resource-cell-stack"/);
-  assert.match(stock.cells[1].text, /^7 Mínimo:\s*3$/);
+  assert.match(stock.cells[1].markup, /class="resource-cell-stack stock-balance"/);
+  assert.match(stock.cells[0].text, /Filial: filial-sp/);
+  assert.match(stock.cells[1].text, /^7 disponíveis Reservadas: 2 · Consumidas: 1 Mínimo:\s*3$/);
 
   const catalog = tableContent(
     await renderLoadedResource(

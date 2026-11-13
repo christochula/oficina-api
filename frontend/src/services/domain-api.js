@@ -29,6 +29,9 @@ export const domainApi = {
   patch(path, body, options = {}) {
     return this.request(path, { ...options, method: 'PATCH', body });
   },
+  put(path, body, options = {}) {
+    return this.request(path, { ...options, method: 'PUT', body });
+  },
   delete(path, options = {}) {
     return this.request(path, { ...options, method: 'DELETE' });
   },

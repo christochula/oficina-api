@@ -136,10 +136,18 @@ export function showToast({ title, message = '', kind = 'success', duration = 50
   if (duration > 0) globalThis.setTimeout(close, duration);
 }
 
+let activeModalClose;
+
+export function closeActiveModal() {
+  activeModalClose?.();
+}
+
 export function openModal({ title, content, actions = '', size = 'medium', destructive = false }) {
+  closeActiveModal();
   const root = document.querySelector('#modal-root');
   if (!root) return null;
   const activeBefore = document.activeElement;
+  const returnAction = activeBefore?.dataset?.action;
   root.innerHTML = `<div class="modal-backdrop" data-modal-close>
     <section class="modal modal-${escapeAttribute(size)}${destructive ? ' modal-destructive' : ''}" role="dialog" aria-modal="true" aria-labelledby="modal-title" data-modal-panel>
       <header class="modal-header"><div><p class="eyebrow">AutoGestão Pro</p><h2 id="modal-title">${escapeHtml(title)}</h2></div><button class="icon-button" type="button" data-modal-close aria-label="Fechar janela">${icon('close')}</button></header>
@@ -152,15 +160,19 @@ export function openModal({ title, content, actions = '', size = 'medium', destr
   const panel = root.querySelector('[data-modal-panel]');
   const closeListeners = new Set();
   let closed = false;
+  const keyboardRoot = document.addEventListener ? document : root;
   const focusables = () => [...panel.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')];
   const close = () => {
     if (closed) return;
     closed = true;
-    root.removeEventListener('keydown', handleKeydown);
+    keyboardRoot.removeEventListener('keydown', handleKeydown);
+    if (activeModalClose === close) activeModalClose = undefined;
     root.classList.remove('is-open');
     root.innerHTML = '';
     document.body.classList.remove('modal-open');
-    activeBefore?.focus?.();
+    const returnTarget = activeBefore?.isConnected === false && returnAction
+      ? document.querySelector(`[data-action="${escapeAttribute(returnAction)}"]`) : activeBefore;
+    returnTarget?.focus?.();
     closeListeners.forEach((listener) => listener());
     closeListeners.clear();
   };
@@ -171,13 +183,15 @@ export function openModal({ title, content, actions = '', size = 'medium', destr
     if (!items.length) return;
     const first = items[0];
     const last = items.at(-1);
-    if (event.shiftKey && document.activeElement === first) {
+    const outside = panel.contains && !panel.contains(document.activeElement);
+    if (event.shiftKey && (document.activeElement === first || outside)) {
       event.preventDefault(); last.focus();
-    } else if (!event.shiftKey && document.activeElement === last) {
+    } else if (!event.shiftKey && (document.activeElement === last || outside)) {
       event.preventDefault(); first.focus();
     }
   }
-  root.addEventListener('keydown', handleKeydown);
+  keyboardRoot.addEventListener('keydown', handleKeydown);
+  activeModalClose = close;
   root.querySelectorAll('[data-modal-close]').forEach((item) => item.addEventListener('click', (event) => {
     if (event.target.closest('[data-modal-panel]') && !event.target.closest('button[data-modal-close]')) return;
     close();
@@ -208,8 +222,9 @@ export function confirmAction({ title, message, confirmLabel, tone = 'danger', d
       actions: `${button({ label: 'Cancelar', variant: 'ghost', action: 'modal-cancel' })}${button({ label: confirmLabel, iconName: tone === 'danger' ? 'warning' : 'check', variant: tone === 'danger' ? 'danger' : 'primary', action: 'modal-confirm' })}`,
     });
     if (!modal) return resolve(false);
-    modal.root.querySelector('[data-action="modal-cancel"]')?.addEventListener('click', () => { modal.close(); resolve(false); });
-    modal.root.querySelector('[data-action="modal-confirm"]')?.addEventListener('click', () => { modal.close(); resolve(true); });
+    modal.onClose(() => resolve(false));
+    modal.root.querySelector('[data-action="modal-cancel"]')?.addEventListener('click', modal.close);
+    modal.root.querySelector('[data-action="modal-confirm"]')?.addEventListener('click', () => { resolve(true); modal.close(); });
   });
 }
 

@@ -1,5 +1,7 @@
 # Checklist final de aceite
 
+> **Referência histórica da Fase 3.** Para gravar/entregar a Fase 4, usar o [checklist de gravação](checklist-gravacao.md) e a [entrega da Fase 4](../fase4/entrega.md). As marcações abaixo não atestam o ambiente distribuído atual.
+
 Use este arquivo como porta de qualidade. Itens de estado externo só podem ser marcados após verificação real.
 
 ## Conteúdo local

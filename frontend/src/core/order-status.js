@@ -6,6 +6,8 @@ export const ORDER_STATUS = Object.freeze({
   APPROVED: 'APROVADA',
   IN_PROGRESS: 'EM_EXECUCAO',
   FINISHED: 'FINALIZADA',
+  AWAITING_PAYMENT: 'AGUARDANDO_PAGAMENTO',
+  READY_FOR_DELIVERY: 'PRONTA_PARA_ENTREGA',
   DELIVERED: 'ENTREGUE',
   CANCELED: 'CANCELADA',
 });
@@ -18,10 +20,21 @@ export const ORDER_STATUS_FLOW = Object.freeze([
   ORDER_STATUS.APPROVED,
   ORDER_STATUS.IN_PROGRESS,
   ORDER_STATUS.FINISHED,
+  ORDER_STATUS.AWAITING_PAYMENT,
+  ORDER_STATUS.READY_FOR_DELIVERY,
   ORDER_STATUS.DELIVERED,
 ]);
 
 const STATUS_META = Object.freeze({
+  [ORDER_STATUS.AWAITING_PAYMENT]: {
+    label: 'Aguardando pagamento', shortLabel: 'Pagamento',
+    description: 'Reparo concluído. O pagamento precisa ser confirmado para liberar a entrega.',
+    icon: 'payments', tone: 'awaiting',
+  },
+  [ORDER_STATUS.READY_FOR_DELIVERY]: {
+    label: 'Pronta para entrega', shortLabel: 'Retirada',
+    description: 'Pagamento confirmado. O veículo pode ser entregue.', icon: 'key', tone: 'finished',
+  },
   [ORDER_STATUS.RECEIVED]: {
     label: 'Recebida',
     shortLabel: 'Recepção',

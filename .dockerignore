@@ -5,6 +5,12 @@ coverage
 .env.local
 *.log
 .git
+.npm-cache
+.cache
+test-results
+playwright-report
+output
+infra/.terraform
 .github
 documentacao
 postman
